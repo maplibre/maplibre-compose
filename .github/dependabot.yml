@@ -40,6 +40,8 @@ updates:
 
       # compose-glfw generates callbacks against LWJGL's internal ABI.
       - dependency-name: org.lwjgl:*
+    # These families often need code changes, so each gets its own pull request.
+    # Dependabot puts a dependency in the first group that matches it.
     groups:
       kotlin:
         patterns:
@@ -47,13 +49,9 @@ updates:
       compose:
         patterns:
           - org.jetbrains.compose*
-      kotlinx-coroutines:
-        patterns:
-          - org.jetbrains.kotlinx:kotlinx-coroutines-*
-      ktor:
-        patterns:
-          - io.ktor:*
       maplibre:
         patterns:
           - org.maplibre.gl:*
           - org.maplibre.nativeffi:*
+      gradle:
+        patterns: ["*"]
