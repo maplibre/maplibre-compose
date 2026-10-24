@@ -128,12 +128,19 @@ public sealed interface HeadingUnavailableReason {
 internal data object UnspecifiedHeadingUnavailableReason : HeadingUnavailableReason
 
 /**
- * Delivers at most one [HeadingEvent.Update] per [interval], keeping the latest one, and delivers
- * [HeadingEvent.Unavailable] immediately. Unlike `sample`, this delivers the first update without
- * waiting and keeps the last event before completion.
+ * Applies [HeadingRequest.minimumInterval] to a stream of heading events, for a [HeadingProvider]
+ * whose platform does not enforce it.
+ *
+ * The returned flow delivers the first [HeadingEvent.Update] immediately and then at most one
+ * update per [minimumInterval], keeping the latest one. It delivers [HeadingEvent.Unavailable]
+ * immediately and discards an update held back before it. When the upstream flow completes, the
+ * returned flow delivers a held-back update after the interval ends, then completes.
+ *
+ * @param minimumInterval Minimum time between delivered updates. [Duration.ZERO] returns this flow
+ *   unchanged.
  */
-internal fun Flow<HeadingEvent>.throttleUpdates(interval: Duration): Flow<HeadingEvent> =
-  if (interval == Duration.ZERO) this
+public fun Flow<HeadingEvent>.throttleUpdates(minimumInterval: Duration): Flow<HeadingEvent> =
+  if (minimumInterval == Duration.ZERO) this
   else
     flow {
       coroutineScope {
@@ -152,7 +159,7 @@ internal fun Flow<HeadingEvent>.throttleUpdates(interval: Duration): Flow<Headin
             pending?.let { update ->
               pending = null
               emit(update)
-              cooldown = launch { delay(interval) }
+              cooldown = launch { delay(minimumInterval) }
             }
             continue
           }
@@ -169,7 +176,7 @@ internal fun Flow<HeadingEvent>.throttleUpdates(interval: Duration): Flow<Headin
             }
             cooldown == null -> {
               emit(event)
-              cooldown = launch { delay(interval) }
+              cooldown = launch { delay(minimumInterval) }
             }
             else -> pending = event
           }

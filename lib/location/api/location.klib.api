@@ -412,6 +412,8 @@ final object org.maplibre.compose.location/UnsupportedLocationProvider : org.map
     final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/UnsupportedLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
 }
 
+final fun (kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent>).org.maplibre.compose.location/throttleUpdates(kotlin.time/Duration): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent> // org.maplibre.compose.location/throttleUpdates|throttleUpdates@kotlinx.coroutines.flow.Flow<org.maplibre.compose.location.HeadingEvent>(kotlin.time.Duration){}[0]
+
 // Targets: [apple]
 final class org.maplibre.compose.location/AppleLocationPermissionRequester : kotlin/AutoCloseable { // org.maplibre.compose.location/AppleLocationPermissionRequester|null[0]
     constructor <init>() // org.maplibre.compose.location/AppleLocationPermissionRequester.<init>|<init>(){}[0]

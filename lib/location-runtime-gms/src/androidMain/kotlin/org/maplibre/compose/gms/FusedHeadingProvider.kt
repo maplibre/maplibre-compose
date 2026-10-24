@@ -7,22 +7,20 @@ import com.google.android.gms.location.FusedOrientationProviderClient
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.sample
 import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
 import org.maplibre.compose.location.HeadingUnavailableReason
+import org.maplibre.compose.location.throttleUpdates
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 
@@ -43,7 +41,6 @@ import org.maplibre.spatialk.units.extensions.degrees
  *
  * @param orientationClient Client used to request orientation updates.
  */
-@OptIn(FlowPreview::class)
 public class FusedHeadingProvider
 internal constructor(
   private val orientationClient: FusedOrientationProviderClient,
@@ -98,15 +95,11 @@ internal constructor(
           }
         }
       }
-      .let { updates ->
-        if (request.minimumInterval == Duration.ZERO) updates
-        else updates.sample(request.minimumInterval)
-      }
-      // After sampling, which would hold back an event until its next tick.
       .catch { error ->
         if (error is CancellationException) throw error
         emit(HeadingEvent.Unavailable(reason = null, cause = error))
       }
+      .throttleUpdates(request.minimumInterval)
 
   private companion object {
     private val dispatcher =

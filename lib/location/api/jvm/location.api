@@ -80,6 +80,10 @@ public final class org/maplibre/compose/location/HeadingProvider$DefaultImpls {
 	public static synthetic fun updates$default (Lorg/maplibre/compose/location/HeadingProvider;Lorg/maplibre/compose/location/HeadingRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
 }
 
+public final class org/maplibre/compose/location/HeadingProviderKt {
+	public static final fun throttleUpdates-HG0u8IE (Lkotlinx/coroutines/flow/Flow;J)Lkotlinx/coroutines/flow/Flow;
+}
+
 public abstract interface class org/maplibre/compose/location/HeadingReference {
 	public static final field Companion Lorg/maplibre/compose/location/HeadingReference$Companion;
 }
