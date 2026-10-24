@@ -78,7 +78,7 @@ class SymbolLayerCompositionTest {
     val layout = assertNotNull(layer.value["layout"] as? JsonObject)
     assertEquals(
       Json.parseToJsonElement(
-          """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]""",
+          """["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]]""",
         )
         .normalizeNumbers(),
       assertNotNull(layout["text-variable-anchor-offset"]).normalizeNumbers(),
@@ -109,11 +109,9 @@ class SymbolLayerCompositionTest {
         val renderedSize = layout.getValue("text-size").numberValue(binding.globalStateValues)
         assertEquals(textSize.value.value * fontScale.value.toDouble(), renderedSize, 0.0001)
         val offset = layout.getValue("text-offset").jsonArray
-        val components =
-          if (offset[0].jsonPrimitive.content == "literal") offset[1].jsonArray
-          else offset[2].jsonArray[1].jsonArray
+        val components = offset.semiliteralOrLiteralArray()
         val variableOffsets =
-          layout.getValue("text-variable-anchor-offset").jsonArray[2].jsonArray[1].jsonArray
+          layout.getValue("text-variable-anchor-offset").jsonArray.semiliteralOrLiteralArray()
         assertEquals("top", variableOffsets[0].jsonPrimitive.contentOrNull)
         assertEquals(offset, variableOffsets[1])
         val expectedScale =
@@ -215,7 +213,7 @@ class SymbolLayerCompositionTest {
       SymbolLayer("labels", source, textSize = size, textOffset = textOffset(0.dp, 12.dp))
     }
     val layout = binding.layers.getValue("labels").getValue("layout") as JsonObject
-    val offsetY = layout.getValue("text-offset").jsonArray[2].jsonArray[1].jsonArray[1]
+    val offsetY = layout.getValue("text-offset").jsonArray.semiliteralOrLiteralArray()[1]
     for (textSize in listOf(16f, 24f)) {
       val globals = binding.globalStateValues + ("label-size" to JsonPrimitive(textSize))
       val renderedSize = layout.getValue("text-size").numberValue(globals)
@@ -250,6 +248,13 @@ class SymbolLayerCompositionTest {
       layout.getValue("text-offset").normalizeNumbers(),
     )
   }
+
+  private fun JsonArray.semiliteralOrLiteralArray(): JsonArray =
+    when (this[0].jsonPrimitive.contentOrNull) {
+      "literal",
+      "semiliteral" -> this[1].jsonArray
+      else -> error("Unexpected offset expression: $this")
+    }
 
   private fun JsonElement.numberValue(globals: Map<String, JsonElement> = emptyMap()): Double {
     if (this is JsonPrimitive) return double
