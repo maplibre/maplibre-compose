@@ -57,7 +57,7 @@ public sealed interface LocationChangeScope {
   /** The location measurement that triggered this callback. */
   public val currentLocation: LocationMeasurement
 
-  /** The most recently received device heading. */
+  /** The value of [LocationState.lastHeading] for this callback. */
   public val currentHeading: HeadingMeasurement?
 }
 

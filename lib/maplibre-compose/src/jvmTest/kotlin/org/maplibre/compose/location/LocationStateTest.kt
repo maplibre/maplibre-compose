@@ -277,7 +277,7 @@ class LocationStateTest {
   }
 
   @Test
-  fun retryRestartsHeadingAfterUnavailableSession() = withMainDispatcher {
+  fun unavailableHeadingClearsLastHeadingUntilRetry() = withMainDispatcher {
     runComposeUiTest {
       val expected = heading(90.0)
       val headingProvider = RetryableHeadingProvider(expected)
@@ -293,8 +293,8 @@ class LocationStateTest {
       }
 
       waitUntil {
-        state?.headingStatus ==
-          HeadingTrackingStatus.Unavailable(LocationUnavailableReason.TemporarilyUnavailable)
+        state?.headingStatus == HeadingTrackingStatus.Unavailable(reason = null) &&
+          state.lastHeading == null
       }
       runOnIdle { state?.retry() }
       waitUntil {
@@ -548,7 +548,8 @@ private class RetryableHeadingProvider(private val heading: HeadingMeasurement) 
   override fun updates(request: HeadingRequest): Flow<HeadingEvent> = flow {
     attempts++
     if (attempts == 1) {
-      emit(HeadingEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable))
+      emit(HeadingEvent.Update(heading))
+      emit(HeadingEvent.Unavailable(reason = null))
       return@flow
     }
     emit(HeadingEvent.Update(heading))

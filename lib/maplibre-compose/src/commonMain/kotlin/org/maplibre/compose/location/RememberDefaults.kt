@@ -18,13 +18,13 @@ import kotlinx.coroutines.flow.flowOf
  * Creates and remembers the default heading provider for the current platform.
  *
  * Android and iOS supply sensor-based headings. Web and desktop return a provider that reports
- * [LocationUnavailableReason.Unsupported].
+ * [HeadingUnavailableReason.Unsupported].
  */
 @Composable public expect fun rememberDefaultHeadingProvider(): HeadingProvider
 
 internal object UnsupportedHeadingProvider : HeadingProvider {
   override fun updates(request: HeadingRequest): Flow<HeadingEvent> =
-    flowOf(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
+    flowOf(HeadingEvent.Unavailable(HeadingUnavailableReason.Unsupported))
 }
 
 /** Creates and remembers the platform [SystemSettingsLauncher]. */

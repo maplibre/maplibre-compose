@@ -27,7 +27,8 @@ import org.maplibre.spatialk.units.extensions.degrees
  *
  * [availability] describes the provider setup for its lifetime. [permission] describes the current
  * foreground authorization. [status] describes only an active tracking session. [lastLocation] and
- * [lastHeading] retain their most recently received measurements when collection stops.
+ * [lastHeading] retain their most recently received measurements when collection stops. While
+ * [headingStatus] is [HeadingTrackingStatus.Unavailable], [lastHeading] is `null`.
  */
 @Stable
 public class LocationState
@@ -39,7 +40,10 @@ internal constructor(
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
     internal set
 
-  /** The device's last known heading, or `null` before the first heading arrives. */
+  /**
+   * The device's last known heading, or `null` before the first heading arrives and while
+   * [headingStatus] is [HeadingTrackingStatus.Unavailable].
+   */
   public var lastHeading: HeadingMeasurement? by mutableStateOf(null)
     internal set
 
@@ -116,7 +120,7 @@ public sealed interface HeadingTrackingStatus {
    */
   public data class Unavailable
   internal constructor(
-    val reason: LocationUnavailableReason?,
+    val reason: HeadingUnavailableReason?,
     val cause: Throwable? = null,
   ) : HeadingTrackingStatus
 }
@@ -297,8 +301,10 @@ public fun rememberLocationState(
                 state.lastHeading = event.measurement
                 state.headingStatus = HeadingTrackingStatus.Tracking
               }
-              is HeadingEvent.Unavailable ->
+              is HeadingEvent.Unavailable -> {
+                state.lastHeading = null
                 state.headingStatus = HeadingTrackingStatus.Unavailable(event.reason, event.cause)
+              }
               else -> Unit
             }
           }

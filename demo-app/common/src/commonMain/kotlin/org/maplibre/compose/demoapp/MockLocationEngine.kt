@@ -18,11 +18,11 @@ import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.HeadingUnavailableReason
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
-import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -79,7 +79,7 @@ internal class MockLocationEngine : DemoLocationEngine {
     object : HeadingProvider {
       override fun updates(request: HeadingRequest): Flow<HeadingEvent> =
         if (!sample.headingAvailable) {
-          flowOf(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
+          flowOf(HeadingEvent.Unavailable(HeadingUnavailableReason.Unsupported))
         } else {
           snapshotFlow { sample }
             .map {

@@ -29,6 +29,7 @@ import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.HeadingUnavailableReason
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
 
@@ -56,14 +57,17 @@ class FusedHeadingProviderTest {
   }
 
   @Test
-  fun `complete ignorance has unknown accuracy`() = runTest {
+  fun `complete ignorance reports unreliable`() = runTest {
     val provider =
       FusedHeadingProvider(
         orientationClient = fakeClient(heading = 90f, error = 180f),
         elapsedRealtimeNanos = { 0L },
       )
 
-    assertNull(provider.firstMeasurement().accuracy)
+    assertEquals(
+      HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable),
+      provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first(),
+    )
   }
 
   @Test

@@ -91,6 +91,14 @@ call <Api of="LocationState.retry" /> when the user chooses to retry:
 When `availability` is <Api of="LocationBackendAvailability.Misconfigured" />,
 its `cause` describes the configuration error.
 
+<Api of="LocationState.headingStatus" /> reports interruptions to heading
+updates. While it is <Api of="HeadingTrackingStatus.Unavailable" />, the dot
+does not use the device's heading. The reason <Api of="HeadingUnavailableReason.Unreliable" />
+means that the compass needs calibration or a nearby magnetic field disturbs
+it, so you can ask the user to calibrate:
+
+<Code code={region(location, "heading-status")} lang="kotlin" title="App.kt" />
+
 ## Platform requirements
 
 The JVM desktop runtimes in [Platform setup](/maplibre-compose/platform-setup/)

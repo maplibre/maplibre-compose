@@ -18,7 +18,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 class HeadingProviderTest {
   @Test
   fun throttleHoldsBackOnlyUpdatesAndKeepsTheLastOne() = runTest {
-    val unavailable = HeadingEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable)
+    val unavailable = HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable)
     val events = flow {
       emit(update(1.0))
       delay(1.seconds)

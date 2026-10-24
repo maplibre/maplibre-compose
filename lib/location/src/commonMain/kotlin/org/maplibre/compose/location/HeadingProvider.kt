@@ -52,9 +52,11 @@ public interface HeadingProvider {
   /**
    * Returns a cold stream of heading events.
    *
-   * A provider reports conditions that prevent heading delivery as [HeadingEvent.Unavailable]
-   * instead of failing the flow. A device without a heading sensor emits
-   * [LocationUnavailableReason.Unsupported] and completes.
+   * A provider reports conditions and platform failures that prevent heading delivery as
+   * [HeadingEvent.Unavailable] instead of failing the flow. After
+   * [HeadingUnavailableReason.Unreliable], the next [HeadingEvent.Update] means a valid heading is
+   * available again. A device without a heading sensor emits [HeadingUnavailableReason.Unsupported]
+   * and completes.
    *
    * Each collector starts an independent platform sensor request. Cancelling collection stops that
    * request and unregisters its callbacks.
@@ -81,17 +83,13 @@ public sealed interface HeadingEvent {
   /**
    * A condition or failure that currently prevents heading delivery.
    *
-   * Heading providers report [LocationUnavailableReason.Unsupported] when the device has no heading
-   * sensor and [LocationUnavailableReason.TemporarilyUnavailable] when the sensor cannot determine
-   * a heading now, such as near strong magnetic interference.
-   *
    * @property reason Portable classification of the condition, or `null` when the provider has no
    *   classification for it, such as an unexpected platform failure. [cause] then describes the
    *   failure.
    * @property cause Underlying platform or provider exception, when one is available.
    */
   public data class Unavailable(
-    val reason: LocationUnavailableReason?,
+    val reason: HeadingUnavailableReason?,
     val cause: Throwable? = null,
   ) : HeadingEvent
 }
@@ -101,6 +99,33 @@ public sealed interface HeadingEvent {
  * emits it.
  */
 internal data object UnspecifiedHeadingEvent : HeadingEvent
+
+/**
+ * Reasons that a provider cannot currently deliver heading measurements.
+ *
+ * Values may be added in minor releases; use an `else` branch when matching.
+ */
+@Immutable
+public sealed interface HeadingUnavailableReason {
+  /** The device has no sensor that can measure heading. */
+  public data object Unsupported : HeadingUnavailableReason
+
+  /**
+   * The sensor cannot measure a valid heading now, because it needs calibration or because a nearby
+   * magnetic field disturbs it.
+   *
+   * Platforms often cannot tell these two causes apart. The provider keeps measuring and delivers
+   * the next valid heading. The user can help by moving the device in a figure-eight pattern or by
+   * moving away from metal objects and electronics.
+   */
+  public data object Unreliable : HeadingUnavailableReason
+}
+
+/**
+ * Keeps [HeadingUnavailableReason] open: callers' `when` needs an `else` branch. No provider in
+ * this library reports it.
+ */
+internal data object UnspecifiedHeadingUnavailableReason : HeadingUnavailableReason
 
 /**
  * Delivers at most one [HeadingEvent.Update] per [interval], keeping the latest one, and delivers

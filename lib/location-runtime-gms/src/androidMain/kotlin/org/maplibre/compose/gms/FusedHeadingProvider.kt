@@ -22,6 +22,7 @@ import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.HeadingUnavailableReason
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 
@@ -35,7 +36,8 @@ import org.maplibre.spatialk.units.extensions.degrees
  * declination is available and magnetic north otherwise. The API does not report the selected
  * reference. The
  * [`DeviceOrientation.headingErrorDegrees`](https://developers.google.com/android/reference/com/google/android/gms/location/DeviceOrientation#getHeadingErrorDegrees())
- * maps to its accuracy. The value `180`, which denotes complete ignorance, maps to `null`.
+ * maps to its accuracy. The value `180`, which denotes complete ignorance of the heading, reports
+ * [HeadingUnavailableReason.Unreliable].
  *
  * A failed registration reports a `null` reason with the failure as its cause and completes.
  *
@@ -56,14 +58,22 @@ internal constructor(
     callbackFlow<HeadingEvent> {
         val deviceOrientationRequest =
           DeviceOrientationRequest.Builder(request.minimumInterval.inWholeMicroseconds).build()
-        val callback: (DeviceOrientation) -> Unit = { orientation ->
+        var unreliable = false
+        val callback: (DeviceOrientation) -> Unit = callback@{ orientation ->
+          if (orientation.headingErrorDegrees >= 180f) {
+            if (!unreliable) {
+              unreliable = true
+              trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
+            }
+            return@callback
+          }
+          unreliable = false
           trySend(
             HeadingEvent.Update(
               HeadingMeasurement(
                 bearing = Bearing.North + orientation.headingDegrees.toDouble().degrees,
                 reference = HeadingReference.TrueOrMagneticNorth,
-                accuracy =
-                  orientation.headingErrorDegrees.takeIf { it < 180f }?.toDouble()?.degrees,
+                accuracy = orientation.headingErrorDegrees.toDouble().degrees,
                 measuredAt =
                   Clock.System.now() -
                     (elapsedRealtimeNanos() - orientation.elapsedRealtimeNs)

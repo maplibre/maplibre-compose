@@ -9,6 +9,8 @@ import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.HeadingTrackingStatus
+import org.maplibre.compose.location.HeadingUnavailableReason
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationPermission
@@ -101,6 +103,19 @@ private fun LocationStatusMessage(locationState: LocationState) {
     Button(onClick = locationState::retry) { Text("Try again") }
   }
   // #endregion status
+}
+
+@Composable
+private fun HeadingStatusMessage(locationState: LocationState) {
+  // #region heading-status
+  val headingStatus = locationState.headingStatus
+  if (
+    headingStatus is HeadingTrackingStatus.Unavailable &&
+      headingStatus.reason == HeadingUnavailableReason.Unreliable
+  ) {
+    Text("Move your phone in a figure-eight to calibrate the compass.")
+  }
+  // #endregion heading-status
 }
 
 @Composable

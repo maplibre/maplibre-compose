@@ -27,15 +27,16 @@ import platform.darwin.NSObject
  * [`CLHeading.trueHeading`](https://developer.apple.com/documentation/corelocation/clheading/trueheading)
  * maps to [HeadingMeasurement.bearing] with [HeadingReference.TrueNorth]. Otherwise,
  * [`CLHeading.magneticHeading`](https://developer.apple.com/documentation/corelocation/clheading/magneticheading)
- * maps to [HeadingMeasurement.bearing] with [HeadingReference.MagneticNorth]. A negative
+ * maps to [HeadingMeasurement.bearing] with [HeadingReference.MagneticNorth].
  * [`CLHeading.headingAccuracy`](https://developer.apple.com/documentation/corelocation/clheading/headingaccuracy)
- * marks the heading as invalid. The provider ignores that callback. A valid accuracy maps to
- * [HeadingMeasurement.accuracy].
+ * maps to [HeadingMeasurement.accuracy].
  *
- * A device without a magnetometer reports [LocationUnavailableReason.Unsupported]. Magnetic
- * interference reports [LocationUnavailableReason.TemporarilyUnavailable], and other Core Location
- * failures report a `null` reason. Collection continues after a failure, because Core Location
- * keeps trying.
+ * A negative accuracy, which Core Location reports for an uncalibrated device or strong magnetic
+ * interference, and the
+ * [`headingFailure`](https://developer.apple.com/documentation/corelocation/clerror/code/headingfailure)
+ * error report [HeadingUnavailableReason.Unreliable]. Other Core Location errors report a `null`
+ * reason. Collection continues after an error and delivers the next valid heading. A device without
+ * a magnetometer reports [HeadingUnavailableReason.Unsupported].
  */
 public class IosHeadingProvider
 internal constructor(
@@ -46,7 +47,7 @@ internal constructor(
 
   override fun updates(request: HeadingRequest): Flow<HeadingEvent> = callbackFlow {
     if (!isHeadingAvailable()) {
-      send(HeadingEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      send(HeadingEvent.Unavailable(HeadingUnavailableReason.Unsupported))
       close()
       return@callbackFlow
     }
@@ -63,8 +64,17 @@ internal constructor(
 
 internal class IosHeadingDelegate(private val channel: SendChannel<HeadingEvent>) :
   NSObject(), CLLocationManagerDelegateProtocol {
+  private var unreliable = false
+
   override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
-    if (didUpdateHeading.headingAccuracy < 0.0) return
+    if (didUpdateHeading.headingAccuracy < 0.0) {
+      if (!unreliable) {
+        unreliable = true
+        channel.trySend(HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable))
+      }
+      return
+    }
+    unreliable = false
     val hasTrueHeading = didUpdateHeading.trueHeading >= 0.0
     val heading =
       if (hasTrueHeading) didUpdateHeading.trueHeading else didUpdateHeading.magneticHeading
@@ -87,9 +97,10 @@ internal class IosHeadingDelegate(private val channel: SendChannel<HeadingEvent>
   override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
     val headingFailure =
       didFailWithError.domain == kCLErrorDomain && didFailWithError.code == kCLErrorHeadingFailure
+    unreliable = headingFailure
     channel.trySend(
       HeadingEvent.Unavailable(
-        reason = if (headingFailure) LocationUnavailableReason.TemporarilyUnavailable else null,
+        reason = if (headingFailure) HeadingUnavailableReason.Unreliable else null,
         cause = IosHeadingException(didFailWithError),
       ),
     )
