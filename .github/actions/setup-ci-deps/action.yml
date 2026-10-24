@@ -129,7 +129,7 @@ runs:
         # tree extracted by an older one: bin paths and `.mise-bins` layout
         # differ, and `mise install --locked` then reports the version already
         # installed without rewriting those files.
-        mise_version="2026.10.12"
+        mise_version="2026.10.18"
         prefix="toolchains-v1-${{ runner.os }}-${{ runner.arch }}-${ImageOS:-unknown}-mise${mise_version}"
         echo "prefix=${prefix}" >> "$GITHUB_OUTPUT"
         echo "key=${prefix}-${{ hashFiles('mise.toml', 'mise.lock') }}" >> "$GITHUB_OUTPUT"
@@ -165,7 +165,7 @@ runs:
         MISE_NO_HOOKS: "1"
       with:
         # Keep in sync with mise_version in "Compute toolchain cache key".
-        version: 2026.10.12
+        version: 2026.10.18
         cache: false
 
     - name: Save toolchains
