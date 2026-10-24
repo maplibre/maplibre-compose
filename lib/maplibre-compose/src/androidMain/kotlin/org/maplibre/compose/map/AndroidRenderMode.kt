@@ -1,7 +1,7 @@
 package org.maplibre.compose.map
 
 /**
- * Which Android view [MaplibreMap] draws the map through.
+ * How Android presents the map in [MaplibreMap].
  *
  * Values may be added in minor releases; use an `else` branch when matching.
  */
@@ -13,8 +13,13 @@ public enum class AndroidRenderMode {
   Texture,
 
   /**
-   * A SurfaceView. Preferred for performance. The surface sits behind the window, so Compose
-   * overlays draw on top, and some Compose graphics modifiers do not apply to it.
+   * A surface behind the window, with Compose overlays drawn on top. On API 33 and later, when
+   * hardware rendering and coordinated buffers are available, geographic overlay placement uses the
+   * displayed map buffer's projection. The map buffer and Compose overlays appear together in the
+   * window draw. Otherwise a SurfaceView presents the map independently of Compose.
+   *
+   * Some Compose graphics modifiers, including arbitrary clipping and alpha, do not apply to this
+   * mode. Use [Texture] when those modifiers are required.
    */
   Surface,
 }

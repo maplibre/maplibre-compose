@@ -1,5 +1,6 @@
 package org.maplibre.compose.mlnffi
 
+import android.os.Build
 import androidx.compose.foundation.AndroidEmbeddedExternalSurface
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.AndroidExternalSurfaceZOrder
@@ -32,6 +33,14 @@ internal fun AndroidMlnFfiSurface(
   logger: MapLog?,
   presentWindow: Boolean = true,
 ) {
+  if (
+    renderMode == AndroidRenderMode.Surface &&
+      Build.VERSION.SDK_INT >= 33 &&
+      backend in runtimeBackends
+  ) {
+    AndroidCoordinatedMlnFfiSurface(renderer, backend, maximumFps, modifier, logger, presentWindow)
+    return
+  }
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
   val controller =
