@@ -39,7 +39,10 @@ internal constructor(
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
     internal set
 
-  /** The device's last known heading, or `null` before the first heading arrives. */
+  /**
+   * The device's last known heading, or `null` before the first heading arrives and while
+   * [headingStatus] is [HeadingTrackingStatus.Unavailable].
+   */
   public var lastHeading: HeadingMeasurement? by mutableStateOf(null)
     internal set
 
@@ -73,7 +76,8 @@ internal constructor(
   }
 
   /**
-   * Restarts a collection that ended in [LocationTrackingStatus.Unavailable].
+   * Restarts a location or heading collection that ended in [LocationTrackingStatus.Unavailable] or
+   * [HeadingTrackingStatus.Unavailable].
    *
    * A provider may end its updates on a condition it cannot observe changing, such as the macOS
    * location services toggle, which the user can flip without the window ever losing its lifecycle
@@ -107,11 +111,17 @@ public sealed interface HeadingTrackingStatus {
   public data object Tracking : HeadingTrackingStatus
 
   /**
-   * The heading provider failed unexpectedly.
+   * A condition or failure prevents the active request from delivering a heading.
    *
-   * @property cause The exception that ended heading collection.
+   * @property reason Portable classification of the condition, or `null` when the provider has no
+   *   classification for it, such as an unexpected failure. [cause] then describes the failure.
+   * @property cause Underlying platform or provider exception, when one is available.
    */
-  public data class Unavailable internal constructor(val cause: Throwable) : HeadingTrackingStatus
+  public data class Unavailable
+  internal constructor(
+    val reason: HeadingUnavailableReason?,
+    val cause: Throwable? = null,
+  ) : HeadingTrackingStatus
 }
 
 /**
@@ -167,14 +177,15 @@ internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
  * [LocationState.status] reports only the tracking session.
  *
  * Permission that is not determined allows collection to retry a non-prompting permission check. A
- * known denial stops location collection. Heading collection requires granted permission.
+ * known denial stops location collection. Heading collection does not depend on location
+ * permission.
  *
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
  *   [LocationProvider.permission] keeps the granted default needs no permission handling.
  * @param request Preferences for location updates.
- * @param headingProvider The optional [HeadingProvider] to use for obtaining device-heading
- *   updates. By default, a provider that emits no headings is used.
+ * @param headingProvider The [HeadingProvider] to use for obtaining device-heading updates, or
+ *   `null` to not track heading.
  * @param headingRequest Preferences for device-heading updates.
  * @param enabled Whether location and heading updates should run while lifecycle-active.
  * @param lifecycleOwner The [LifecycleOwner] to scope the collection of updates to. Defaults to the
@@ -187,7 +198,7 @@ internal data object UnspecifiedLocationTrackingStatus : LocationTrackingStatus
 public fun rememberLocationState(
   provider: LocationProvider = rememberDefaultLocationProvider(),
   request: LocationRequest = LocationRequest.Standard,
-  headingProvider: HeadingProvider = NoHeadingProvider,
+  headingProvider: HeadingProvider? = null,
   headingRequest: HeadingRequest = HeadingRequest.Standard,
   enabled: Boolean = true,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
@@ -265,13 +276,12 @@ public fun rememberLocationState(
     enabled,
     headingProvider,
     headingRequest,
-    permission,
     state,
     lifecycleOwner.lifecycle,
     minActiveState,
     state.retryKey,
   ) {
-    if (!enabled || permission !is LocationPermission.Granted) {
+    if (!enabled || headingProvider == null) {
       state.headingStatus = HeadingTrackingStatus.Stopped
       return@LaunchedEffect
     }
@@ -280,10 +290,22 @@ public fun rememberLocationState(
         state.headingStatus = HeadingTrackingStatus.Starting
         headingProvider
           .updates(headingRequest)
-          .catch { error -> state.headingStatus = HeadingTrackingStatus.Unavailable(error) }
-          .collect { heading ->
-            state.lastHeading = heading
-            state.headingStatus = HeadingTrackingStatus.Tracking
+          .catch { error ->
+            if (error is CancellationException) throw error
+            emit(HeadingEvent.Unavailable(reason = null, cause = error))
+          }
+          .collect { event ->
+            when (event) {
+              is HeadingEvent.Update -> {
+                state.lastHeading = event.measurement
+                state.headingStatus = HeadingTrackingStatus.Tracking
+              }
+              is HeadingEvent.Unavailable -> {
+                state.lastHeading = null
+                state.headingStatus = HeadingTrackingStatus.Unavailable(event.reason, event.cause)
+              }
+              else -> Unit
+            }
           }
         if (
           state.headingStatus == HeadingTrackingStatus.Starting ||

@@ -9,6 +9,34 @@ public final class org/maplibre/compose/location/DesktopLocationProviderKt {
 	public static synthetic fun createDefaultLocationProvider$default (Lorg/maplibre/compose/location/XdgPortalWindow;ILjava/lang/Object;)Lorg/maplibre/compose/location/LocationProvider;
 }
 
+public abstract interface class org/maplibre/compose/location/HeadingEvent {
+}
+
+public final class org/maplibre/compose/location/HeadingEvent$Unavailable : org/maplibre/compose/location/HeadingEvent {
+	public fun <init> (Lorg/maplibre/compose/location/HeadingUnavailableReason;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/location/HeadingUnavailableReason;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/HeadingUnavailableReason;
+	public final fun component2 ()Ljava/lang/Throwable;
+	public final fun copy (Lorg/maplibre/compose/location/HeadingUnavailableReason;Ljava/lang/Throwable;)Lorg/maplibre/compose/location/HeadingEvent$Unavailable;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/HeadingEvent$Unavailable;Lorg/maplibre/compose/location/HeadingUnavailableReason;Ljava/lang/Throwable;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingEvent$Unavailable;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCause ()Ljava/lang/Throwable;
+	public final fun getReason ()Lorg/maplibre/compose/location/HeadingUnavailableReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/HeadingEvent$Update : org/maplibre/compose/location/HeadingEvent {
+	public fun <init> (Lorg/maplibre/compose/location/HeadingMeasurement;)V
+	public final fun component1 ()Lorg/maplibre/compose/location/HeadingMeasurement;
+	public final fun copy (Lorg/maplibre/compose/location/HeadingMeasurement;)Lorg/maplibre/compose/location/HeadingEvent$Update;
+	public static synthetic fun copy$default (Lorg/maplibre/compose/location/HeadingEvent$Update;Lorg/maplibre/compose/location/HeadingMeasurement;ILjava/lang/Object;)Lorg/maplibre/compose/location/HeadingEvent$Update;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMeasurement ()Lorg/maplibre/compose/location/HeadingMeasurement;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/location/HeadingMeasurement {
 	public static final field Companion Lorg/maplibre/compose/location/HeadingMeasurement$Companion;
 	public synthetic fun <init> (DLorg/maplibre/compose/location/HeadingReference;Lorg/maplibre/spatialk/units/Rotation;Lkotlin/time/Instant;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -50,6 +78,10 @@ public abstract interface class org/maplibre/compose/location/HeadingProvider {
 
 public final class org/maplibre/compose/location/HeadingProvider$DefaultImpls {
 	public static synthetic fun updates$default (Lorg/maplibre/compose/location/HeadingProvider;Lorg/maplibre/compose/location/HeadingRequest;ILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class org/maplibre/compose/location/HeadingProviderKt {
+	public static final fun throttleUpdates-HG0u8IE (Lkotlinx/coroutines/flow/Flow;J)Lkotlinx/coroutines/flow/Flow;
 }
 
 public abstract interface class org/maplibre/compose/location/HeadingReference {
@@ -99,6 +131,23 @@ public final class org/maplibre/compose/location/HeadingRequest$Builder {
 
 public final class org/maplibre/compose/location/HeadingRequest$Companion {
 	public final fun getStandard ()Lorg/maplibre/compose/location/HeadingRequest;
+}
+
+public abstract interface class org/maplibre/compose/location/HeadingUnavailableReason {
+}
+
+public final class org/maplibre/compose/location/HeadingUnavailableReason$Unreliable : org/maplibre/compose/location/HeadingUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingUnavailableReason$Unreliable;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/location/HeadingUnavailableReason$Unsupported : org/maplibre/compose/location/HeadingUnavailableReason {
+	public static final field INSTANCE Lorg/maplibre/compose/location/HeadingUnavailableReason$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/maplibre/compose/location/LocationAccuracy : java/lang/Enum {

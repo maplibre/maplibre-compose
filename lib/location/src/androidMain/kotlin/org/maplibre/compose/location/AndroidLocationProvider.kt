@@ -38,8 +38,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * accuracy on earlier versions. [LocationAccuracy.Lowest] receives passive updates.
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Missing
- * permission reports [LocationUnavailableReason.PermissionDenied]. Invalid provider registration
- * reports a `null` reason with the failure as the cause.
+ * permission reports [LocationUnavailableReason.PermissionDenied].
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *

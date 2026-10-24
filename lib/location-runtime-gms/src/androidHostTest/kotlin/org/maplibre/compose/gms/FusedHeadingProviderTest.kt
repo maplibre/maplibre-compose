@@ -1,5 +1,7 @@
 package org.maplibre.compose.gms
 
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Status
 import com.google.android.gms.location.DeviceOrientation
 import com.google.android.gms.location.DeviceOrientationListener
 import com.google.android.gms.location.FusedOrientationProviderClient
@@ -12,20 +14,22 @@ import java.lang.reflect.Proxy
 import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.location.HeadingEvent
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
+import org.maplibre.compose.location.HeadingUnavailableReason
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
 
@@ -41,7 +45,8 @@ class FusedHeadingProviderTest {
           elapsedRealtimeNanos = { 0L },
         )
 
-      val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
+      val event = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
+      val result = assertIs<HeadingEvent.Update>(event).measurement
       val bearing = result.bearing
 
       assertEquals(heading.toDouble(), Bearing.North.clockwiseRotationTo(bearing).inDegrees, 1e-10)
@@ -50,33 +55,32 @@ class FusedHeadingProviderTest {
   }
 
   @Test
-  fun `complete ignorance has unknown accuracy`() = runTest {
+  fun `complete ignorance reports unreliable`() = runTest {
     val provider =
       FusedHeadingProvider(
         orientationClient = fakeClient(heading = 90f, error = 180f),
         elapsedRealtimeNanos = { 0L },
       )
 
-    val result = provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
-
-    assertNull(result.accuracy)
+    assertEquals(
+      HeadingEvent.Unavailable(HeadingUnavailableReason.Unreliable),
+      provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first(),
+    )
   }
 
   @Test
-  fun `registration failure terminates the flow`() = runTest {
-    val failure = IllegalStateException("registration failed")
+  fun `registration failure reports unavailable and completes`() = runTest {
+    val failure = ApiException(Status.RESULT_INTERNAL_ERROR)
     val provider =
       FusedHeadingProvider(
         orientationClient = fakeClient(failure = failure),
         elapsedRealtimeNanos = { 0L },
       )
 
-    val thrown =
-      assertFailsWith<IllegalStateException> {
-        provider.updates(HeadingRequest { minimumInterval = Duration.ZERO }).first()
-      }
-
-    assertEquals(failure.message, thrown.message)
+    assertEquals(
+      listOf(HeadingEvent.Unavailable(reason = null, cause = failure)),
+      provider.updates().toList(),
+    )
   }
 
   @Test

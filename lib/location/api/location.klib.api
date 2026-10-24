@@ -23,7 +23,7 @@ final enum class org.maplibre.compose.location/LocationAccuracy : kotlin/Enum<or
 }
 
 abstract interface org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/HeadingProvider|null[0]
-    abstract fun updates(org.maplibre.compose.location/HeadingRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/HeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
+    abstract fun updates(org.maplibre.compose.location/HeadingRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent> // org.maplibre.compose.location/HeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
 }
 
 abstract interface org.maplibre.compose.location/LocationProvider : kotlin/AutoCloseable { // org.maplibre.compose.location/LocationProvider|null[0]
@@ -37,6 +37,37 @@ abstract interface org.maplibre.compose.location/LocationProvider : kotlin/AutoC
     abstract fun updates(org.maplibre.compose.location/LocationRequest = ...): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/LocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
     open fun close() // org.maplibre.compose.location/LocationProvider.close|close(){}[0]
     open fun requestPermission() // org.maplibre.compose.location/LocationProvider.requestPermission|requestPermission(){}[0]
+}
+
+sealed interface org.maplibre.compose.location/HeadingEvent { // org.maplibre.compose.location/HeadingEvent|null[0]
+    final class Unavailable : org.maplibre.compose.location/HeadingEvent { // org.maplibre.compose.location/HeadingEvent.Unavailable|null[0]
+        constructor <init>(org.maplibre.compose.location/HeadingUnavailableReason?, kotlin/Throwable? = ...) // org.maplibre.compose.location/HeadingEvent.Unavailable.<init>|<init>(org.maplibre.compose.location.HeadingUnavailableReason?;kotlin.Throwable?){}[0]
+
+        final val cause // org.maplibre.compose.location/HeadingEvent.Unavailable.cause|{}cause[0]
+            final fun <get-cause>(): kotlin/Throwable? // org.maplibre.compose.location/HeadingEvent.Unavailable.cause.<get-cause>|<get-cause>(){}[0]
+        final val reason // org.maplibre.compose.location/HeadingEvent.Unavailable.reason|{}reason[0]
+            final fun <get-reason>(): org.maplibre.compose.location/HeadingUnavailableReason? // org.maplibre.compose.location/HeadingEvent.Unavailable.reason.<get-reason>|<get-reason>(){}[0]
+
+        final fun component1(): org.maplibre.compose.location/HeadingUnavailableReason? // org.maplibre.compose.location/HeadingEvent.Unavailable.component1|component1(){}[0]
+        final fun component2(): kotlin/Throwable? // org.maplibre.compose.location/HeadingEvent.Unavailable.component2|component2(){}[0]
+        final fun copy(org.maplibre.compose.location/HeadingUnavailableReason? = ..., kotlin/Throwable? = ...): org.maplibre.compose.location/HeadingEvent.Unavailable // org.maplibre.compose.location/HeadingEvent.Unavailable.copy|copy(org.maplibre.compose.location.HeadingUnavailableReason?;kotlin.Throwable?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingEvent.Unavailable.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingEvent.Unavailable.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingEvent.Unavailable.toString|toString(){}[0]
+    }
+
+    final class Update : org.maplibre.compose.location/HeadingEvent { // org.maplibre.compose.location/HeadingEvent.Update|null[0]
+        constructor <init>(org.maplibre.compose.location/HeadingMeasurement) // org.maplibre.compose.location/HeadingEvent.Update.<init>|<init>(org.maplibre.compose.location.HeadingMeasurement){}[0]
+
+        final val measurement // org.maplibre.compose.location/HeadingEvent.Update.measurement|{}measurement[0]
+            final fun <get-measurement>(): org.maplibre.compose.location/HeadingMeasurement // org.maplibre.compose.location/HeadingEvent.Update.measurement.<get-measurement>|<get-measurement>(){}[0]
+
+        final fun component1(): org.maplibre.compose.location/HeadingMeasurement // org.maplibre.compose.location/HeadingEvent.Update.component1|component1(){}[0]
+        final fun copy(org.maplibre.compose.location/HeadingMeasurement = ...): org.maplibre.compose.location/HeadingEvent.Update // org.maplibre.compose.location/HeadingEvent.Update.copy|copy(org.maplibre.compose.location.HeadingMeasurement){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingEvent.Update.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingEvent.Update.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingEvent.Update.toString|toString(){}[0]
+    }
 }
 
 sealed interface org.maplibre.compose.location/HeadingReference { // org.maplibre.compose.location/HeadingReference|null[0]
@@ -61,6 +92,20 @@ sealed interface org.maplibre.compose.location/HeadingReference { // org.maplibr
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingReference.TrueOrMagneticNorth.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingReference.TrueOrMagneticNorth.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingReference.TrueOrMagneticNorth.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.maplibre.compose.location/HeadingUnavailableReason { // org.maplibre.compose.location/HeadingUnavailableReason|null[0]
+    final object Unreliable : org.maplibre.compose.location/HeadingUnavailableReason { // org.maplibre.compose.location/HeadingUnavailableReason.Unreliable|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingUnavailableReason.Unreliable.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingUnavailableReason.Unreliable.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingUnavailableReason.Unreliable.toString|toString(){}[0]
+    }
+
+    final object Unsupported : org.maplibre.compose.location/HeadingUnavailableReason { // org.maplibre.compose.location/HeadingUnavailableReason.Unsupported|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.location/HeadingUnavailableReason.Unsupported.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.location/HeadingUnavailableReason.Unsupported.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.location/HeadingUnavailableReason.Unsupported.toString|toString(){}[0]
     }
 }
 
@@ -367,6 +412,8 @@ final object org.maplibre.compose.location/UnsupportedLocationProvider : org.map
     final fun updates(org.maplibre.compose.location/LocationRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/LocationEvent> // org.maplibre.compose.location/UnsupportedLocationProvider.updates|updates(org.maplibre.compose.location.LocationRequest){}[0]
 }
 
+final fun (kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent>).org.maplibre.compose.location/throttleUpdates(kotlin.time/Duration): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent> // org.maplibre.compose.location/throttleUpdates|throttleUpdates@kotlinx.coroutines.flow.Flow<org.maplibre.compose.location.HeadingEvent>(kotlin.time.Duration){}[0]
+
 // Targets: [apple]
 final class org.maplibre.compose.location/AppleLocationPermissionRequester : kotlin/AutoCloseable { // org.maplibre.compose.location/AppleLocationPermissionRequester|null[0]
     constructor <init>() // org.maplibre.compose.location/AppleLocationPermissionRequester.<init>|<init>(){}[0]
@@ -397,7 +444,7 @@ final fun (platform.CoreLocation/CLLocation).org.maplibre.compose.location/asMap
 final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.compose.location/HeadingProvider { // org.maplibre.compose.location/IosHeadingProvider|null[0]
     constructor <init>() // org.maplibre.compose.location/IosHeadingProvider.<init>|<init>(){}[0]
 
-    final fun updates(org.maplibre.compose.location/HeadingRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingMeasurement> // org.maplibre.compose.location/IosHeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
+    final fun updates(org.maplibre.compose.location/HeadingRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent> // org.maplibre.compose.location/IosHeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
 }
 
 // Targets: [js]

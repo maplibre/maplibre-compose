@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.maplibre.spatialk.geojson.Position
@@ -84,33 +85,24 @@ class LocationStateTest {
             }
           }
         }
-      val headingProvider = MutableHeadingProvider()
       val lifecycleOwner = ResumedLifecycleOwner()
       var state: LocationState? = null
       setContent {
-        state =
-          rememberLocationState(
-            provider = provider,
-            headingProvider = headingProvider,
-            lifecycleOwner = lifecycleOwner,
-          )
+        state = rememberLocationState(provider = provider, lifecycleOwner = lifecycleOwner)
       }
 
       waitUntil { state?.status is LocationTrackingStatus.Unavailable }
       assertEquals(LocationPermission.NotDetermined, state?.permission)
       assertSame(failure, assertIs<LocationTrackingStatus.Unavailable>(state?.status).cause)
-      assertEquals(0, headingProvider.activeCollectors)
       runOnIdle { state?.retry() }
-      waitUntil {
-        state?.lastLocation == locationProvider.location && headingProvider.activeCollectors == 1
-      }
+      waitUntil { state?.lastLocation == locationProvider.location }
       waitForIdle()
       assertEquals(2, attempts)
       assertEquals(0, locationProvider.stopCount)
       assertEquals(0, permissionRequests)
 
       runOnIdle { permissionState.value = LocationPermission.NotGranted(canRequest = false) }
-      waitUntil { !locationProvider.active && headingProvider.activeCollectors == 0 }
+      waitUntil { !locationProvider.active }
       assertEquals(LocationTrackingStatus.Stopped, state?.status)
     }
   }
@@ -191,34 +183,22 @@ class LocationStateTest {
   }
 
   @Test
-  fun permissionGrantStartsAndRevocationStopsHeadingUpdates() = withMainDispatcher {
+  fun headingCollectsWithoutLocationPermission() = withMainDispatcher {
     runComposeUiTest {
-      val provider = MutablePermissionProvider(FiniteLocationProvider())
       val headingProvider = MutableHeadingProvider()
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = provider,
+            provider = MutablePermissionProvider(FiniteLocationProvider()),
             headingProvider = headingProvider,
             lifecycleOwner = ResumedLifecycleOwner(),
           )
       }
 
-      waitUntil { state?.permission == LocationPermission.NotGranted(canRequest = true) }
-      assertEquals(0, headingProvider.activeCollectors)
-
-      runOnIdle {
-        provider.permission.value =
-          LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-      }
       waitUntil { headingProvider.activeCollectors == 1 }
-
-      runOnIdle {
-        provider.permission.value = LocationPermission.NotGranted(canRequest = false)
-      }
-      waitUntil { headingProvider.activeCollectors == 0 }
+      assertEquals(LocationPermission.NotGranted(canRequest = true), state?.permission)
     }
   }
 
@@ -289,7 +269,7 @@ class LocationStateTest {
         locationProvider.active &&
           state?.let {
             it.lastLocation == locationProvider.location &&
-              it.headingStatus == HeadingTrackingStatus.Unavailable(failure)
+              it.headingStatus == HeadingTrackingStatus.Unavailable(reason = null, cause = failure)
           } == true
       }
       assertEquals(LocationTrackingStatus.Tracking, state?.status)
@@ -297,7 +277,7 @@ class LocationStateTest {
   }
 
   @Test
-  fun retryRestartsHeadingAfterFailure() = withMainDispatcher {
+  fun unavailableHeadingClearsLastHeadingUntilRetry() = withMainDispatcher {
     runComposeUiTest {
       val expected = heading(90.0)
       val headingProvider = RetryableHeadingProvider(expected)
@@ -312,7 +292,10 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { state?.headingStatus is HeadingTrackingStatus.Unavailable }
+      waitUntil {
+        state?.headingStatus == HeadingTrackingStatus.Unavailable(reason = null) &&
+          state.lastHeading == null
+      }
       runOnIdle { state?.retry() }
       waitUntil {
         headingProvider.attempts == 2 &&
@@ -428,13 +411,7 @@ class LocationStateTest {
 
       runOnIdle { provider = FiniteLocationProvider() }
       waitUntil { state !== originalState }
-      val expected =
-        HeadingMeasurement(
-          bearing = Bearing.North + 90.0.degrees,
-          reference = HeadingReference.TrueNorth,
-          accuracy = null,
-          measuredAt = Clock.System.now(),
-        )
+      val expected = heading(90.0)
       runOnIdle { headingProvider.headings.tryEmit(expected) }
 
       waitUntil { state?.lastHeading == expected }
@@ -551,10 +528,10 @@ private class MutableHeadingProvider : HeadingProvider {
   val headings = MutableSharedFlow<HeadingMeasurement>(extraBufferCapacity = 1)
   var activeCollectors = 0
 
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = flow {
     activeCollectors++
     try {
-      emitAll(headings)
+      emitAll(headings.map(HeadingEvent::Update))
     } finally {
       activeCollectors--
     }
@@ -562,16 +539,20 @@ private class MutableHeadingProvider : HeadingProvider {
 }
 
 private class FailingHeadingProvider(private val failure: Throwable) : HeadingProvider {
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow { throw failure }
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = flow { throw failure }
 }
 
 private class RetryableHeadingProvider(private val heading: HeadingMeasurement) : HeadingProvider {
   var attempts = 0
 
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
+  override fun updates(request: HeadingRequest): Flow<HeadingEvent> = flow {
     attempts++
-    if (attempts == 1) throw IllegalStateException("sensor failed")
-    emit(heading)
+    if (attempts == 1) {
+      emit(HeadingEvent.Update(heading))
+      emit(HeadingEvent.Unavailable(reason = null))
+      return@flow
+    }
+    emit(HeadingEvent.Update(heading))
     awaitCancellation()
   }
 }

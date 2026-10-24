@@ -12,7 +12,8 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider {
   return provider
 }
 
-@Composable public actual fun rememberDefaultHeadingProvider(): HeadingProvider = NoHeadingProvider
+@Composable
+public actual fun rememberDefaultHeadingProvider(): HeadingProvider = UnsupportedHeadingProvider
 
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {
