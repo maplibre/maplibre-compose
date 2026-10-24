@@ -17,7 +17,7 @@ class SemiliteralTest {
   @Test
   fun arrays_evaluate_children_but_preserve_nested_literal_arrays() {
     assertEquals(
-      """["let","semiliteral_value",["semiliteral",[["number",["get","x"]],["literal",["get","literal-key"]],["let","semiliteral_value",["semiliteral",[["number",["get","y"]],2]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]""",
+      """["semiliteral",[["number",["get","x"]],["literal",["get","literal-key"]],["semiliteral",[["number",["get","y"]],2]]]]""",
       styleJson(
         list(
           feature["x"].asNumber(),
@@ -27,7 +27,7 @@ class SemiliteralTest {
       ),
     )
     assertEquals(
-      """["let","semiliteral_value",["semiliteral",[]],["var","semiliteral_value"]]""",
+      """["semiliteral",[]]""",
       styleJson(list<FloatValue>()),
     )
   }
@@ -39,7 +39,7 @@ class SemiliteralTest {
     val expression = list(items)
     items.clear()
     assertEquals(
-      """["let","semiliteral_value",["semiliteral",[["number",["get","x"]]]],["var","semiliteral_value"]]""",
+      """["semiliteral",[["number",["get","x"]]]]""",
       styleJson(expression),
     )
     for (tree in listOf(expression, expression.compile(ExpressionContext.None))) {
@@ -58,7 +58,7 @@ class SemiliteralTest {
         override val dpScale = const(0.25f)
       }
     assertEquals(
-      """["let","semiliteral_value",["semiliteral",["top",["literal",[1,-2]],"top",["literal",[3,-6]],"left",["literal",[1,-2]]]],["var","semiliteral_value"]]""",
+      """["semiliteral",["top",["literal",[1,-2]],"top",["literal",[3,-6]],"left",["literal",[1,-2]]]]""",
       styleJson(
         textVariableAnchorOffset(
           SymbolAnchor.Top to textOffset(2.sp, (-4).sp),
