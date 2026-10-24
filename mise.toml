@@ -1,7 +1,7 @@
 # https://mise.jdx.dev
 
 monorepo_root = true
-min_version = "2026.10.12"
+min_version = "2026.10.18"
 
 [settings]
 lockfile = true
@@ -71,9 +71,11 @@ zig_version = "0.17.0"
 # Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
 
-# Upstream ships Windows as an MSI only, which this backend cannot unpack, and
-# nothing formats Swift on Windows anyway.
-swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = [
+# Registry short name already uses github:nicklockwood/SwiftFormat. The github
+# backend rejects a redundant `backend` option (mise 2026.10.18). Upstream ships
+# Windows as an MSI only, which this backend cannot unpack, and nothing formats
+# Swift on Windows anyway.
+swiftformat = { version = "{{vars.swiftformat_version}}", no_app = true, rename_exe = "swiftformat", os = [
   "macos",
   "linux",
 ] }
