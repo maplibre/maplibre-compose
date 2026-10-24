@@ -53,8 +53,8 @@
   "plugins": [
     "https://plugins.dprint.dev/exec-0.8.0.json@1f2dfbf5dec6d2e590b2c8b0ba6dbfaf80d0320fa9bd4c3f4f29efb99cd2bd6f",
     "https://plugins.dprint.dev/json-0.25.2.wasm@811ca4c6f732bcd6f707bc2f42d42395bb4127cdf829960cf628a18fc149777e",
-    "https://plugins.dprint.dev/ruff-0.11.1.wasm@aeacfccd161ad431a9ad468cae36c01d3abd9d04a4c3c56e0cca07ec9daed703",
-    "https://plugins.dprint.dev/markdown-0.26.0.wasm@5cebd0459bf1aa13fb027331720158d03e2a897b1d9f7b3bf93cac661ca4ddbd",
+    "https://plugins.dprint.dev/ruff-0.11.2.wasm@451da30c12783e8cd562e1341c8591a72cacaefafc184ded1e170c0707234f3b",
+    "https://plugins.dprint.dev/markdown-0.28.0.wasm@96182f4bf9f91befb599b93183e873bd50782fad27cfd1b8b8851831aa3c0ff4",
     "https://plugins.dprint.dev/toml-0.9.0.wasm@776e088ed4255a51a80e3640e5fd20b15661147e86df3e99611aaa37e9c59852",
     "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm@40a2fdda7040317eb1b23520f3a00769a5571eedb049c4ca9175c1b9eeba01ae",
     "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.6.wasm@93dd0c870b60431ceea59f055792fee4a353868223c813d3a44414b31d1df602",
