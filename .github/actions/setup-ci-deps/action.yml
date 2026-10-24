@@ -191,8 +191,8 @@ runs:
         restore-keys: |
           pkg-v1-${{ runner.os }}-${{ runner.arch }}-
 
-    # A cold run costs minutes: one ktfmt JVM per Kotlin file. A stale entry is
-    # safe, since dprint keys each result by file content and plugin config.
+    # Incremental cache. A stale entry is safe, since dprint keys each result
+    # by file content and plugin config.
     - name: Cache dprint results
       if: ${{ inputs.dprint-cache == 'true' }}
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
