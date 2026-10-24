@@ -32,6 +32,7 @@ class HeadingProviderTest {
       .toList()
 
     assertEquals(listOf(0L to update(1.0), 1_000L to unavailable, 10_000L to update(3.0)), events)
+    assertEquals(10_000L, currentTime)
   }
 
   private fun update(degrees: Double) =

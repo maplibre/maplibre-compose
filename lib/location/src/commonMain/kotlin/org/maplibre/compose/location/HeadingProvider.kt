@@ -143,4 +143,5 @@ public fun Flow<HeadingEvent>.throttleUpdates(minimumInterval: Duration): Flow<H
         send(event)
         if (event is HeadingEvent.Update) cooldown = launch { delay(minimumInterval) }
       }
+      cooldown?.cancel()
     }
