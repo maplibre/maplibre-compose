@@ -1210,8 +1210,8 @@ public abstract interface class org/maplibre/compose/expressions/value/VectorVal
 
 public final class org/maplibre/compose/interaction/BearingHapticsBuilder {
 	public static final field $stable I
-	public final fun notch (Lorg/maplibre/compose/interaction/BearingTargets;Lorg/maplibre/compose/interaction/HapticEmphasis;)V
-	public static synthetic fun notch$default (Lorg/maplibre/compose/interaction/BearingHapticsBuilder;Lorg/maplibre/compose/interaction/BearingTargets;Lorg/maplibre/compose/interaction/HapticEmphasis;ILjava/lang/Object;)V
+	public final fun notch-zg-ukT8 (Lorg/maplibre/compose/interaction/BearingTargets;I)V
+	public static synthetic fun notch-zg-ukT8$default (Lorg/maplibre/compose/interaction/BearingHapticsBuilder;Lorg/maplibre/compose/interaction/BearingTargets;IILjava/lang/Object;)V
 }
 
 public final class org/maplibre/compose/interaction/BearingSnappingBuilder {
@@ -1475,15 +1475,6 @@ public final class org/maplibre/compose/interaction/GestureAnchor : java/lang/En
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/interaction/GestureAnchor;
 	public static fun values ()[Lorg/maplibre/compose/interaction/GestureAnchor;
-}
-
-public final class org/maplibre/compose/interaction/HapticEmphasis : java/lang/Enum {
-	public static final field Emphasized Lorg/maplibre/compose/interaction/HapticEmphasis;
-	public static final field Standard Lorg/maplibre/compose/interaction/HapticEmphasis;
-	public static final field Subtle Lorg/maplibre/compose/interaction/HapticEmphasis;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/maplibre/compose/interaction/HapticEmphasis;
-	public static fun values ()[Lorg/maplibre/compose/interaction/HapticEmphasis;
 }
 
 public abstract interface class org/maplibre/compose/interaction/InputAction {

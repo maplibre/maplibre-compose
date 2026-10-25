@@ -1,5 +1,6 @@
 package org.maplibre.compose.camera.internal
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -8,7 +9,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.BearingSnapping
-import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.internal.BearingHapticDetector
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
@@ -163,10 +163,10 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private val startedComponents = mutableSetOf<CameraComponent>()
     private var rotated = false
     private var hapticDetector: BearingHapticDetector? = null
-    private var onHaptic: ((HapticEmphasis) -> Unit)? = null
+    private var onHaptic: ((HapticFeedbackType) -> Unit)? = null
     private val hapticClock = TimeSource.Monotonic.markNow()
 
-    fun setHapticFeedback(callback: (HapticEmphasis) -> Unit) {
+    fun setHapticFeedback(callback: (HapticFeedbackType) -> Unit) {
       onHaptic = callback
     }
 

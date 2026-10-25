@@ -14,6 +14,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
@@ -33,7 +34,6 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
-import org.maplibre.compose.interaction.HapticEmphasis
 
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
@@ -162,7 +162,7 @@ private fun Modifier.pointerGestures(
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   scrollConverter: ScrollConverter,
-  onHaptic: (HapticEmphasis) -> Unit,
+  onHaptic: (HapticFeedbackType) -> Unit,
 ): Modifier =
   mapPointerInput(target, options.settings, density, scrollConverter, onHaptic) {
     val scope = CoroutineScope(currentCoroutineContext())

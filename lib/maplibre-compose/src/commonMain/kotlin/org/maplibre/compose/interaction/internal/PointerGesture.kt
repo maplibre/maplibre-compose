@@ -2,6 +2,7 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -19,7 +20,6 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.CameraAction
-import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.InputAction
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.UnspecifiedAction
@@ -43,7 +43,7 @@ internal class PointerGesture(
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
   private val onRecognizedGesture: () -> Unit,
-  private val onHaptic: ((HapticEmphasis) -> Unit)? = null,
+  private val onHaptic: ((HapticFeedbackType) -> Unit)? = null,
 ) {
   private val drags =
     DragContext(

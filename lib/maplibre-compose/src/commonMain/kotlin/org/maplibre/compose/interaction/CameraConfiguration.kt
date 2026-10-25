@@ -1,5 +1,7 @@
 package org.maplibre.compose.interaction
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.CameraSettings
@@ -152,10 +154,9 @@ internal constructor(
   }
 
   /**
-   * Replaces the default standard-emphasis north notch; an empty block disables feedback. Runs
-   * during pointer rotation, not momentum, settlement, keys, or programmatic camera changes. iOS,
-   * Android, and macOS use platform feedback subject to hardware and system settings. Other
-   * platforms are silent.
+   * Replaces the default [HapticFeedbackType.SegmentTick] north notch; an empty block disables
+   * feedback. Runs during pointer rotation, not momentum, settlement, keys, or programmatic camera
+   * changes. Uses [LocalHapticFeedback], except macOS, which plays the trackpad alignment pattern.
    */
   public fun haptics(block: BearingHapticsBuilder.() -> Unit) {
     haptics = BearingHapticsBuilder().apply(block).build()
