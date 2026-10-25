@@ -5,7 +5,7 @@ import platform.AppKit.NSHapticFeedbackManager
 import platform.AppKit.NSHapticFeedbackPatternAlignment
 import platform.AppKit.NSHapticFeedbackPerformanceTimeNow
 
-internal actual val PlatformBearingHaptics: ((HapticFeedbackType) -> Unit)? = {
+internal actual val HapticFeedbackOverride: ((HapticFeedbackType) -> Unit)? = {
   NSHapticFeedbackManager.defaultPerformer.performFeedbackPattern(
     NSHapticFeedbackPatternAlignment,
     NSHapticFeedbackPerformanceTimeNow,

@@ -3,7 +3,7 @@ package org.maplibre.compose.interaction.internal
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 
-internal actual val PlatformBearingHaptics: ((HapticFeedbackType) -> Unit)? =
+internal actual val HapticFeedbackOverride: ((HapticFeedbackType) -> Unit)? =
   if (System.getProperty("os.name").orEmpty().startsWith("Mac", ignoreCase = true)) {
     { _ -> performMacosBearingHaptic() }
   } else {

@@ -9,8 +9,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 @Composable
 internal fun rememberBearingHapticFeedback(): (HapticFeedbackType) -> Unit {
   val feedback = LocalHapticFeedback.current
-  return remember(feedback) { PlatformBearingHaptics ?: feedback::performHapticFeedback }
+  return remember(feedback) { HapticFeedbackOverride ?: feedback::performHapticFeedback }
 }
 
 /** Replaces [LocalHapticFeedback] where Compose provides no haptics; null elsewhere. */
-internal expect val PlatformBearingHaptics: ((HapticFeedbackType) -> Unit)?
+internal expect val HapticFeedbackOverride: ((HapticFeedbackType) -> Unit)?
