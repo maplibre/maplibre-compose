@@ -37,7 +37,10 @@ try {
   }
   const deadline = Date.now() + 30_000;
   while (inFlight > 0 || Date.now() - lastActivity < 500) {
-    assert.ok(Date.now() < deadline, `The network did not settle; ${inFlight} requests in flight.`);
+    assert.ok(
+      Date.now() < deadline,
+      `The network did not settle; ${inFlight} requests in flight.`,
+    );
     await page.waitForTimeout(100);
   }
   for (const request of resources) {
@@ -51,7 +54,11 @@ try {
       response.status() >= 200 && response.status() < 400,
       `${response.status()} ${request.url()}`,
     );
-    assert.equal(await response.finished(), null, `Incomplete resource: ${request.url()}`);
+    assert.equal(
+      await response.finished(),
+      null,
+      `Incomplete resource: ${request.url()}`,
+    );
   }
 } finally {
   await browser.close();

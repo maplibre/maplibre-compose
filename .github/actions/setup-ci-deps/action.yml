@@ -1,13 +1,18 @@
 name: Setup CI deps
-description: Install the mise-pinned toolchain and the Gradle caches every job builds against
+description:
+  Install the mise-pinned toolchain and the Gradle caches every job builds
+  against
 
 inputs:
   gradle:
-    description: Set up Gradle and its user-home cache; jobs that run no Gradle build leave this off
+    description:
+      Set up Gradle and its user-home cache; jobs that run no Gradle build leave
+      this off
     required: false
     default: "true"
   native-cache-scope:
-    description: Native target family whose compiled dependencies this job preserves
+    description:
+      Native target family whose compiled dependencies this job preserves
     default: distribution
   save-toolchains:
     description: >-
@@ -106,7 +111,10 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.konan
-        key: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-cache-scope }}-${{ hashFiles('gradle/libs.versions.toml') }}
+        key:
+          konan-v2-${{ runner.os }}-${{ runner.arch }}-${{
+          inputs.native-cache-scope }}-${{
+          hashFiles('gradle/libs.versions.toml') }}
         restore-keys: |
           konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-cache-scope }}-
 
@@ -169,7 +177,9 @@ runs:
         cache: false
 
     - name: Save toolchains
-      if: ${{ inputs.save-toolchains == 'true' && steps.toolchains.outputs.cache-hit != 'true' }}
+      if:
+        ${{ inputs.save-toolchains == 'true' &&
+        steps.toolchains.outputs.cache-hit != 'true' }}
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
@@ -180,14 +190,18 @@ runs:
     - name: Pin the pnpm store
       if: ${{ inputs.pnpm-cache == 'true' }}
       shell: bash
-      run: echo "npm_config_store_dir=$HOME/.ci-package-cache/pnpm" >> "$GITHUB_ENV"
+      run:
+        echo "npm_config_store_dir=$HOME/.ci-package-cache/pnpm" >>
+        "$GITHUB_ENV"
 
     - name: Cache package downloads
       if: ${{ inputs.pnpm-cache == 'true' }}
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.ci-package-cache
-        key: pkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+        key:
+          pkg-v1-${{ runner.os }}-${{ runner.arch }}-${{
+          hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
           pkg-v1-${{ runner.os }}-${{ runner.arch }}-
 
@@ -201,7 +215,9 @@ runs:
           ~/.cache/dprint
           ~/Library/Caches/dprint
           ~/AppData/Local/dprint
-        key: dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dprint.jsonc') }}-${{ github.sha }}
+        key:
+          dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{
+          hashFiles('dprint.jsonc') }}-${{ github.sha }}
         restore-keys: |
           dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dprint.jsonc') }}-
           dprint-v1-${{ runner.os }}-${{ runner.arch }}-

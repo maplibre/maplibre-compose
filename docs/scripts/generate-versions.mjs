@@ -6,9 +6,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 import { parse } from "smol-toml";
 
-const docsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const docsDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 const repoRoot = path.dirname(docsDir);
 const outputPath = path.join(docsDir, "src/generated/versions.json");
 

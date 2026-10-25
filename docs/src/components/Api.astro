@@ -35,7 +35,9 @@ if (name.includes("/")) {
 }
 
 function narrow(entries: Entry[]): Entry[] {
-  return moduleFilter ? entries.filter((e) => e.module === moduleFilter) : entries;
+  return moduleFilter
+    ? entries.filter((e) => e.module === moduleFilter)
+    : entries;
 }
 
 let display: string;
@@ -57,9 +59,7 @@ if (rest in packages) {
 }
 
 if (candidates.length !== 1) {
-  const found = candidates
-    .map((e) => `${e.module}/${e.pkg ?? ""}`)
-    .join(", ");
+  const found = candidates.map((e) => `${e.module}/${e.pkg ?? ""}`).join(", ");
   throw new Error(
     candidates.length === 0
       ? `<Api of="${name}"> matches nothing in the API reference`

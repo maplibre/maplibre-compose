@@ -16,20 +16,23 @@ export function definitions(thresholds: Index["thresholds"]) {
     complexFunctions:
       `Functions with cognitive complexity over ${thresholds.cognitiveComplexMethod}, ` +
       "which Detekt's CognitiveComplexMethod rule reports.",
-    longFunctions:
-      `Functions with more than ${thresholds.longMethod} lines of code, which Detekt's LongMethod rule reports.`,
+    longFunctions: `Functions with more than ${thresholds.longMethod} lines of code, which Detekt's LongMethod rule reports.`,
     cycle: "Packages that reach each other by following imports.",
     imports:
       "What this imports, by its import statements: packages for a package, modules for a module. " +
       "Only the selected code counts.",
-    importedBy: "The packages or modules in the selected code that import this one.",
+    importedBy:
+      "The packages or modules in the selected code that import this one.",
     instability:
       "Imports divided by imports plus importers. 0 means it is only imported; 1 means it only imports.",
   };
 }
 
 /** Marks [element] as a defined term. */
-export function define<T extends HTMLElement>(element: T, definition: string): T {
+export function define<T extends HTMLElement>(
+  element: T,
+  definition: string,
+): T {
   element.dataset.definition = definition;
   element.classList.add("metrics-term");
   if (element.tabIndex < 0) element.tabIndex = 0;
@@ -37,7 +40,10 @@ export function define<T extends HTMLElement>(element: T, definition: string): T
 }
 
 export function term(text: string, definition: string) {
-  return define(Object.assign(document.createElement("span"), { textContent: text }), definition);
+  return define(
+    Object.assign(document.createElement("span"), { textContent: text }),
+    definition,
+  );
 }
 
 /** Shows one shared tooltip for the defined terms under [root]. */
@@ -59,7 +65,10 @@ export function installTooltips(root: HTMLElement) {
     target.setAttribute("aria-describedby", tip.id);
     const box = target.getBoundingClientRect();
     const width = tip.offsetWidth;
-    const left = Math.min(Math.max(8, box.left), document.documentElement.clientWidth - width - 8);
+    const left = Math.min(
+      Math.max(8, box.left),
+      document.documentElement.clientWidth - width - 8,
+    );
     tip.style.left = `${left + scrollX}px`;
     tip.style.top = `${box.bottom + scrollY + 6}px`;
   };
@@ -69,7 +78,9 @@ export function installTooltips(root: HTMLElement) {
     tip.hidden = true;
   };
   const termOf = (target: EventTarget | null) =>
-    target instanceof Element ? target.closest<HTMLElement>("[data-definition]") : null;
+    target instanceof Element
+      ? target.closest<HTMLElement>("[data-definition]")
+      : null;
 
   root.addEventListener("pointerover", (event) => {
     const target = termOf(event.target);
@@ -77,7 +88,11 @@ export function installTooltips(root: HTMLElement) {
   });
   root.addEventListener("pointerout", (event) => {
     // A tooltip opened by keyboard focus stays until focus moves.
-    if (current && current !== document.activeElement && !current.contains(event.relatedTarget as Node | null))
+    if (
+      current &&
+      current !== document.activeElement &&
+      !current.contains(event.relatedTarget as Node | null)
+    )
       hide();
   });
   root.addEventListener("focusin", (event) => {

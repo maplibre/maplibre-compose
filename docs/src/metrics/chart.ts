@@ -40,7 +40,8 @@ function svg<K extends keyof SVGElementTagNameMap>(
   text?: string,
 ) {
   const element = document.createElementNS(svgNs, tag);
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value));
+  for (const [name, value] of Object.entries(attributes))
+    element.setAttribute(name, String(value));
   if (text !== undefined) element.textContent = text;
   return element;
 }
@@ -50,11 +51,15 @@ function niceStep(range: number, integer: boolean) {
   if (range <= 0) return 1;
   const rough = range / 3;
   const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough)!;
+  const step = [1, 2, 2.5, 5, 10]
+    .map((m) => m * magnitude)
+    .find((s) => s >= rough)!;
   return integer ? Math.max(step, 1) : step;
 }
 
-type Step = { days: number; months?: undefined } | { months: number; days?: undefined };
+type Step =
+  | { days: number; months?: undefined }
+  | { months: number; days?: undefined };
 
 /** Every [step] boundary from [start] to [end]: midnights, Mondays, or the first of a month. */
 function boundaries(start: number, end: number, step: Step) {
@@ -69,7 +74,9 @@ function boundaries(start: number, end: number, step: Step) {
     date.setUTCDate(date.getUTCDate() + ((8 - date.getUTCDay()) % 7 || 7));
   } else {
     date.setUTCDate(1);
-    date.setUTCMonth(Math.ceil((date.getUTCMonth() + 1) / step.months!) * step.months!);
+    date.setUTCMonth(
+      Math.ceil((date.getUTCMonth() + 1) / step.months!) * step.months!,
+    );
   }
   while (date.getTime() <= end) {
     const label = date.toLocaleDateString("en", {
@@ -89,7 +96,15 @@ function boundaries(start: number, end: number, step: Step) {
 
 /** Evenly spaced boundaries, the finest that give at most [limit] ticks. */
 function dateTicks(start: number, end: number, limit: number) {
-  const steps: Step[] = [{ days: 1 }, { days: 7 }, { days: 14 }, { months: 1 }, { months: 3 }, { months: 6 }, { months: 12 }];
+  const steps: Step[] = [
+    { days: 1 },
+    { days: 7 },
+    { days: 14 },
+    { months: 1 },
+    { months: 3 },
+    { months: 6 },
+    { months: 12 },
+  ];
   for (const step of steps) {
     const ticks = boundaries(start, end, step);
     if (ticks.length <= limit) return ticks;
@@ -102,8 +117,18 @@ function dateTicks(start: number, end: number, limit: number) {
  * commits crowd dates in quiet periods and spread them in busy ones, so each period gets the
  * finest labels that fit.
  */
-function adaptiveTicks(start: number, end: number, x: (time: number) => number, gap: number) {
-  const steps: Step[] = [{ months: 12 }, { months: 1 }, { days: 7 }, { days: 1 }];
+function adaptiveTicks(
+  start: number,
+  end: number,
+  x: (time: number) => number,
+  gap: number,
+) {
+  const steps: Step[] = [
+    { months: 12 },
+    { months: 1 },
+    { days: 7 },
+    { days: 1 },
+  ];
   const placed: { x: number; label: string }[] = [];
   const seen = new Set<number>();
   for (const step of steps) {
@@ -111,7 +136,8 @@ function adaptiveTicks(start: number, end: number, x: (time: number) => number, 
       if (seen.has(tick.time)) continue;
       seen.add(tick.time);
       const at = x(tick.time);
-      if (placed.every((p) => Math.abs(p.x - at) >= gap)) placed.push({ x: at, label: tick.label });
+      if (placed.every((p) => Math.abs(p.x - at) >= gap))
+        placed.push({ x: at, label: tick.label });
     }
   }
   return placed;
@@ -163,7 +189,14 @@ export class TrendChart {
       swatch.className = `metrics-swatch metrics-series-${i + 1}`;
       const value = document.createElement("strong");
       this.values.push(value);
-      item.append(swatch, series.definition ? term(series.label, series.definition) : series.label, " ", value);
+      item.append(
+        swatch,
+        series.definition
+          ? term(series.label, series.definition)
+          : series.label,
+        " ",
+        value,
+      );
       legend.append(item);
     });
 
@@ -172,7 +205,8 @@ export class TrendChart {
     this.plot.setAttribute("tabindex", "0");
     this.plot.setAttribute("role", "img");
     this.plot.setAttribute("aria-label", `${spec.title} over time`);
-    const offset = (event: PointerEvent) => event.clientX - this.plot.getBoundingClientRect().left;
+    const offset = (event: PointerEvent) =>
+      event.clientX - this.plot.getBoundingClientRect().left;
     this.plot.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       this.drag = { pointer: event.pointerId, x: offset(event), moved: false };
@@ -193,7 +227,8 @@ export class TrendChart {
       this.endDrag();
       const [from, to] = [this.nearest(drag.x), this.nearest(offset(event))];
       if (!drag.moved) this.timeline.select(to);
-      else if (from !== to) this.timeline.zoom(Math.min(from, to), Math.max(from, to));
+      else if (from !== to)
+        this.timeline.zoom(Math.min(from, to), Math.max(from, to));
     });
     this.plot.addEventListener("pointercancel", () => this.endDrag());
     this.plot.addEventListener("pointerleave", () => this.timeline.hover(null));
@@ -289,25 +324,37 @@ export class TrendChart {
     const bottom = height - margin.bottom;
     const position = (i: number) => (spacing === "dates" ? times[i] : i);
     const [start, end] = [position(first), position(last)];
-    const scale = (p: number) => margin.left + ((p - start) / (end - start || 1)) * (right - margin.left);
+    const scale = (p: number) =>
+      margin.left + ((p - start) / (end - start || 1)) * (right - margin.left);
     this.x = (i) => scale(position(i));
 
     // The axis spans the visible values rather than starting at zero, so a change of a few hundred
     // lines in 60,000 still shows.
     const integer = this.spec.integer ?? true;
-    const visible = [...this.columns, ...this.bands.flatMap((band) => band ?? [])]
+    const visible = [
+      ...this.columns,
+      ...this.bands.flatMap((band) => band ?? []),
+    ]
       .flatMap((column) => column.slice(first, last + 1))
       .filter((v): v is number => v != null);
-    const [min, max] = visible.length ? [Math.min(...visible), Math.max(...visible)] : [0, 0];
+    const [min, max] = visible.length
+      ? [Math.min(...visible), Math.max(...visible)]
+      : [0, 0];
     const step = niceStep(max - min || Math.abs(max), integer);
     // A flat line sits mid-axis, except at zero, which stays the baseline.
     const flat = min === max && min > 0;
     const floor = Math.floor(min / step + 1e-9) * step;
     const low = flat ? Math.max(0, floor - step) : floor;
-    const high = Math.max(low + (flat ? 2 : 1) * step, Math.ceil(max / step - 1e-9) * step);
+    const high = Math.max(
+      low + (flat ? 2 : 1) * step,
+      Math.ceil(max / step - 1e-9) * step,
+    );
     // As many decimals as the step has, so 0.25 labels as 0.25 rather than 0.3.
     const decimals = integer ? 0 : (step.toString().split(".")[1] ?? "").length;
-    const axisLabel = (v: number) => (integer ? formatCompact(v) : v.toLocaleString("en", { maximumFractionDigits: decimals }));
+    const axisLabel = (v: number) =>
+      integer
+        ? formatCompact(v)
+        : v.toLocaleString("en", { maximumFractionDigits: decimals });
     this.y = (v) => bottom - ((v - low) / (high - low)) * (bottom - margin.top);
 
     const plot = this.plot;
@@ -317,9 +364,27 @@ export class TrendChart {
 
     for (let i = 0; low + i * step <= high + 1e-9; i++) {
       const v = low + i * step;
-      plot.append(svg("line", { class: "metrics-grid", x1: margin.left, x2: right, y1: this.y(v), y2: this.y(v) }));
       plot.append(
-        svg("text", { class: "metrics-axis", x: margin.left - 6, y: this.y(v), "text-anchor": "end", "dominant-baseline": "middle" }, axisLabel(v)),
+        svg("line", {
+          class: "metrics-grid",
+          x1: margin.left,
+          x2: right,
+          y1: this.y(v),
+          y2: this.y(v),
+        }),
+      );
+      plot.append(
+        svg(
+          "text",
+          {
+            class: "metrics-axis",
+            x: margin.left - 6,
+            y: this.y(v),
+            "text-anchor": "end",
+            "dominant-baseline": "middle",
+          },
+          axisLabel(v),
+        ),
       );
     }
 
@@ -327,19 +392,58 @@ export class TrendChart {
     // the first commit on or after it.
     const ticks =
       spacing === "dates"
-        ? dateTicks(start, end, Math.max(2, Math.floor((right - margin.left) / 80))).map((t) => ({ x: scale(t.time), label: t.label }))
-        : adaptiveTicks(times[first], times[last], this.commitAt(first, last), 56);
+        ? dateTicks(
+            start,
+            end,
+            Math.max(2, Math.floor((right - margin.left) / 80)),
+          ).map((t) => ({ x: scale(t.time), label: t.label }))
+        : adaptiveTicks(
+            times[first],
+            times[last],
+            this.commitAt(first, last),
+            56,
+          );
     for (const tick of ticks) {
-      plot.append(svg("text", { class: "metrics-axis", x: tick.x, y: height - 6, "text-anchor": "middle" }, tick.label));
+      plot.append(
+        svg(
+          "text",
+          {
+            class: "metrics-axis",
+            x: tick.x,
+            y: height - 6,
+            "text-anchor": "middle",
+          },
+          tick.label,
+        ),
+      );
     }
     let lastLabel = -Infinity;
     for (const release of releases) {
       if (release.index < first || release.index > last) continue;
       const x = this.x(release.index);
-      plot.append(svg("line", { class: "metrics-release", x1: x, x2: x, y1: margin.top - 4, y2: bottom }));
+      plot.append(
+        svg("line", {
+          class: "metrics-release",
+          x1: x,
+          x2: x,
+          y1: margin.top - 4,
+          y2: bottom,
+        }),
+      );
       if (x - lastLabel < 44) continue;
       lastLabel = x;
-      plot.append(svg("text", { class: "metrics-axis", x, y: margin.top - 8, "text-anchor": "middle" }, release.label));
+      plot.append(
+        svg(
+          "text",
+          {
+            class: "metrics-axis",
+            x,
+            y: margin.top - 8,
+            "text-anchor": "middle",
+          },
+          release.label,
+        ),
+      );
     }
 
     // Bands connect consecutive ranges; isolated ranges keep a visible width.
@@ -355,20 +459,28 @@ export class TrendChart {
       for (const xs of runs) {
         const tail = xs.at(-1)!;
         if (xs.length === 1) {
-          plot.append(svg("rect", {
-            class: `metrics-band metrics-series-${i + 1}`,
-            x: this.x(tail) - 4,
-            y: this.y(high[tail]!),
-            width: 8,
-            height: this.y(low[tail]!) - this.y(high[tail]!),
-          }));
+          plot.append(
+            svg("rect", {
+              class: `metrics-band metrics-series-${i + 1}`,
+              x: this.x(tail) - 4,
+              y: this.y(high[tail]!),
+              width: 8,
+              height: this.y(low[tail]!) - this.y(high[tail]!),
+            }),
+          );
           continue;
         }
         let d = `M${this.x(xs[0])} ${this.y(high[xs[0]]!)}`;
         for (const j of xs.slice(1)) d += `L${this.x(j)} ${this.y(high[j]!)}`;
         d += `L${this.x(tail)} ${this.y(low[tail]!)}`;
-        for (let k = xs.length - 2; k >= 0; k--) d += `L${this.x(xs[k])} ${this.y(low[xs[k]]!)}`;
-        plot.append(svg("path", { class: `metrics-band metrics-series-${i + 1}`, d: `${d}Z` }));
+        for (let k = xs.length - 2; k >= 0; k--)
+          d += `L${this.x(xs[k])} ${this.y(low[xs[k]]!)}`;
+        plot.append(
+          svg("path", {
+            class: `metrics-band metrics-series-${i + 1}`,
+            d: `${d}Z`,
+          }),
+        );
       }
     });
     this.columns.forEach((column, i) => {
@@ -381,12 +493,24 @@ export class TrendChart {
           continue;
         }
         const [x, y] = [this.x(j), this.y(value)];
-        if ((j === first || column[j - 1] == null) && (j === last || column[j + 1] == null))
-          plot.append(svg("circle", { class: `metrics-dot metrics-series-${i + 1}`, cx: x, cy: y, r: 4 }));
+        if (
+          (j === first || column[j - 1] == null) &&
+          (j === last || column[j + 1] == null)
+        )
+          plot.append(
+            svg("circle", {
+              class: `metrics-dot metrics-series-${i + 1}`,
+              cx: x,
+              cy: y,
+              r: 4,
+            }),
+          );
         d += open ? `L${x} ${y}` : `M${x} ${y}`;
         open = true;
       }
-      plot.append(svg("path", { class: `metrics-line metrics-series-${i + 1}`, d }));
+      plot.append(
+        svg("path", { class: `metrics-line metrics-series-${i + 1}`, d }),
+      );
     });
     plot.append(this.cursor);
     this.drawCursor();
@@ -394,28 +518,50 @@ export class TrendChart {
 
   private drawCursor() {
     const index = this.hovered ?? this.selected;
-    this.columns.forEach((column, i) => (this.values[i].textContent = this.format(column[index])));
+    this.columns.forEach(
+      (column, i) => (this.values[i].textContent = this.format(column[index])),
+    );
     if (!this.width) return;
     const { commits } = this.timeline;
     const [first, last] = this.timeline.window;
     const shown = (i: number) => i >= first && i <= last;
     const x = this.x(index);
     const line = (at: number, className: string) =>
-      svg("line", { class: className, x1: at, x2: at, y1: margin.top - 4, y2: height - margin.bottom });
+      svg("line", {
+        class: className,
+        x1: at,
+        x2: at,
+        y1: margin.top - 4,
+        y2: height - margin.bottom,
+      });
     this.cursor.replaceChildren();
-    if (this.hovered != null && this.hovered !== this.selected && shown(this.selected))
+    if (
+      this.hovered != null &&
+      this.hovered !== this.selected &&
+      shown(this.selected)
+    )
       this.cursor.append(line(this.x(this.selected), "metrics-selected"));
     if (shown(index)) {
-      this.cursor.append(line(x, this.hovered == null ? "metrics-selected" : "metrics-hover"));
+      this.cursor.append(
+        line(x, this.hovered == null ? "metrics-selected" : "metrics-hover"),
+      );
       this.columns.forEach((column, i) => {
         const value = column[index];
         if (value != null)
-          this.cursor.append(svg("circle", { class: `metrics-dot metrics-series-${i + 1}`, cx: x, cy: this.y(value), r: 4 }));
+          this.cursor.append(
+            svg("circle", {
+              class: `metrics-dot metrics-series-${i + 1}`,
+              cx: x,
+              cy: this.y(value),
+              r: 4,
+            }),
+          );
       });
     }
 
     const commit = commits[index];
-    this.tooltip.hidden = this.hovered == null || !this.element.matches(":hover");
+    this.tooltip.hidden =
+      this.hovered == null || !this.element.matches(":hover");
     if (!this.tooltip.hidden) {
       this.tooltip.replaceChildren();
       const heading = document.createElement("div");

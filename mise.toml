@@ -544,9 +544,7 @@ run = "npx -y actions-up"
 [deps.benchmarks]
 auto = false
 sources = ["benchmarks/prepare_fixtures.py", "benchmarks/fixtures/*"]
-outputs = [
-  "benchmarks/build/fixtures/benchmarks/.prepared",
-]
+outputs = ["benchmarks/build/fixtures/benchmarks/.prepared"]
 run = "python benchmarks/prepare_fixtures.py"
 
 [tasks."deps:benchmarks"]

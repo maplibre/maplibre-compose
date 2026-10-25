@@ -1,6 +1,8 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+
 import DashboardBar from "../components/DashboardBar.astro";
+
 import "../styles/metrics.css";
 
 // Set by mise to the published data, or to a local copy by `mise run metrics:dev`.
@@ -55,6 +57,6 @@ const source =
 
   <script>
   import { start } from "../metrics/dashboard";
-    start();
+start();
   </script>
 </StarlightPage>

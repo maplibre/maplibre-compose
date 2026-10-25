@@ -1,6 +1,7 @@
 name: Setup desktop graphics
 description: >-
-  Give Linux and Windows runners software Vulkan and OpenGL drivers for the production bridges.
+  Give Linux and Windows runners software Vulkan and OpenGL drivers for the
+  production bridges.
 
 # Linux presents Lavapipe output through Mesa OpenGL. Windows uses dzn so Vulkan can import the
 # D3D12 resource created by Skiko. Windows OpenGL uses Mesa D3D12 over WARP.

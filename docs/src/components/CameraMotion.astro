@@ -34,14 +34,19 @@ class CameraMotion extends HTMLElement {
       return;
     }
     if (this.visible && !this.animations.length) {
-      for (const element of this.querySelectorAll<HTMLElement | SVGElement>("[data-camera-frames]")) {
+      for (const element of this.querySelectorAll<HTMLElement | SVGElement>(
+        "[data-camera-frames]",
+      )) {
         const frames = JSON.parse(element.dataset.cameraFrames!) as Keyframe[];
-        this.animations.push(element.animate(frames, {
-          duration: Number(this.dataset.duration),
-          easing: this.dataset.direction === "normal" ? "linear" : "ease-in-out",
-          iterations: Infinity,
-          direction: this.dataset.direction as PlaybackDirection,
-        }));
+        this.animations.push(
+          element.animate(frames, {
+            duration: Number(this.dataset.duration),
+            easing:
+              this.dataset.direction === "normal" ? "linear" : "ease-in-out",
+            iterations: Infinity,
+            direction: this.dataset.direction as PlaybackDirection,
+          }),
+        );
       }
     }
     for (const animation of this.animations) {
@@ -57,12 +62,16 @@ class CameraMotion extends HTMLElement {
 
   connectedCallback() {
     this.reducedMotion.addEventListener("change", this.updateMotion);
-    this.observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        this.visible = entry.isIntersecting && entry.intersectionRatio >= 0.25;
-        this.updateMotion();
-      }
-    }, { threshold: 0.25 });
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          this.visible =
+            entry.isIntersecting && entry.intersectionRatio >= 0.25;
+          this.updateMotion();
+        }
+      },
+      { threshold: 0.25 },
+    );
     this.observer.observe(this);
   }
 

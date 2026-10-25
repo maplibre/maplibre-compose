@@ -1,6 +1,9 @@
 ---
 name: style-spec-parity
-description: Keep the style API in line with the MapLibre style spec on both engines. Use when adding layer or source properties or types, or when an engine bump changes what each engine supports.
+description:
+  Keep the style API in line with the MapLibre style spec on both engines. Use
+  when adding layer or source properties or types, or when an engine bump
+  changes what each engine supports.
 ---
 
 # Style spec parity

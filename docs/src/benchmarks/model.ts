@@ -37,7 +37,10 @@ export function formatValue(value: number | null | undefined) {
   if (value == null) return "–";
   const magnitude = Math.abs(value);
   const digits = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
-  return value.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return value.toLocaleString("en", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 export function formatPercent(value: number) {

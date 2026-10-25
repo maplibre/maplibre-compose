@@ -5,7 +5,8 @@ interface Props {
 }
 const { action, guide } = Astro.props;
 const swipe = action === "pan" || action === "zoom";
-const modifier = action === "boxZoom" ? "Shift" : action === "orbit" ? "Ctrl" : undefined;
+const modifier =
+  action === "boxZoom" ? "Shift" : action === "orbit" ? "Ctrl" : undefined;
 ---
 
 <g>

@@ -16,8 +16,8 @@ const rho = 1.42;
 const rho2 = rho * rho;
 const span = 320;
 const distance = 480;
-const r0 = -Math.asinh(rho2 * distance / (2 * span));
-const flightLength = -2 * r0 / rho;
+const r0 = -Math.asinh((rho2 * distance) / (2 * span));
+const flightLength = (-2 * r0) / rho;
 function cameraView(progress: number) {
   if (motion === "anchor") {
     const scale = 4 ** progress;
@@ -28,23 +28,30 @@ function cameraView(progress: number) {
   if (motion === "fly") {
     const path = r0 + rho * progress * flightLength;
     const visibleSpan = Math.cosh(r0) / Math.cosh(path);
-    const fraction = span * (Math.cosh(r0) * Math.tanh(path) - Math.sinh(r0)) / (rho2 * distance);
+    const fraction =
+      (span * (Math.cosh(r0) * Math.tanh(path) - Math.sinh(r0))) /
+      (rho2 * distance);
     scale = 3 / visibleSpan;
     center = 80 + 160 * fraction;
   }
   return { x: 160 - center * scale, y: 120 - 120 * scale, scale };
 }
 const view = cameraView({ start: 0, middle: 0.5, end: 1 }[frame]);
-const views = animated ? Array.from({ length: 61 }, (_, index) => cameraView(index / 60)) : [];
+const views = animated
+  ? Array.from({ length: 61 }, (_, index) => cameraView(index / 60))
+  : [];
 const n = (value: number) => Number(value.toFixed(5));
-const transform = (v: typeof view) => `translate(${n(v.x)}px, ${n(v.y)}px) scale(${n(v.scale)})`;
+const transform = (v: typeof view) =>
+  `translate(${n(v.x)}px, ${n(v.y)}px) scale(${n(v.scale)})`;
 const sceneFrames = views.map((v) => ({ transform: transform(v) }));
 const markerTransform = (v: typeof view, x: number) =>
   `translate(${n(v.x + x * v.scale)}px, ${n(v.y + 120 * v.scale)}px)`;
-const markerFrames = (x: number) => views.map((v) => ({ transform: markerTransform(v, x) }));
-const label = motion === "anchor"
-  ? "Zooming in around the mouse cursor, keeping the point beneath its tip at the same screen position."
-  : `${motion === "fly" ? "Fly zooms out, travels, and zooms back in" : "Ease pans without zooming out"}, from point A to point B.`;
+const markerFrames = (x: number) =>
+  views.map((v) => ({ transform: markerTransform(v, x) }));
+const label =
+  motion === "anchor"
+    ? "Zooming in around the mouse cursor, keeping the point beneath its tip at the same screen position."
+    : `${motion === "fly" ? "Fly zooms out, travels, and zooms back in" : "Ease pans without zooming out"}, from point A to point B.`;
 ---
 
 <MapDiagram label={label}>

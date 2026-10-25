@@ -117,7 +117,10 @@ export function sourceUrl(commit: string, path: string, line?: number) {
 
 const whole = new Intl.NumberFormat("en");
 // Enough digits that axis steps such as 57.5K don't round to their neighbors.
-const compact = new Intl.NumberFormat("en", { notation: "compact", maximumSignificantDigits: 4 });
+const compact = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumSignificantDigits: 4,
+});
 
 export function format(value: number | null | undefined) {
   return value == null ? "–" : whole.format(Math.round(value));

@@ -1,10 +1,10 @@
 ---
-import MapDiagram from "./MapDiagram.astro";
-import compass from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/compass_needle.xml?raw";
-import logo from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/maplibre_logo.xml?raw";
-import info from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/info.xml?raw";
 import add from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/add.xml?raw";
+import compass from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/compass_needle.xml?raw";
+import info from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/info.xml?raw";
+import logo from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/maplibre_logo.xml?raw";
 import remove from "../../../lib/maplibre-compose/src/commonMain/composeResources/drawable/remove.xml?raw";
+import MapDiagram from "./MapDiagram.astro";
 
 // Reuse the controls' vector artwork without loading Compose or a map engine.
 function paths(vector: string, tint?: string): string {
@@ -23,7 +23,8 @@ function paths(vector: string, tint?: string): string {
     .map(([path]) =>
       path.replace(/android:(\w+)="([^"]*)"/g, (_, name, value) => {
         if (name === "fillColor" && tint) value = tint;
-        if (name === "fillType") value = value === "evenOdd" ? "evenodd" : "nonzero";
+        if (name === "fillType")
+          value = value === "evenOdd" ? "evenodd" : "nonzero";
         return `${attributes[name]}="${value}"`;
       }),
     )
