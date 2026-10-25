@@ -100,14 +100,14 @@ To turn snapping off, set `enabled = false` in the `snapping` block.
 ## Change haptic feedback for rotation
 
 On Android, iOS, and macOS, the device gives haptic feedback when the user
-rotates the map past north. Use `haptics` to choose the bearings and how strong
-the feedback is. This map gives subtle feedback every 15°, standard feedback at
-east, south, and west, and emphasized feedback at north:
+rotates the map past north. Use `haptics` to choose the bearings and the feedback
+type. This map ticks at north, east, south, and west, and gives a frequent tick
+every 15°:
 
 <Code code={region(interaction, "bearing-haptics")} lang="kotlin" title="App.kt" />
 
 A `haptics` block replaces the default north notch. Where notches overlap, the
-strongest emphasis wins.
+first one added wins.
 
 ## Pass gestures from your own code
 

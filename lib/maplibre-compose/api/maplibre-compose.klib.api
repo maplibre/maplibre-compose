@@ -50,18 +50,6 @@ final enum class org.maplibre.compose.interaction/GestureAnchor : kotlin/Enum<or
     final fun values(): kotlin/Array<org.maplibre.compose.interaction/GestureAnchor> // org.maplibre.compose.interaction/GestureAnchor.values|values#static(){}[0]
 }
 
-final enum class org.maplibre.compose.interaction/HapticEmphasis : kotlin/Enum<org.maplibre.compose.interaction/HapticEmphasis> { // org.maplibre.compose.interaction/HapticEmphasis|null[0]
-    enum entry Emphasized // org.maplibre.compose.interaction/HapticEmphasis.Emphasized|null[0]
-    enum entry Standard // org.maplibre.compose.interaction/HapticEmphasis.Standard|null[0]
-    enum entry Subtle // org.maplibre.compose.interaction/HapticEmphasis.Subtle|null[0]
-
-    final val entries // org.maplibre.compose.interaction/HapticEmphasis.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<org.maplibre.compose.interaction/HapticEmphasis> // org.maplibre.compose.interaction/HapticEmphasis.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): org.maplibre.compose.interaction/HapticEmphasis // org.maplibre.compose.interaction/HapticEmphasis.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<org.maplibre.compose.interaction/HapticEmphasis> // org.maplibre.compose.interaction/HapticEmphasis.values|values#static(){}[0]
-}
-
 final enum class org.maplibre.compose.interaction/QuickZoomDirection : kotlin/Enum<org.maplibre.compose.interaction/QuickZoomDirection> { // org.maplibre.compose.interaction/QuickZoomDirection|null[0]
     enum entry DownZoomsIn // org.maplibre.compose.interaction/QuickZoomDirection.DownZoomsIn|null[0]
     enum entry UpZoomsIn // org.maplibre.compose.interaction/QuickZoomDirection.UpZoomsIn|null[0]
@@ -1268,7 +1256,7 @@ final class org.maplibre.compose.expressions.dsl/Interpolation { // org.maplibre
 }
 
 final class org.maplibre.compose.interaction/BearingHapticsBuilder { // org.maplibre.compose.interaction/BearingHapticsBuilder|null[0]
-    final fun notch(org.maplibre.compose.interaction/BearingTargets, org.maplibre.compose.interaction/HapticEmphasis = ...) // org.maplibre.compose.interaction/BearingHapticsBuilder.notch|notch(org.maplibre.compose.interaction.BearingTargets;org.maplibre.compose.interaction.HapticEmphasis){}[0]
+    final fun notch(org.maplibre.compose.interaction/BearingTargets, androidx.compose.ui.hapticfeedback/HapticFeedbackType = ...) // org.maplibre.compose.interaction/BearingHapticsBuilder.notch|notch(org.maplibre.compose.interaction.BearingTargets;androidx.compose.ui.hapticfeedback.HapticFeedbackType){}[0]
 }
 
 final class org.maplibre.compose.interaction/BearingSnappingBuilder { // org.maplibre.compose.interaction/BearingSnappingBuilder|null[0]

@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -16,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.HapticEmphasis
 
 /** A recognized input group and all its continuation work share this camera lifetime. */
 internal class GestureInputSession(
@@ -24,21 +24,21 @@ internal class GestureInputSession(
   private val target: CameraInputTarget,
   val token: CameraInputToken = target.onGestureStarted(),
   private val animationDuration: Duration = 300.milliseconds,
-  onHaptic: ((HapticEmphasis) -> Unit)? = null,
+  onHaptic: ((HapticFeedbackType) -> Unit)? = null,
   private val onCancelled: () -> Unit = {},
 ) {
   private val work = Job(parent.coroutineContext[Job])
   val scope = CoroutineScope(parent.coroutineContext + work)
   private var ending = false
-  private val feedback = onHaptic?.let { Channel<HapticEmphasis>(Channel.CONFLATED) }
+  private val feedback = onHaptic?.let { Channel<HapticFeedbackType>(Channel.CONFLATED) }
 
   init {
     token.registerJob(work)
     if (feedback != null && onHaptic != null) {
       token.setHapticFeedback { feedback.trySend(it) }
       scope.launch {
-        for (emphasis in feedback) {
-          if (token.acceptsCommands) onHaptic(emphasis)
+        for (type in feedback) {
+          if (token.acceptsCommands) onHaptic(type)
         }
       }
     }

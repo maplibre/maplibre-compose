@@ -1,5 +1,6 @@
 package org.maplibre.compose.camera
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -27,7 +28,6 @@ import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
@@ -54,13 +54,13 @@ class CameraInputTest {
         camera { rotate { haptics { notch(BearingTargets.at(0.0)) } } }
       }
       target.updateConfiguration(options)
-      val ticks = mutableListOf<HapticEmphasis>()
+      val ticks = mutableListOf<HapticFeedbackType>()
       val input = GestureInputSession(this, target, onHaptic = { ticks += it })
       runCurrent()
       target.observeInput()
       input.token.reportRotation(355.0, 5.0)
       runCurrent()
-      assertEquals(listOf(HapticEmphasis.Standard), ticks)
+      assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
       input.cancel()
       runCurrent()
 

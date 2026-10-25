@@ -1,22 +1,18 @@
 package org.maplibre.compose.interaction.internal
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import org.maplibre.compose.desktop.bridge.ObjectiveC
-import org.maplibre.compose.interaction.HapticEmphasis
 
-@Composable
-internal actual fun rememberBearingHapticFeedback(): (HapticEmphasis) -> Unit = remember {
+internal actual val HapticFeedbackOverride: ((HapticFeedbackType) -> Unit)? =
   if (System.getProperty("os.name").orEmpty().startsWith("Mac", ignoreCase = true)) {
-    { _: HapticEmphasis -> performMacosBearingHaptic() }
+    { _ -> performMacosBearingHaptic() }
   } else {
-    { _: HapticEmphasis -> }
+    null
   }
-}
 
 internal fun performMacosBearingHaptic() {
   ObjectiveC.runInAutoreleasePool {
-    // AppKit chooses the current device and honors preferences. All emphasis levels use alignment.
+    // AppKit chooses the current device and honors preferences. All types use alignment.
     val performer = ObjectiveC.sendClassPointer("NSHapticFeedbackManager", "defaultPerformer")
     ObjectiveC.sendVoid(performer, "performFeedbackPattern:performanceTime:", 1L, 1L)
   }

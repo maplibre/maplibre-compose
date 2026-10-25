@@ -1,6 +1,7 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -23,7 +24,6 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransit
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
-import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.style.BaseStyle
@@ -85,11 +85,11 @@ class CameraInputIntegrationTest {
           )
           fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 355.0))
           fixture.settle()
-          val ticks = mutableListOf<HapticEmphasis>()
+          val ticks = mutableListOf<HapticFeedbackType>()
           val input = GestureInputSession(this, fixture.gestures, onHaptic = { ticks += it })
           fixture.gestures.inputRotateAndPitchBy(10.0, 0.0, gestureToken = input.token)
           fixture.pumpUntil("a haptic crossing after applied rotation") { ticks.isNotEmpty() }
-          assertEquals(listOf(HapticEmphasis.Standard), ticks)
+          assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
           fixture.gestures.inputRotateAndPitchBy(
             -10.0,
             0.0,
@@ -100,7 +100,7 @@ class CameraInputIntegrationTest {
           fixture.awaitWhileRendering("silent momentum and settlement") {
             input.scope.coroutineContext[Job]!!.join()
           }
-          assertEquals(listOf(HapticEmphasis.Standard), ticks)
+          assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
           assertEquals(0.0, fixture.state.cameraPosition.bearing, 1e-6)
         }
       }

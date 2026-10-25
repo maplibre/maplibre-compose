@@ -3,12 +3,12 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
@@ -57,9 +57,8 @@ fun Interaction() {
         camera {
           rotate {
             haptics {
-              notch(BearingTargets.evenlySpaced(24), HapticEmphasis.Subtle)
-              notch(BearingTargets.evenlySpaced(4), HapticEmphasis.Standard)
-              notch(BearingTargets.at(0.0), HapticEmphasis.Emphasized)
+              notch(BearingTargets.evenlySpaced(4))
+              notch(BearingTargets.evenlySpaced(24), HapticFeedbackType.SegmentFrequentTick)
             }
           }
         }
