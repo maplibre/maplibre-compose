@@ -156,6 +156,7 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
       run("delete offline pack ${pack.regionId}") { runtime.deleteOfflineRegion(pack.regionId) }
       lock.withLock {
         packsById.remove(pack.regionId)
+        pack.progressState.value = DownloadProgress.Deleted
         publishPacks()
       }
     }

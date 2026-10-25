@@ -112,6 +112,8 @@ class MlnFfiOfflinePackTest {
     storage.delete(removed)
 
     assertEquals(setOf(kept), (storage.state.value as OfflineStorageState.Ready).packs)
+    // A caller waiting for the download to end must see that it never will.
+    assertEquals(DownloadProgress.Deleted, removed.downloadProgress.value)
   }
 
   /** A runtime can close its storage and a later runtime can reopen the same persistent cache. */
