@@ -28,7 +28,7 @@ accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.13.0"
 # 1.8.0-rc01 contains the security fix recommended by the Car App release notes.
-androidx-carApp = "1.8.0-rc01"
+androidx-carApp = "1.9.0-alpha03"
 androidx-testRunner = "1.7.0"
 bytesize = "2.4.0"
 dbusJava = "5.2.2"
@@ -89,7 +89,7 @@ gradle-kotlin = "2.4.21"
 # Complexity metrics for tools/code-metrics. Its kotlin-compiler dependency must
 # parse the same syntax the build compiles, so it is built against gradle-kotlin.
 detekt = "2.0.0-alpha.6"
-gradle-android = "9.3.1"
+gradle-android = "9.4.1"
 # Renders @Preview with the Android Studio renderer; tied to the AGP version.
 gradle-composeScreenshot = "0.0.1-alpha16"
 
