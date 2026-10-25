@@ -30,7 +30,8 @@ internal constructor(
   /**
    * The pack's current download progress.
    *
-   * A pack reads as [DownloadProgress.NotReported] until MapLibre reports its first status.
+   * A pack reads as [DownloadProgress.NotReported] until MapLibre reports its first status. After
+   * [org.maplibre.compose.map.MapRuntime.awaitClosed] returns, it does not change again.
    */
   public val downloadProgress: StateFlow<DownloadProgress> = progressState.asStateFlow()
 

@@ -4804,6 +4804,12 @@ sealed interface org.maplibre.compose.offline/DownloadProgress { // org.maplibre
         final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.TileLimitExceeded.toString|toString(){}[0]
     }
 
+    final object Deleted : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.Deleted|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.Deleted.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.Deleted.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.maplibre.compose.offline/DownloadProgress.Deleted.toString|toString(){}[0]
+    }
+
     final object NotReported : org.maplibre.compose.offline/DownloadProgress { // org.maplibre.compose.offline/DownloadProgress.NotReported|null[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.offline/DownloadProgress.NotReported.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.maplibre.compose.offline/DownloadProgress.NotReported.hashCode|hashCode(){}[0]
@@ -5119,6 +5125,9 @@ final val org.maplibre.compose.offline/offlineStorage // org.maplibre.compose.of
     final fun (org.maplibre.compose.map/MapRuntime).<get-offlineStorage>(): org.maplibre.compose.offline/OfflineStorage // org.maplibre.compose.offline/offlineStorage.<get-offlineStorage>|<get-offlineStorage>@org.maplibre.compose.map.MapRuntime(){}[0]
 
 // Targets: [apple]
+final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop[0]
+
+// Targets: [apple]
 final val org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop|#static{}org_maplibre_compose_offline_DownloadProgress_Error$stableprop[0]
 
 // Targets: [apple]
@@ -5222,6 +5231,9 @@ final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrame
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiMapFrameAcquisition_NotReady$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Deleted$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(): kotlin/Int // org.maplibre.compose.offline/org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter|org_maplibre_compose_offline_DownloadProgress_Error$stableprop_getter(){}[0]

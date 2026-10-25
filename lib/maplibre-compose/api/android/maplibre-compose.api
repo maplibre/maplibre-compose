@@ -3023,6 +3023,14 @@ public final class org/maplibre/compose/mlnffi/NativeHandle {
 public abstract interface class org/maplibre/compose/offline/DownloadProgress {
 }
 
+public final class org/maplibre/compose/offline/DownloadProgress$Deleted : org/maplibre/compose/offline/DownloadProgress {
+	public static final field $stable I
+	public static final field INSTANCE Lorg/maplibre/compose/offline/DownloadProgress$Deleted;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/maplibre/compose/offline/DownloadProgress$Error : org/maplibre/compose/offline/DownloadProgress {
 	public static final field $stable I
 	public final fun component1-Nn0UANU ()Ljava/lang/String;

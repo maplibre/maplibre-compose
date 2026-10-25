@@ -49,6 +49,9 @@ public sealed interface DownloadProgress {
    */
   public data class TileLimitExceeded internal constructor(public val limit: Long) :
     DownloadProgress
+
+  /** [OfflineStorage.delete] deleted the pack. Its progress does not change again. */
+  public data object Deleted : DownloadProgress
 }
 
 /**
