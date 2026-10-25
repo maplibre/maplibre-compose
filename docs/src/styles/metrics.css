@@ -19,7 +19,13 @@
 }
 
 .metrics
-  :is(.metrics-bar, .metrics-tiles, .metrics-charts, .metrics-hotspots, .metrics-table-scroll) {
+  :is(
+    .metrics-bar,
+    .metrics-tiles,
+    .metrics-charts,
+    .metrics-hotspots,
+    .metrics-table-scroll
+  ) {
   margin-top: 1.25rem;
 }
 

@@ -1,7 +1,8 @@
-import type { AstroIntegration } from "astro";
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+
+import type { AstroIntegration } from "astro";
 
 /**
  * Serves a directory URL under `public/` as that directory's `index.html`,

@@ -1,11 +1,12 @@
-import { publicDirectoryIndex } from "./src/integrations/public-directory-index";
-import { remarkVersions } from "./src/plugins/remark-versions.mjs";
 import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightCopyButton from "starlight-copy-button";
 import starlightKbd from "starlight-kbd";
 import starlightLinksValidator from "starlight-links-validator";
+
+import { publicDirectoryIndex } from "./src/integrations/public-directory-index";
+import { remarkVersions } from "./src/plugins/remark-versions.mjs";
 
 const base = "/maplibre-compose";
 

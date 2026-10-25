@@ -1,6 +1,8 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+
 import DashboardBar from "../components/DashboardBar.astro";
+
 import "../styles/metrics.css";
 import "../styles/benchmarks.css";
 
@@ -36,6 +38,6 @@ const source =
 
   <script>
   import { start } from "../benchmarks/dashboard";
-    start();
+start();
   </script>
 </StarlightPage>

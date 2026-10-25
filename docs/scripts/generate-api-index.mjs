@@ -17,9 +17,14 @@ const outFile = join(docsDir, "src", "generated", "api-index.json");
 // The scan decodes Dokka's html-v1 URL convention. A new format version means
 // the convention may have changed, so fail with the cause instead of building
 // a wrong index.
-const packageList = readFileSync(join(docsDir, "public", "api", "package-list"), "utf8");
+const packageList = readFileSync(
+  join(docsDir, "public", "api", "package-list"),
+  "utf8",
+);
 if (!packageList.includes("$dokka.format:html-v1")) {
-  throw new Error("Dokka output is not html-v1; update generate-api-index.mjs for the new format");
+  throw new Error(
+    "Dokka output is not html-v1; update generate-api-index.mjs for the new format",
+  );
 }
 
 /** Decodes Dokka's kebab-case: `-camera-state` -> `CameraState`. */
@@ -47,7 +52,10 @@ function scanSymbolDir(dir, urlBase, module, pkg, prefix) {
   addSymbol(prefix, { module, pkg, url: `${urlBase}/index.html` });
   for (const entry of entries(dir)) {
     if (entry.isDirectory()) {
-      const nested = entry.name === "-companion" ? prefix : `${prefix}.${decodeKebab(entry.name)}`;
+      const nested =
+        entry.name === "-companion"
+          ? prefix
+          : `${prefix}.${decodeKebab(entry.name)}`;
       const nestedUrl = `${urlBase}/${entry.name}`;
       if (entry.name === "-companion") {
         scanCompanionDir(join(dir, entry.name), nestedUrl, module, pkg, prefix);
@@ -57,7 +65,11 @@ function scanSymbolDir(dir, urlBase, module, pkg, prefix) {
     } else if (isMemberPage(entry.name)) {
       const member = decodeKebab(entry.name.replace(/\.html$/, ""));
       if (member !== prefix.split(".").at(-1)) {
-        addSymbol(`${prefix}.${member}`, { module, pkg, url: `${urlBase}/${entry.name}` });
+        addSymbol(`${prefix}.${member}`, {
+          module,
+          pkg,
+          url: `${urlBase}/${entry.name}`,
+        });
       }
     }
   }
@@ -86,7 +98,9 @@ function scanCompanionDir(dir, urlBase, module, pkg, prefix) {
 
 /** Platform-prefixed pages like `[maplibre-native]foo.html` duplicate a member. */
 function isMemberPage(name) {
-  return name.endsWith(".html") && name !== "index.html" && !name.startsWith("[");
+  return (
+    name.endsWith(".html") && name !== "index.html" && !name.startsWith("[")
+  );
 }
 
 for (const module of entries(apiDir)) {
@@ -111,7 +125,11 @@ for (const module of entries(apiDir)) {
         );
       } else if (isMemberPage(entry.name)) {
         const symbol = decodeKebab(entry.name.replace(/\.html$/, ""));
-        addSymbol(symbol, { module: module.name, pkg: pkg.name, url: `${pkgUrl}/${entry.name}` });
+        addSymbol(symbol, {
+          module: module.name,
+          pkg: pkg.name,
+          url: `${pkgUrl}/${entry.name}`,
+        });
       }
     }
   }
@@ -124,7 +142,10 @@ for (const [name, hits] of Object.entries(symbols)) {
   for (const hit of hits) {
     const key = `${hit.module}/${hit.pkg}`;
     const kept = deduped.get(key);
-    if (!kept || (hit.url.endsWith("/index.html") && !kept.url.endsWith("/index.html"))) {
+    if (
+      !kept ||
+      (hit.url.endsWith("/index.html") && !kept.url.endsWith("/index.html"))
+    ) {
       deduped.set(key, hit);
     }
   }

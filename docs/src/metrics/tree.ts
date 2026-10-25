@@ -1,6 +1,14 @@
-import { format, moduleName, newTab, sourceUrl, type FileReport, type ModuleReport, type Package } from "./model";
-import { el } from "./page";
 import { icon } from "./icons";
+import {
+  format,
+  moduleName,
+  newTab,
+  sourceUrl,
+  type FileReport,
+  type ModuleReport,
+  type Package,
+} from "./model";
+import { el } from "./page";
 import { define, type definitions } from "./terms";
 
 type Definitions = ReturnType<typeof definitions>;
@@ -36,7 +44,13 @@ interface Column {
 }
 
 const columns: Column[] = [
-  { key: "loc", label: "Lines", definition: "lines", value: (n) => n.loc, text: (n) => format(n.loc) },
+  {
+    key: "loc",
+    label: "Lines",
+    definition: "lines",
+    value: (n) => n.loc,
+    text: (n) => format(n.loc),
+  },
   {
     key: "functions",
     label: "Functions",
@@ -69,7 +83,8 @@ const columns: Column[] = [
     label: "Imported by",
     definition: "importedBy",
     value: (n) => n.dependencies?.importedBy.length ?? -1,
-    text: (n) => (n.dependencies ? format(n.dependencies.importedBy.length) : ""),
+    text: (n) =>
+      n.dependencies ? format(n.dependencies.importedBy.length) : "",
     title: (n) => n.dependencies?.importedBy.join(", "),
   },
   {
@@ -83,7 +98,8 @@ const columns: Column[] = [
 
 function byKey<T>(items: T[], key: (item: T) => string) {
   const groups = new Map<string, T[]>();
-  for (const item of items) groups.set(key(item), [...(groups.get(key(item)) ?? []), item]);
+  for (const item of items)
+    groups.set(key(item), [...(groups.get(key(item)) ?? []), item]);
   return [...groups];
 }
 
@@ -110,7 +126,12 @@ function build(
   const moduleReports = new Map(modules.map((m) => [m.name, m]));
   const inCycle = new Set(cycles.flat());
   const reports = new Map(packages.map((p) => [p.name, p]));
-  const modulesOf = new Map(byKey(files, (f) => f.packageName).map(([name, fs]) => [name, new Set(fs.map((f) => f.module))]));
+  const modulesOf = new Map(
+    byKey(files, (f) => f.packageName).map(([name, fs]) => [
+      name,
+      new Set(fs.map((f) => f.module)),
+    ]),
+  );
 
   const fileNode = (f: FileReport): TreeNode => ({
     id: f.path,
@@ -124,7 +145,11 @@ function build(
   });
   const packageNodes = (scope: string, items: FileReport[]) =>
     byKey(items, (f) => f.packageName).map(([name, members]) => {
-      const node = group(`${scope}#${name}`, name || "(default package)", members.map(fileNode));
+      const node = group(
+        `${scope}#${name}`,
+        name || "(default package)",
+        members.map(fileNode),
+      );
       const report = reports.get(name);
       if (report)
         node.dependencies = {
@@ -134,14 +159,21 @@ function build(
           inCycle: inCycle.has(name),
         };
       // The package graph is by name, so a package split across modules reports as one.
-      const others = [...(modulesOf.get(name) ?? [])].filter((m) => m !== scope);
-      if (byModule && others.length) node.detail = `also in ${others.map(moduleName).join(", ")}`;
+      const others = [...(modulesOf.get(name) ?? [])].filter(
+        (m) => m !== scope,
+      );
+      if (byModule && others.length)
+        node.detail = `also in ${others.map(moduleName).join(", ")}`;
       return node;
     });
 
   if (!byModule) return packageNodes("", files);
   return byKey(files, (f) => f.module).map(([module, members]) => {
-    const node = group(module, moduleName(module), packageNodes(module, members));
+    const node = group(
+      module,
+      moduleName(module),
+      packageNodes(module, members),
+    );
     const report = moduleReports.get(module);
     if (report)
       node.dependencies = {
@@ -184,11 +216,7 @@ export class Tree {
       { className: "metrics-tree-head" },
       el("span", { textContent: "Name" }),
       ...columns.map((column) => {
-        const cell = el(
-          "span",
-          {},
-          this.sortButton(column),
-        );
+        const cell = el("span", {}, this.sortButton(column));
         if (column === sortColumn) cell.setAttribute("aria-sort", "descending");
         return cell;
       }),
@@ -199,14 +227,21 @@ export class Tree {
     const rows: HTMLElement[] = [];
     const visit = (nodes: TreeNode[], depth: number, parentLoc: number) => {
       const sorted = [...nodes].sort(
-        (a, b) => sortColumn.value(b) - sortColumn.value(a) || a.name.localeCompare(b.name),
+        (a, b) =>
+          sortColumn.value(b) - sortColumn.value(a) ||
+          a.name.localeCompare(b.name),
       );
       for (const node of sorted) {
         rows.push(this.row(node, depth, parentLoc));
-        if (this.expanded.has(node.id)) visit(node.children, depth + 1, node.loc);
+        if (this.expanded.has(node.id))
+          visit(node.children, depth + 1, node.loc);
       }
     };
-    visit(this.roots, 0, this.roots.reduce((sum, n) => sum + n.loc, 0));
+    visit(
+      this.roots,
+      0,
+      this.roots.reduce((sum, n) => sum + n.loc, 0),
+    );
     this.host.replaceChildren(head, ...rows);
   }
 
@@ -219,7 +254,9 @@ export class Tree {
         this.render();
       },
     });
-    return column.definition ? define(button, this.definitions[column.definition]) : button;
+    return column.definition
+      ? define(button, this.definitions[column.definition])
+      : button;
   }
 
   private row(node: TreeNode, depth: number, parentLoc: number) {
@@ -238,31 +275,46 @@ export class Tree {
     const nameCell = el("span", { className: "metrics-tree-name" }, name);
     nameCell.style.paddingLeft = `${depth * 1.25}rem`;
     if (node.href) {
-      const link = el("a", { ...newTab, className: "metrics-icon-link", href: node.href, ariaLabel: `${node.name} on GitHub` });
+      const link = el("a", {
+        ...newTab,
+        className: "metrics-icon-link",
+        href: node.href,
+        ariaLabel: `${node.name} on GitHub`,
+      });
       link.append(icon("openInNew"));
       nameCell.append(link);
     }
     if (node.dependencies?.inCycle) {
-      const marker = define(el("span", { className: "metrics-cycle", ariaLabel: "In a dependency cycle" }), this.definitions.cycle);
+      const marker = define(
+        el("span", {
+          className: "metrics-cycle",
+          ariaLabel: "In a dependency cycle",
+        }),
+        this.definitions.cycle,
+      );
       marker.setAttribute("role", "img");
       marker.append(icon("cycle"));
       nameCell.append(marker);
     }
-    if (node.detail) nameCell.append(el("span", { className: "metrics-muted", textContent: node.detail }));
+    if (node.detail)
+      nameCell.append(
+        el("span", { className: "metrics-muted", textContent: node.detail }),
+      );
 
     const row = el(
       "div",
       { className: `metrics-tree-row metrics-depth-${Math.min(depth, 2)}` },
       nameCell,
-      ...columns.map((column) =>
-        {
-          const cell = el("span", { textContent: column.text(node) });
-          const list = column.title?.(node);
-          return list ? define(cell, list) : cell;
-        },
-      ),
+      ...columns.map((column) => {
+        const cell = el("span", { textContent: column.text(node) });
+        const list = column.title?.(node);
+        return list ? define(cell, list) : cell;
+      }),
     );
-    row.style.setProperty("--weight", `${parentLoc ? (node.loc / parentLoc) * 100 : 0}%`);
+    row.style.setProperty(
+      "--weight",
+      `${parentLoc ? (node.loc / parentLoc) * 100 : 0}%`,
+    );
     row.setAttribute("role", "row");
     row.setAttribute("aria-level", String(depth + 1));
     if (node.children.length) row.setAttribute("aria-expanded", String(open));

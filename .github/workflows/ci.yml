@@ -19,7 +19,8 @@ on:
         default: true
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group:
+    ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -117,8 +118,7 @@ jobs:
       - run: mise run test:pages
         env:
           DOCS_BANNER: >-
-            ${{ github.event_name == 'pull_request'
-            && format(
+            ${{ github.event_name == 'pull_request' && format(
               'This site is a preview of <a href="{0}">pull request #{1}</a>.',
               github.event.pull_request.html_url,
               github.event.number)
@@ -144,15 +144,13 @@ jobs:
         uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
         env:
           CLOUDFLARE_BRANCH: >-
-            ${{ github.event_name == 'pull_request'
-            && format('pr-{0}', github.event.number)
-            || 'main' }}
+            ${{ github.event_name == 'pull_request' && format('pr-{0}',
+            github.event.number) || 'main' }}
         with:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: >-
-            pages deploy build/cloudflare-pages
-            --project-name=maplibre-compose
+            pages deploy build/cloudflare-pages --project-name=maplibre-compose
             --branch=${{ env.CLOUDFLARE_BRANCH }}
           packageManager: pnpm
           wranglerVersion: "4.125.0"
@@ -160,7 +158,8 @@ jobs:
         if: steps.deploy-cloudflare.outcome == 'success'
         env:
           DEPLOYMENT_URL: ${{ steps.deploy-cloudflare.outputs.deployment-url }}
-          PREVIEW_URL: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+          PREVIEW_URL:
+            ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
         run: |
           url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
           echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"
@@ -289,7 +288,9 @@ jobs:
         if: ${{ matrix.api-level == 36 }}
         run: mise run test:android
       - name: Upload Android host test results to Trunk
-        if: ${{ !cancelled() && matrix.api-level == 36 && fromJSON(needs.plan.outputs.secrets) }}
+        if:
+          ${{ !cancelled() && matrix.api-level == 36 &&
+          fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@a86313c7029d22e6ea2d5c346060a224d90053dc # v2.1.6
         with:
@@ -429,12 +430,16 @@ jobs:
     steps:
       # Blacksmith's checkout caches the repository only on its Linux runners,
       # and on macOS it ignores `fetch-tags`.
-      - if: ${{ startsWith(matrix.runner, 'blacksmith-') && contains(matrix.runner, '-ubuntu-') }}
+      - if:
+          ${{ startsWith(matrix.runner, 'blacksmith-') &&
+          contains(matrix.runner, '-ubuntu-') }}
         uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
         with:
           persist-credentials: false
           fetch-tags: true
-      - if: ${{ !(startsWith(matrix.runner, 'blacksmith-') && contains(matrix.runner, '-ubuntu-')) }}
+      - if:
+          ${{ !(startsWith(matrix.runner, 'blacksmith-') &&
+          contains(matrix.runner, '-ubuntu-')) }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -476,7 +481,8 @@ jobs:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
           path:
-            "demo-app/desktop-nucleus/build/packages/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"
+            "demo-app/desktop-nucleus/build/packages/main/${{
+            matrix.artifact_type }}/${{ matrix.artifact_glob }}"
 
   # The required check. A job skipped by its `if` passes, so a failed plan
   # must fail this one.

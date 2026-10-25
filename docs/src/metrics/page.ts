@@ -1,7 +1,8 @@
 /** The page structure and DOM helpers the dashboards share. */
 import { newTab, repository } from "./model";
 
-export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+export const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
+  document.getElementById(id) as T;
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -14,11 +15,20 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 export function commitLink(commit: string) {
-  return el("a", { ...newTab, className: "metrics-sha", href: `${repository}/commit/${commit}`, textContent: commit.slice(0, 7) });
+  return el("a", {
+    ...newTab,
+    className: "metrics-sha",
+    href: `${repository}/commit/${commit}`,
+    textContent: commit.slice(0, 7),
+  });
 }
 
 export function releaseLink(tag: string) {
-  return el("a", { ...newTab, href: `${repository}/releases/tag/${tag}`, textContent: tag });
+  return el("a", {
+    ...newTab,
+    href: `${repository}/releases/tag/${tag}`,
+    textContent: tag,
+  });
 }
 
 export async function fetchJson<T>(url: URL): Promise<T> {

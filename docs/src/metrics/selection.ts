@@ -45,7 +45,10 @@ export class CommitSelection {
       commits: [],
       times: [],
       releases: [],
-      spacing: new URLSearchParams(location.search).get("spacing") === "dates" ? "dates" : "commits",
+      spacing:
+        new URLSearchParams(location.search).get("spacing") === "dates"
+          ? "dates"
+          : "commits",
       window: [0, 0],
       hover: (i) => {
         this.hovered = i;
@@ -89,7 +92,10 @@ export class CommitSelection {
     for (const input of [this.fromInput, this.toInput])
       input.addEventListener("change", () => {
         const { times } = this.timeline;
-        const [from, to] = [Date.parse(this.fromInput.value), Date.parse(this.toInput.value) + day - 1];
+        const [from, to] = [
+          Date.parse(this.fromInput.value),
+          Date.parse(this.toInput.value) + day - 1,
+        ];
         const first = times.findIndex((t) => t >= from);
         const last = times.findLastIndex((t) => t <= to);
         // Dates that hold fewer than two points put back the current range.
@@ -98,7 +104,9 @@ export class CommitSelection {
       });
   }
 
-  private readonly spacingButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-spacing]")];
+  private readonly spacingButtons = [
+    ...document.querySelectorAll<HTMLButtonElement>("[data-spacing]"),
+  ];
 
   get commits() {
     return this.timeline.commits;
@@ -112,34 +120,62 @@ export class CommitSelection {
   setCommits(commits: Commit[]) {
     this.timeline.commits = commits;
     this.timeline.times = commits.map((c) => Date.parse(c.date));
-    this.timeline.releases = commits.flatMap((c, i) => c.tags.filter(isRelease).map((label) => ({ index: i, label })));
+    this.timeline.releases = commits.flatMap((c, i) =>
+      c.tags.filter(isRelease).map((label) => ({ index: i, label })),
+    );
     this.hovered = null;
     const params = new URLSearchParams(location.search);
-    const find = (key: string) => commits.findIndex((c) => c.commit === params.get(key));
+    const find = (key: string) =>
+      commits.findIndex((c) => c.commit === params.get(key));
     const [linked, from, to] = [find("commit"), find("from"), find("to")];
     this.selected = linked < 0 ? this.last : linked;
 
-    const releases = commits.flatMap((c) => c.tags.filter((tag) => /^v\d+\.\d+\.0$/.test(tag))).reverse();
+    const releases = commits
+      .flatMap((c) => c.tags.filter((tag) => /^v\d+\.\d+\.0$/.test(tag)))
+      .reverse();
     const option = (value: string, textContent: string) =>
-      el("option", { value, textContent, disabled: value !== "custom" && !this.resolve(value) });
+      el("option", {
+        value,
+        textContent,
+        disabled: value !== "custom" && !this.resolve(value),
+      });
     this.rangeSelect.replaceChildren(
       option("all", "All history"),
-      el("optgroup", { label: "Recent" }, ...periods.map((p) => option(p.id, p.label))),
-      ...(releases.length ? [el("optgroup", { label: "Since release" }, ...releases.map((tag) => option(tag, `Since ${tag}`)))] : []),
+      el(
+        "optgroup",
+        { label: "Recent" },
+        ...periods.map((p) => option(p.id, p.label)),
+      ),
+      ...(releases.length
+        ? [
+            el(
+              "optgroup",
+              { label: "Since release" },
+              ...releases.map((tag) => option(tag, `Since ${tag}`)),
+            ),
+          ]
+        : []),
       option("custom", "Custom dates"),
     );
     this.fromInput.min = this.toInput.min = dateValue(this.timeline.times[0]);
-    this.fromInput.max = this.toInput.max = dateValue(this.timeline.times[this.last]);
+    this.fromInput.max = this.toInput.max = dateValue(
+      this.timeline.times[this.last],
+    );
 
     // A preset in the URL is kept even if the history grows; custom dates name their commits. A
     // history too sparse for the default range opens whole.
     const preset = params.get("range");
     const span = preset && this.resolve(preset);
-    const custom: [number, number] = [Math.max(0, from), to < 0 ? this.last : to];
+    const custom: [number, number] = [
+      Math.max(0, from),
+      to < 0 ? this.last : to,
+    ];
     const fallback = this.resolve(defaultRange);
     if (span) [this.range, this.timeline.window] = [preset, span];
-    else if (custom[0] < custom[1] && (from >= 0 || to >= 0)) [this.range, this.timeline.window] = ["custom", custom];
-    else if (fallback) [this.range, this.timeline.window] = [defaultRange, fallback];
+    else if (custom[0] < custom[1] && (from >= 0 || to >= 0))
+      [this.range, this.timeline.window] = ["custom", custom];
+    else if (fallback)
+      [this.range, this.timeline.window] = [defaultRange, fallback];
     else [this.range, this.timeline.window] = ["all", [0, this.last]];
     this.reveal(this.selected);
     this.showRange();
@@ -154,8 +190,12 @@ export class CommitSelection {
     if (period) {
       // The same day of an earlier month, or its last day when that month is shorter.
       const end = new Date(times[this.last]);
-      const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - period.months, 1));
-      const days = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
+      const start = new Date(
+        Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - period.months, 1),
+      );
+      const days = new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0),
+      ).getUTCDate();
       start.setUTCDate(Math.min(end.getUTCDate(), days));
       first = times.findIndex((t) => t >= start.getTime());
     } else {
@@ -169,7 +209,8 @@ export class CommitSelection {
    * preset the window came from; any other window is custom, unless it is the whole history.
    */
   zoom(first: number, last: number, range = "custom") {
-    this.range = range === "custom" && first === 0 && last === this.last ? "all" : range;
+    this.range =
+      range === "custom" && first === 0 && last === this.last ? "all" : range;
     this.timeline.window = [first, last];
     this.showWindow();
     const selected = Math.min(last, Math.max(first, this.selected));
@@ -199,7 +240,11 @@ export class CommitSelection {
     const { commits, times, spacing } = this.timeline;
     const [first, last] = this.timeline.window;
     const custom = this.range === "custom";
-    for (const button of this.spacingButtons) button.setAttribute("aria-checked", String(button.dataset.spacing === spacing));
+    for (const button of this.spacingButtons)
+      button.setAttribute(
+        "aria-checked",
+        String(button.dataset.spacing === spacing),
+      );
     this.rangeSelect.value = this.range;
     this.fromInput.value = dateValue(times[first]);
     this.toInput.value = dateValue(times[last]);
@@ -216,7 +261,11 @@ export class CommitSelection {
     const commit = this.commits[this.selected];
     const release = commit.tags.find(isRelease);
     $("metrics-selection-label").replaceChildren(
-      ...(release ? ["Release ", releaseLink(release)] : [`${this.selected === this.last ? "Latest" : "Selected"} ${this.noun}`]),
+      ...(release
+        ? ["Release ", releaseLink(release)]
+        : [
+            `${this.selected === this.last ? "Latest" : "Selected"} ${this.noun}`,
+          ]),
       `, ${formatDate(commit.date)}`,
     );
     $("metrics-selection-commit").replaceChildren(commitLink(commit.commit));
@@ -229,7 +278,9 @@ export class CommitSelection {
       define(button, button.ariaLabel);
     }
     this.setCursor();
-    setSearchParams({ commit: this.selected === this.last ? null : commit.commit });
+    setSearchParams({
+      commit: this.selected === this.last ? null : commit.commit,
+    });
   }
 
   /** The release before the selection that the tiles compare against, or the first commit. */
@@ -242,11 +293,15 @@ export class CommitSelection {
   }
 
   private setCursor() {
-    this.charts.forEach((chart) => chart.setCursor(this.hovered, this.selected));
+    this.charts.forEach((chart) =>
+      chart.setCursor(this.hovered, this.selected),
+    );
   }
 
-  private readonly releaseIndices = () => this.commits.flatMap((c, i) => (c.tags.some(isRelease) ? [i] : []));
-  private readonly releaseOf = (i: number) => this.commits[i].tags.find(isRelease);
+  private readonly releaseIndices = () =>
+    this.commits.flatMap((c, i) => (c.tags.some(isRelease) ? [i] : []));
+  private readonly releaseOf = (i: number) =>
+    this.commits[i].tags.find(isRelease);
   private readonly navigation: {
     id: string;
     icon: keyof typeof icons;
@@ -256,14 +311,19 @@ export class CommitSelection {
     {
       id: "metrics-previous-release",
       icon: "skipPrevious",
-      target: () => this.releaseIndices().findLast((i) => i < this.selected) ?? null,
-      label: (i) => (i == null ? "No earlier release" : `Previous release: ${this.releaseOf(i)}`),
+      target: () =>
+        this.releaseIndices().findLast((i) => i < this.selected) ?? null,
+      label: (i) =>
+        i == null
+          ? "No earlier release"
+          : `Previous release: ${this.releaseOf(i)}`,
     },
     {
       id: "metrics-previous",
       icon: "chevronLeft",
       target: () => (this.selected > 0 ? this.selected - 1 : null),
-      label: (i) => (i == null ? `No earlier ${this.noun}` : `Previous ${this.noun}`),
+      label: (i) =>
+        i == null ? `No earlier ${this.noun}` : `Previous ${this.noun}`,
     },
     {
       id: "metrics-next",
@@ -275,9 +335,15 @@ export class CommitSelection {
       id: "metrics-next-release",
       icon: "skipNext",
       // Past the last release, this goes to the latest commit.
-      target: () => this.releaseIndices().find((i) => i > this.selected) ?? (this.selected < this.last ? this.last : null),
+      target: () =>
+        this.releaseIndices().find((i) => i > this.selected) ??
+        (this.selected < this.last ? this.last : null),
       label: (i) =>
-        i == null ? `No later ${this.noun}` : this.releaseOf(i) ? `Next release: ${this.releaseOf(i)}` : `Latest ${this.noun}`,
+        i == null
+          ? `No later ${this.noun}`
+          : this.releaseOf(i)
+            ? `Next release: ${this.releaseOf(i)}`
+            : `Latest ${this.noun}`,
     },
   ];
 }

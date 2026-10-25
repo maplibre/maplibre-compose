@@ -3,9 +3,9 @@
 # unless `describe` gives a longer one, and a group that already has a label
 # when the item opens keeps it.
 context: >-
-  This repository is MapLibre Compose, a Kotlin Multiplatform library that
-  shows MapLibre maps in Compose UI on Android, iOS, JVM desktop, native macOS,
-  and the browser. Android, iOS, desktop, and macOS render with MapLibre Native
+  This repository is MapLibre Compose, a Kotlin Multiplatform library that shows
+  MapLibre maps in Compose UI on Android, iOS, JVM desktop, native macOS, and
+  the browser. Android, iOS, desktop, and macOS render with MapLibre Native
   through maplibre-native-ffi; the browser renders with MapLibre GL JS through
   hand-written Kotlin bindings. The published libraries live in `lib/`, a demo
   app in `demo-app/`, benchmarks in `benchmarks/`, and the documentation site in
@@ -160,15 +160,15 @@ ci:
     `androidMain`, `iosMain`, `macosMain`, `jvmMain` (desktop), and `jsMain`
     (browser) on one platform each. Test source sets follow the same pattern.
 
-    The Linux x64 desktop unit runs the shared and MapLibre Native tests
-    against real maps, so it catches most problems in shared Kotlin code and in
-    calls to existing maplibre-native-ffi APIs. The other units catch what it
-    cannot: other operating systems and their APIs, other GPU backends,
-    architectures, oldest supported OS versions, native library loading and
-    packaging, and the browser engine. A change's size is not platform risk.
-    Shared code is at risk on another platform only when it touches what that
-    platform builds differently: its source sets, expect/actual declarations
-    that it implements, its runtime modules, or its packaging.
+    The Linux x64 desktop unit runs the shared and MapLibre Native tests against
+    real maps, so it catches most problems in shared Kotlin code and in calls to
+    existing maplibre-native-ffi APIs. The other units catch what it cannot:
+    other operating systems and their APIs, other GPU backends, architectures,
+    oldest supported OS versions, native library loading and packaging, and the
+    browser engine. A change's size is not platform risk. Shared code is at risk
+    on another platform only when it touches what that platform builds
+    differently: its source sets, expect/actual declarations that it implements,
+    its runtime modules, or its packaging.
 
     Upgrading maplibre-native-ffi, Kotlin, Compose Multiplatform, the Android
     Gradle plugin, or the Gradle wrapper changes how every platform builds and
@@ -179,9 +179,9 @@ ci:
     Each job's steps live in `.github/workflows/ci.yml` and the reusable
     `job-*.yml` workflows, and every job runs the shared setup action in
     `.github/actions/setup-ci-deps`. A change to a job's definition puts that
-    job's units at risk. A shared script, mise task, tool version, or setup
-    step that every job runs the same way is covered by Linux x64, except where
-    an operating system runs it differently, such as Windows shells and paths.
+    job's units at risk. A shared script, mise task, tool version, or setup step
+    that every job runs the same way is covered by Linux x64, except where an
+    operating system runs it differently, such as Windows shells and paths.
     Release, publishing, and scheduled workflows do not run in pull request CI.
 
     Hygiene always runs. It checks formatting, Android Lint, the style spec
@@ -194,11 +194,11 @@ ci:
     abi:
       covers: >-
         Checks the published libraries' Kotlin ABI against the dumps committed
-        in each module's `api/` directory, for every target. Catches
-        unintended changes to public API and dumps that were not updated. Any
-        change to public or protected declarations in a `lib/` main source
-        set, or to which targets a library publishes, needs it. Changes to
-        private or internal code, tests, the demo, or tooling do not.
+        in each module's `api/` directory, for every target. Catches unintended
+        changes to public API and dumps that were not updated. Any change to
+        public or protected declarations in a `lib/` main source set, or to
+        which targets a library publishes, needs it. Changes to private or
+        internal code, tests, the demo, or tooling do not.
       paths: ["lib/*/api/*"]
     docs:
       covers: >-
@@ -233,10 +233,9 @@ ci:
         Android API 36 with OpenGL ES and Vulkan: runs the Android host tests
         and screenshot tests, runs the device tests in the emulator, builds the
         phone, TV, Android Auto, and Wear OS demo apps, and publishes every
-        library to a local Maven repository. Catches Android API, Android
-        Gradle plugin, JNI and native library loading, emulator, and
-        publication problems. Shared code that Linux x64 already tests does not
-        need it.
+        library to a local Maven repository. Catches Android API, Android Gradle
+        plugin, JNI and native library loading, emulator, and publication
+        problems. Shared code that Linux x64 already tests does not need it.
       paths:
         - "*/src/androidMain/*"
         - "*/src/androidHostTest/*"
@@ -300,8 +299,8 @@ ci:
       covers: >-
         The JVM desktop target on Linux ARM64, on ARM runners. Runs the same
         tests and packaging as Linux x64. Catches architecture-specific
-        problems: native library selection and loading for the architecture,
-        ABI and pointer layout, and ARM runner toolchain differences.
+        problems: native library selection and loading for the architecture, ABI
+        and pointer layout, and ARM runner toolchain differences.
         Architecture-neutral changes do not need it.
       paths: [lib/*-linux-arm64/*]
     desktop-macos:
@@ -324,7 +323,7 @@ ci:
       covers: >-
         The JVM desktop target on Windows ARM64. Runs the same tests and
         packaging as Windows x64. Catches architecture-specific problems on
-        Windows: native library selection and loading for the architecture,
-        ABI and pointer layout, and ARM runner toolchain differences.
+        Windows: native library selection and loading for the architecture, ABI
+        and pointer layout, and ARM runner toolchain differences.
         Architecture-neutral changes do not need it.
       paths: [lib/*-windows-arm64/*]
