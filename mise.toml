@@ -37,7 +37,6 @@ dprint_version = "0.64.3"
 hk_version = "2.8.1"
 java_version = "zulu-25.36.205.0"
 jvl_version = "2026.05.03"
-ktfmt_version = "0.65"
 metrics_bucket = "maplibre-compose-metrics"
 node_version = "26.12.1"
 playwright_version = "1.64.1"
@@ -61,7 +60,6 @@ zig_version = "0.17.0"
 "core:java" = "{{vars.java_version}}"
 # Compiles the demo's n-gon layer plugin; see .mise/bin/build-ngon-plugin.
 "core:zig" = "{{vars.zig_version}}"
-"aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
 
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
 "core:node" = "{{vars.node_version}}"

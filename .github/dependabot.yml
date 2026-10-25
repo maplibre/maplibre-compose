@@ -10,8 +10,6 @@ updates:
     directories: ["/", "/.github/actions/*"]
     schedule:
       interval: weekly
-    cooldown:
-      default-days: 3
     labels: [chore, "area:tooling", dependencies]
     groups:
       github-actions:
@@ -21,8 +19,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    cooldown:
-      default-days: 3
     # Gradle dependencies span the library, demo, and build, so Rubberstamp
     # picks the area.
     labels: [chore, dependencies]

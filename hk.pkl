@@ -7,10 +7,9 @@ import "package://github.com/jdx/hk/releases/download/v2.8.1/hk@2.8.1#/Builtins.
 // Shared by the implicit check, fix, and pre-commit hooks. hk 2 no longer
 // stages `hk fix` / `mise run fix` results; pre-commit still stages its own.
 steps {
-  // Unbatched: dprint parallelizes itself, and batching oversubscribes the
-  // machine badly enough that its ktfmt children hit dprint's timeout.
   ["dprint"] = (Builtins.dprint) {
-    exclusive = true
+    // the default batch=false hits the cmd length limit on windows
+    batch = true
   }
   ["actionlint"] {
     glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")

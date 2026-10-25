@@ -238,7 +238,8 @@ shape later is a breaking change.
 ```kotlin
 // Open identity: can hold values with no named constant in this version
 @JvmInline
-public value class LineCap internal constructor(override val value: String) : EnumValue {
+public value class LineCap internal constructor(override val value: String) :
+  EnumValue {
   public companion object : EnumType<LineCap> {
     public val Butt: LineCap = LineCap("butt")
     public val Round: LineCap = LineCap("round")
@@ -247,9 +248,11 @@ public value class LineCap internal constructor(override val value: String) : En
   }
 }
 
-// Open structure: callers can't reference the internal subtype, so their `when` needs `else`
+// Open structure: callers can't reference the internal subtype, so their `when`
+// needs `else`
 public sealed interface MapEvent {
-  public class CameraMoved internal constructor(public val reason: CameraMoveReason) : MapEvent
+  public class CameraMoved
+  internal constructor(public val reason: CameraMoveReason) : MapEvent
 }
 
 internal object UnspecifiedMapEvent : MapEvent
@@ -300,7 +303,9 @@ private constructor(
   public val maximumFps: Int?,
   public val tileLod: TileLodOptions,
 ) {
-  private constructor(builder: Builder) : this(builder.maximumFps, builder.tileLod)
+  private constructor(
+    builder: Builder,
+  ) : this(builder.maximumFps, builder.tileLod)
 
   public constructor(
     from: RenderOptions = Standard,
@@ -310,7 +315,8 @@ private constructor(
   @MapOptionsDsl
   public class Builder internal constructor(from: RenderOptions?) {
     public var maximumFps: Int? = from?.maximumFps
-    public var tileLod: TileLodOptions = from?.tileLod ?: TileLodOptions.Standard
+    public var tileLod: TileLodOptions =
+      from?.tileLod ?: TileLodOptions.Standard
   }
 
   public companion object {

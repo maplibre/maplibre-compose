@@ -32,12 +32,10 @@
   "json": { "preferSingleLine": true },
   "markdown": { "textWrap": "always" },
   "ruff": { "indentWidth": 4, "lineLength": 88 },
+  // Google style's width is 100. The plugin would otherwise inherit the global 80.
+  "ktfmt": { "style": "google", "lineWidth": 100 },
   "exec": {
     "commands": [
-      {
-        "command": "bash .mise/bin/dprint-ktfmt --google-style - --stdin-name={{file_path}}",
-        "exts": ["kt", "kts"],
-      },
       {
         "command": "bash .mise/bin/dprint-swiftformat stdin --stdin-path {{file_path}} --indent {{indent_width}} --max-width {{line_width}} --quiet",
         "exts": ["swift"],
@@ -52,6 +50,7 @@
   // Digests are required on a bump; dprint reports the one it got.
   "plugins": [
     "https://plugins.dprint.dev/exec-0.8.0.json@1f2dfbf5dec6d2e590b2c8b0ba6dbfaf80d0320fa9bd4c3f4f29efb99cd2bd6f",
+    "https://plugins.dprint.dev/sargunv/ktfmt-0.65.0.json@d355d4440dda00c0e315b5c39669f417bcfa76b64b68591fa1818f7a1f6b1005",
     "https://plugins.dprint.dev/json-0.25.2.wasm@811ca4c6f732bcd6f707bc2f42d42395bb4127cdf829960cf628a18fc149777e",
     "https://plugins.dprint.dev/ruff-0.11.2.wasm@451da30c12783e8cd562e1341c8591a72cacaefafc184ded1e170c0707234f3b",
     "https://plugins.dprint.dev/markdown-0.28.0.wasm@96182f4bf9f91befb599b93183e873bd50782fad27cfd1b8b8851831aa3c0ff4",
