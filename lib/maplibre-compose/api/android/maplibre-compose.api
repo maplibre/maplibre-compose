@@ -1535,6 +1535,10 @@ public final class org/maplibre/compose/interaction/LongClickCallbackBuilder {
 	public final fun onEvent (Lkotlin/jvm/functions/Function1;)V
 }
 
+public final class org/maplibre/compose/interaction/MapInputKt {
+	public static final fun mapInput (Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/map/MapState;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Landroidx/compose/ui/Modifier;
+}
+
 public abstract interface annotation class org/maplibre/compose/interaction/MapInteractionDsl : java/lang/annotation/Annotation {
 }
 
@@ -1561,10 +1565,6 @@ public final class org/maplibre/compose/interaction/MapInteractions$Builder {
 public final class org/maplibre/compose/interaction/MapInteractions$Companion {
 	public final fun getNone ()Lorg/maplibre/compose/interaction/MapInteractions;
 	public final fun getStandard ()Lorg/maplibre/compose/interaction/MapInteractions;
-}
-
-public final class org/maplibre/compose/interaction/MapInputKt {
-	public static final fun mapInput (Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/map/MapState;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Landroidx/compose/ui/Modifier;
 }
 
 public abstract class org/maplibre/compose/interaction/ModifierMatch {

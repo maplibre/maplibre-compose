@@ -7,6 +7,11 @@
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
     />
     <activity
+      android:name="org.maplibre.compose.map.MapInputActivity"
+      android:exported="false"
+      android:theme="@android:style/Theme.Material.Light.NoActionBar"
+    />
+    <activity
       android:name="org.maplibre.compose.camera.MapStateRecreationActivity"
       android:exported="false"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
