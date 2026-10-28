@@ -61,6 +61,7 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.internal.MapInputAttachment
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerSummary
@@ -1038,6 +1039,12 @@ internal constructor(
     MapAttachmentAuthority(lifecycle, gestureAuthority, styleAuthority, cameraPosition)
   /** Set by the current presentation; recognized gestures are ignored without one. */
   internal var recognizedInput: RecognizedMapInput? = null
+
+  /**
+   * Set by the current presentation so Compose input can bind without owning the renderer. Null
+   * while no map is presented.
+   */
+  internal var inputAttachment: MapInputAttachment? by mutableStateOf(null)
 
   /**
    * The current camera: the last one the map rendered, or the initial or requested camera before

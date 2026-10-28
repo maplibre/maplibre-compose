@@ -2,7 +2,10 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
@@ -12,12 +15,15 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
+import org.maplibre.compose.interaction.mapInput
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
@@ -144,4 +150,23 @@ fun SelectableEarthquakes(onEarthquakeSelected: (JsonObject?) -> Unit) {
       },
   )
 }
+
 // #endregion layer-click
+
+// #region map-input
+@OptIn(ExperimentalMaplibreComposeApi::class)
+@Composable
+fun PresentedMapInput(state: MapState) {
+  Box(
+    Modifier.fillMaxSize().mapInput(state) {
+      scroll {
+        mappings {
+          on(modifiers = Containing(KeyModifier.Ctrl), action = CameraAction.Zoom)
+          otherwise(CameraAction.Pan)
+        }
+      }
+    },
+  )
+}
+
+// #endregion map-input
