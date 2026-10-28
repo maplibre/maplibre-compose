@@ -1,20 +1,8 @@
 package org.maplibre.compose.interaction
 
-import androidx.compose.foundation.indication
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalDensity
-import org.maplibre.compose.interaction.internal.BoxZoomPreview
-import org.maplibre.compose.interaction.internal.InputConfiguration
-import org.maplibre.compose.interaction.internal.InputFocus
-import org.maplibre.compose.interaction.internal.drawBoxZoom
-import org.maplibre.compose.interaction.internal.inputEnvironment
-import org.maplibre.compose.interaction.internal.mapInput
-import org.maplibre.compose.interaction.internal.rotaryNotchPixels
+import org.maplibre.compose.interaction.internal.rememberMapInput
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
@@ -43,29 +31,7 @@ public fun Modifier.mapInput(
   from: InteractionBindings = InteractionBindings.Standard,
   block: InteractionBindingsBuilder.() -> Unit = {},
 ): Modifier {
-  val resolved = InteractionBindings(from, block).resolved
-  val attachment = state.inputAttachment
-  val target = attachment?.target
-  val attached = target != null && state.currentMapAttachment?.adapter === target
-  val currentAttachment = rememberUpdatedState(attachment)
-  val focusRequester = remember { FocusRequester() }
-  val focus = remember { InputFocus { engaged -> currentAttachment.value?.setEngaged(engaged) } }
-  val boxZoom = remember(target) { BoxZoomPreview() }
-  LaunchedEffect(target, attached) { if (attached) focus.replay() }
-  if (attachment == null || target == null) return this
-  val environment = inputEnvironment()
-  return drawBoxZoom(boxZoom)
-    .indication(focus.indicationInteractions, environment.indication)
-    .mapInput(
-      target,
-      attachment.captureClickPath,
-      attachment.hasClickHandlers,
-      InputConfiguration(attachment.interactions(), resolved),
-      LocalDensity.current,
-      focusRequester,
-      focus,
-      environment,
-      rotaryNotchPixels(),
-      boxZoom,
-    )
+  val input =
+    rememberMapInput(state, state.inputAttachment, InteractionBindings(from, block).resolved)
+  return then(input.decoration).then(input.input)
 }
