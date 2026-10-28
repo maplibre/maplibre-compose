@@ -1,104 +1,50 @@
 package org.maplibre.compose.map
 
-import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.view.Choreographer
-import android.view.WindowManager
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.MonotonicFrameClock
 
 /**
- * Demand-driven clock for the standalone presentation recomposer.
+ * Clock for the standalone presentation recomposer, which runs style composition and camera
+ * animations. The Surface controller paces map rendering separately.
  *
- * [Choreographer] follows the phone display, so composition and [withFrameNanos] animations stay
- * aligned with a 90 Hz or 120 Hz screen. When that display is off, Choreographer stops even if a
- * car Surface is still visible; a Handler tick then keeps style updates and camera animations
- * moving. Map rendering is paced separately by the Surface controller.
+ * Frames follow [Choreographer], so animations match a 90 Hz or 120 Hz phone display. Choreographer
+ * can stop while the phone display is off, even while a car Surface is visible, so a [handler]
+ * timer sends the frame when vsync is late. After the timer sends a frame, it runs every 16 ms
+ * until vsync arrives first again.
+ *
+ * Await frames on the thread of [handler].
  */
-internal fun androidPresentationFrameClock(
-  context: Context,
-  handler: Handler,
-): AndroidPresentationFrameClock =
-  AndroidPresentationFrameClock(
-    Choreographer.getInstance(),
-    handler,
-    context::displayRefreshHz,
-  )
-
-internal class AndroidPresentationFrameClock(
-  private val choreographer: Choreographer,
-  private val handler: Handler,
-  private val refreshHz: () -> Float,
-) : MonotonicFrameClock {
-  private var lastFrameTimeNanos = 0L
-  private val clock = BroadcastFrameClock(::schedule)
+internal class AndroidPresentationFrameClock(private val handler: Handler) : MonotonicFrameClock {
+  private val clock = BroadcastFrameClock(::requestFrame)
+  private val vsyncCallback = Choreographer.FrameCallback { sendFrame(it, fromVsync = true) }
+  private val timerCallback = Runnable { sendFrame(System.nanoTime(), fromVsync = false) }
+  private var requested = false
+  private var vsyncStopped = false
+  private var lastFrameTimeNanos = Long.MIN_VALUE
 
   override suspend fun <R> withFrameNanos(onFrame: (Long) -> R): R = clock.withFrameNanos(onFrame)
 
-  private fun schedule() {
-    scheduleFirstWinsFrame(
-      postVsync = { onFrame ->
-        val callback = Choreographer.FrameCallback(onFrame)
-        choreographer.postFrameCallback(callback)
-        ({ choreographer.removeFrameCallback(callback) })
-      },
-      postFallback = { onFrame ->
-        val callback = Runnable { onFrame(System.nanoTime()) }
-        handler.postDelayed(callback, fallbackFrameDelayMs(refreshHz()))
-        ({ handler.removeCallbacks(callback) })
-      },
-      deliver = { timeNanos ->
-        if (!clock.hasAwaiters) return@scheduleFirstWinsFrame
-        val time = monotonicFrameTimeNanos(lastFrameTimeNanos, timeNanos)
-        lastFrameTimeNanos = time
-        clock.sendFrame(time)
-      },
-    )
+  private fun requestFrame() {
+    if (requested) return
+    requested = true
+    Choreographer.getInstance().postFrameCallback(vsyncCallback)
+    handler.postDelayed(timerCallback, if (vsyncStopped) TimerFrameMillis else VsyncTimeoutMillis)
+  }
+
+  private fun sendFrame(timeNanos: Long, fromVsync: Boolean) {
+    requested = false
+    Choreographer.getInstance().removeFrameCallback(vsyncCallback)
+    handler.removeCallbacks(timerCallback)
+    vsyncStopped = !fromVsync
+    // A vsync timestamp can precede the time of a timer frame sent just before it.
+    lastFrameTimeNanos = maxOf(timeNanos, lastFrameTimeNanos + 1)
+    clock.sendFrame(lastFrameTimeNanos)
   }
 }
 
-internal const val DefaultDisplayRefreshHz = 60f
-internal const val MinFallbackFrameDelayMs = 16L
-internal const val MaxFallbackFrameDelayMs = 48L
+private const val TimerFrameMillis = 16L
 
-internal fun fallbackFrameDelayMs(refreshHz: Float): Long {
-  val hz = refreshHz.takeIf { it.isFinite() && it > 1f } ?: DefaultDisplayRefreshHz
-  return (2_000f / hz).toLong().coerceIn(MinFallbackFrameDelayMs, MaxFallbackFrameDelayMs)
-}
-
-internal fun monotonicFrameTimeNanos(lastFrameTimeNanos: Long, candidateNanos: Long): Long =
-  maxOf(candidateNanos, lastFrameTimeNanos + 1)
-
-/**
- * Posts a vsync pulse and a Handler fallback. The first to fire delivers the frame and cancels the
- * other. Both posters must be asynchronous; a synchronous post can miss the sibling cancel.
- */
-internal fun scheduleFirstWinsFrame(
-  postVsync: (onFrame: (Long) -> Unit) -> () -> Unit,
-  postFallback: (onFrame: (Long) -> Unit) -> () -> Unit,
-  deliver: (frameTimeNanos: Long) -> Unit,
-) {
-  var finished = false
-  var cancelVsync = {}
-  var cancelFallback = {}
-  val win: (Long) -> Unit = { time ->
-    if (!finished) {
-      finished = true
-      cancelVsync()
-      cancelFallback()
-      deliver(time)
-    }
-  }
-  cancelVsync = postVsync(win)
-  cancelFallback = postFallback(win)
-}
-
-@Suppress("DEPRECATION")
-internal fun Context.displayRefreshHz(): Float {
-  val display =
-    if (Build.VERSION.SDK_INT >= 30) display
-    else (getSystemService(Context.WINDOW_SERVICE) as? WindowManager)?.defaultDisplay
-  val hz = display?.refreshRate ?: return DefaultDisplayRefreshHz
-  return if (hz.isFinite() && hz > 1f) hz else DefaultDisplayRefreshHz
-}
+// Longer than a vsync period at the lowest refresh rate a phone display runs while it is on.
+private const val VsyncTimeoutMillis = 50L

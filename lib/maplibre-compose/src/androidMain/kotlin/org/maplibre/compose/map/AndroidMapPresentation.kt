@@ -47,9 +47,9 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
  * Style content composes with the [Context] and [Configuration] given here and the density of the
  * attached Surface. UI composables and view-dependent locals are not available in style content.
  * Style content and camera operations work while no Surface is attached. Style composition and
- * camera animations follow the phone display when it is producing frames, and keep ticking while it
- * is off so a car Surface still updates. No frames are produced until the style can be presented,
- * so show your own loading content on the Surface until then.
+ * camera animations update at the refresh rate of the phone display, and at about 60 Hz while that
+ * display is off. No frames are produced until the style can be presented, so show your own loading
+ * content on the Surface until then.
  *
  * Pass gestures with the [MapState] methods, such as [MapState.panBy].
  *
@@ -73,7 +73,7 @@ public class AndroidMapPresentation(
     CoroutineScope(
       SupervisorJob() +
         Dispatchers.Main.immediate +
-        androidPresentationFrameClock(context, mainHandler) +
+        AndroidPresentationFrameClock(mainHandler) +
         CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } },
     )
   private var options by
