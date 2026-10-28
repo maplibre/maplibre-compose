@@ -111,6 +111,14 @@ first one added wins.
 
 ## Pass gestures from your own code
 
+If a presentation already draws the map and Compose UI covers that surface,
+attach the same recognition <Api of="MaplibreMap" /> uses with
+<Api of="mapInput" />. Camera permissions and click callbacks stay on the
+presentation's <Api of="MapInteractions" />. The builder edits the standard
+binding table:
+
+<Code code={region(interaction, "map-input")} lang="kotlin" title="App.kt" />
+
 If your app recognizes gestures itself, for example in a host that is not
 Compose UI, pass them to the map with <Api of="MapState.panBy" />,
 <Api of="MapState.scaleBy" />, <Api of="MapState.fling" />, and

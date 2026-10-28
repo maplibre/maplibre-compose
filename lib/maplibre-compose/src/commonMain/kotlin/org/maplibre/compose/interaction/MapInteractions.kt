@@ -18,7 +18,9 @@ public annotation class MapInteractionDsl
  * Callbacks can update without restarting input. Changes to permissions or tuning cancel input in
  * progress.
  *
- * What gestures, scrolling, and keys do is set in [org.maplibre.compose.map.MapUiOptions].
+ * What gestures, scrolling, and keys do is set in [org.maplibre.compose.map.MapUiOptions] on
+ * [org.maplibre.compose.map.MaplibreMap], or in [mapInput] when attaching input to another
+ * composable.
  */
 @Immutable
 public data class MapInteractions

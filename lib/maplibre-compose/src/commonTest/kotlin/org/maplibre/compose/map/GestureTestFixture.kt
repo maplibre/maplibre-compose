@@ -14,6 +14,7 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.InputConfiguration
+import org.maplibre.compose.interaction.internal.MapInputAttachment
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
@@ -48,14 +49,25 @@ internal class RecordingGestureTarget(private val state: MapState) :
   val rotateCalls = mutableListOf<RotateCall>()
   val fitCalls = mutableListOf<Pair<BoxZoomFit, Duration>>()
   var project: (DpOffset) -> Position? = { null }
+  var interactions: MapInteractions = MapInteractions.Standard
+    private set
 
   init {
     currentViewport = viewportFor(MapSnapshotRequest(DpSize(100.dp, 100.dp)))
     state.publishPresentation(state.reservePresentation(), this)
     state.attachmentAuthority.synchronizeCamera(this)
+    state.inputAttachment =
+      MapInputAttachment(
+        target = this,
+        captureClickPath = ::capture,
+        hasClickHandlers = { it in clickFamilies },
+        interactions = { interactions },
+        setEngaged = { engaged -> state.attachmentAuthority.setEngaged(this, engaged) },
+      )
   }
 
   fun updateConfiguration(options: MapInteractions) {
+    interactions = options
     state.gestureAuthority.updateConfiguration(options.camera)
   }
 

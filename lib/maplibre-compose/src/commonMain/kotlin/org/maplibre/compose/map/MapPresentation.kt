@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
+import org.maplibre.compose.interaction.internal.MapInputAttachment
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
@@ -110,8 +111,8 @@ internal fun <T> MapPresentationContent(
     }
   val inputScope = rememberCoroutineScope()
   DisposableEffect(mapAttachment, clickDispatcher) {
-    val target =
-      mapAttachment?.adapter as? CameraInputTarget ?: return@DisposableEffect onDispose {}
+    val presented = mapAttachment ?: return@DisposableEffect onDispose {}
+    val target = presented.adapter as? CameraInputTarget ?: return@DisposableEffect onDispose {}
     val input =
       RecognizedMapInput(
         target,
@@ -121,9 +122,18 @@ internal fun <T> MapPresentationContent(
         inputScope,
       )
     state.recognizedInput = input
+    state.inputAttachment =
+      MapInputAttachment(
+        target,
+        clickDispatcher::capture,
+        clickDispatcher::hasHandlers,
+        { currentInteractions.value },
+        { engaged -> state.attachmentAuthority.setEngaged(presented.adapter, engaged) },
+      )
     onDispose {
       input.cancel()
       if (state.recognizedInput === input) state.recognizedInput = null
+      if (state.inputAttachment?.target === target) state.inputAttachment = null
     }
   }
   val adapterCallbacks =
