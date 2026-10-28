@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -275,8 +276,13 @@ class AndroidMapPresentationTest {
         val initial = fixture.onMain { state.cameraPosition }
 
         ActivityScenario.launch(MapInputActivity::class.java).use { scenario ->
-          scenario.onActivity { it.map = fixture.state }
-          InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+          lateinit var activity: MapInputActivity
+          scenario.onActivity {
+            activity = it
+            it.map = fixture.state
+          }
+          // A touch that arrives before the node is placed misses it.
+          fixture.await("the input node to be placed") { activity.isInputPlaced }
           swipeRight()
           fixture.await("the swipe to pan the presented map and finish") {
             state.cameraPosition.center.longitude < initial.center.longitude - 0.1 &&
@@ -465,11 +471,17 @@ class SurfaceHandoffActivity : ComponentActivity() {
 /** Draws nothing: the map renders to a surface that a [AndroidMapPresentation] owns. */
 class MapInputActivity : ComponentActivity() {
   var map by mutableStateOf<MapState?>(null)
+  var isInputPlaced by mutableStateOf(false)
+    private set
 
   @OptIn(ExperimentalMaplibreComposeApi::class)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    setContent { map?.let { state -> Box(Modifier.fillMaxSize().mapInput(state)) } }
+    setContent {
+      map?.let { state ->
+        Box(Modifier.fillMaxSize().onPlaced { isInputPlaced = true }.mapInput(state))
+      }
+    }
   }
 }
 
