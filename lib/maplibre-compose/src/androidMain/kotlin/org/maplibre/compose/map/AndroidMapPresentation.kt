@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +31,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.MapInteractions
@@ -48,9 +46,10 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
  *
  * Style content composes with the [Context] and [Configuration] given here and the density of the
  * attached Surface. UI composables and view-dependent locals are not available in style content.
- * Style content and camera operations work while no Surface is attached. Style composition does not
- * depend on the phone display being on. No frames are produced until the style can be presented, so
- * show your own loading content on the Surface until then.
+ * Style content and camera operations work while no Surface is attached. Style composition and
+ * camera animations update at the refresh rate of the phone display, and at about 60 Hz while that
+ * display is off. No frames are produced until the style can be presented, so show your own loading
+ * content on the Surface until then.
  *
  * Pass gestures with the [MapState] methods, such as [MapState.panBy].
  *
@@ -74,7 +73,7 @@ public class AndroidMapPresentation(
     CoroutineScope(
       SupervisorJob() +
         Dispatchers.Main.immediate +
-        AndroidPresentationFrameClock +
+        AndroidPresentationFrameClock(mainHandler) +
         CoroutineExceptionHandler { _, error -> mainHandler.post { fail(error) } },
     )
   private var options by
@@ -338,15 +337,6 @@ public class AndroidMapPresentation(
 
     /** Waits for rendering to stop using the Surface. */
     override fun close(): Unit = presentation.detach(this)
-  }
-}
-
-// Choreographer can stop when the phone display is off, even while a car Surface is visible.
-// Only the standalone recomposer uses this clock; the Surface controller paces map rendering.
-private object AndroidPresentationFrameClock : MonotonicFrameClock {
-  override suspend fun <R> withFrameNanos(onFrame: (Long) -> R): R {
-    delay(16)
-    return onFrame(System.nanoTime())
   }
 }
 
