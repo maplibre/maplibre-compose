@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.isSpecified
@@ -8,8 +9,8 @@ import org.maplibre.compose.interaction.internal.DragBinding
 import org.maplibre.compose.interaction.internal.DragFitBoundsSettings
 import org.maplibre.compose.interaction.internal.DragPanSettings
 import org.maplibre.compose.interaction.internal.DragRotatePitchSettings
-import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.KeyBinding
+import org.maplibre.compose.interaction.internal.ResolvedInteractionBindings
 import org.maplibre.compose.interaction.internal.RotaryBinding
 import org.maplibre.compose.interaction.internal.ScrollBinding
 import org.maplibre.compose.interaction.internal.TapBinding
@@ -20,6 +21,7 @@ import org.maplibre.compose.interaction.internal.TransformPitchBinding
 import org.maplibre.compose.interaction.internal.TransformRotateBinding
 import org.maplibre.compose.interaction.internal.TransformZoomBinding
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 @MapInteractionDsl
 public class DragPanBuilder internal constructor(from: DragPanSettings) {
@@ -420,9 +422,36 @@ public class RotaryBindingBuilder internal constructor(from: RotaryBinding) {
   }
 }
 
+/**
+ * What pointer gestures, scrolling, keys, and rotary input do on a map. A binding cannot enable a
+ * camera movement that [MapInteractions] disallows.
+ */
+@ExperimentalMaplibreComposeApi
+@Immutable
+public data class InteractionBindings
+internal constructor(internal val resolved: ResolvedInteractionBindings) {
+  /** Edits [from]; omitted settings inherit. */
+  public constructor(
+    from: InteractionBindings = Standard,
+    block: InteractionBindingsBuilder.() -> Unit,
+  ) : this(InteractionBindingsBuilder(from.resolved).apply(block).build())
+
+  public companion object {
+    /** The bindings of [org.maplibre.compose.map.MapUiOptions.Standard]. */
+    public val Standard: InteractionBindings =
+      InteractionBindings(ResolvedInteractionBindings.standard())
+
+    /**
+     * No bindings. Pointer, scroll, key, and rotary input does not reach the map, including feature
+     * clicks.
+     */
+    public val None: InteractionBindings = InteractionBindings(ResolvedInteractionBindings.none())
+  }
+}
+
 /** Input admission, mappings, and source-specific recognition tuning. */
 @MapInteractionDsl
-public class InteractionBindingsBuilder internal constructor(from: InteractionBindings) {
+public class InteractionBindingsBuilder internal constructor(from: ResolvedInteractionBindings) {
   private val dragBuilder = DragBindingBuilder(from.drag)
   private val transformBuilder = TransformBuilder(from.transform)
   private val scrollBuilder = ScrollBindingBuilder(from.scroll)
@@ -483,8 +512,8 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
     rotaryBuilder.apply(block)
   }
 
-  internal fun build(): InteractionBindings =
-    InteractionBindings(
+  internal fun build(): ResolvedInteractionBindings =
+    ResolvedInteractionBindings(
       drag = dragBuilder.build(),
       transform = transformBuilder.build(),
       scroll = scrollBuilder.build(),

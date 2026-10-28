@@ -83,6 +83,26 @@ class MapInputModifierTest {
   }
 
   @Test
+  fun starting_from_no_bindings_ignores_a_drag() = runPlainComposeUiTest {
+    val target = fixture.target
+    setContent {
+      Box(
+        Modifier.fillMaxSize()
+          .testTag(RecognitionMapTag)
+          .mapInput(fixture.state, InteractionBindings.None),
+      )
+    }
+    waitForIdle()
+    mapNode().performTouchInput {
+      down(center)
+      moveBy(Offset(200f, 0f))
+      up()
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isEmpty(), "a drag panned the map without bindings")
+  }
+
+  @Test
   fun the_modifier_does_nothing_while_no_map_is_presented() = runPlainComposeUiTest {
     val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedMain)
     val state = runtime.createMapState(BaseStyle.Empty)

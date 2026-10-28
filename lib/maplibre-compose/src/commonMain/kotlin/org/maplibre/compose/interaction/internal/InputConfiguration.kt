@@ -9,7 +9,7 @@ import org.maplibre.compose.interaction.MapInteractions
  */
 internal class InputConfiguration(
   val interactions: MapInteractions,
-  val bindings: InteractionBindings,
+  val bindings: ResolvedInteractionBindings,
 ) {
   val camera: CameraConfiguration
     get() = interactions.camera
@@ -25,7 +25,7 @@ internal class InputConfiguration(
 
   internal data class Settings(
     val camera: CameraSettings,
-    val bindings: InteractionBindings,
+    val bindings: ResolvedInteractionBindings,
     val animationDuration: Duration,
   )
 
@@ -35,6 +35,7 @@ internal class InputConfiguration(
   override fun hashCode(): Int = listOf(interactions, bindings).hashCode()
 
   companion object {
-    val Standard = InputConfiguration(MapInteractions.Standard, InteractionBindings.standard())
+    val Standard =
+      InputConfiguration(MapInteractions.Standard, ResolvedInteractionBindings.standard())
   }
 }

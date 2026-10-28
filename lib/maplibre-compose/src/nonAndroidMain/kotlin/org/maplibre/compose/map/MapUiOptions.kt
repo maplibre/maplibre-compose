@@ -3,13 +3,13 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.interaction.InteractionBindingsBuilder
-import org.maplibre.compose.interaction.internal.InteractionBindings
+import org.maplibre.compose.interaction.internal.ResolvedInteractionBindings
 
 @Immutable
 public actual data class MapUiOptions
 private constructor(
   public actual val loadColor: Color,
-  internal actual val bindings: InteractionBindings,
+  internal actual val bindings: ResolvedInteractionBindings,
 ) {
   public actual constructor(
     from: MapUiOptions,
@@ -30,9 +30,9 @@ private constructor(
 
   public actual companion object {
     public actual val Standard: MapUiOptions =
-      MapUiOptions(Color.Transparent, InteractionBindings.standard())
+      MapUiOptions(Color.Transparent, ResolvedInteractionBindings.standard())
 
     public actual val None: MapUiOptions =
-      MapUiOptions(Color.Transparent, InteractionBindings.none())
+      MapUiOptions(Color.Transparent, ResolvedInteractionBindings.none())
   }
 }

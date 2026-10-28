@@ -11,46 +11,39 @@ import androidx.compose.ui.platform.LocalDensity
 import org.maplibre.compose.interaction.internal.BoxZoomPreview
 import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.InputFocus
-import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.drawBoxZoom
 import org.maplibre.compose.interaction.internal.inputEnvironment
 import org.maplibre.compose.interaction.internal.mapInput
 import org.maplibre.compose.interaction.internal.rotaryNotchPixels
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /**
- * Attaches this library's map pointer, scroll, key, and rotary input to the composable.
+ * Lets this composable control the map that a presentation shows for [state], with the same
+ * pointer, scroll, key, and rotary input as [MaplibreMap].
  *
- * The node is the map's hit rectangle. Apply it to a parent or overlay of the surface that presents
- * [state]; the surface itself should not consume pointer events. Input positions are measured from
- * the node's top-left corner in dp at the node's [androidx.compose.ui.platform.LocalDensity], so
- * the node must have the same bounds as the surface, and the presentation must use the same
- * density. Over its content, the node draws the box-zoom selection and, while it has focus, the
- * [androidx.compose.foundation.LocalIndication].
+ * The composable must cover the presented map exactly, at the same density as the presentation. The
+ * view under it must not consume pointer events. The composable draws the box-zoom selection while
+ * the user drags it, and draws the [androidx.compose.foundation.LocalIndication] while it has
+ * focus.
  *
- * Camera permissions, click callbacks, and animation duration come from the [MapInteractions] of
- * the presentation that is showing [state]. This modifier adds only the binding table: which
- * pointer, scroll, key, or rotary event does what.
+ * Camera permissions, click callbacks, and animation duration come from the presentation's
+ * [MapInteractions]. While no presentation shows [state], this modifier does nothing.
  *
- * [bindings] edits the standard table. Omitted settings inherit. The modifier does nothing while no
- * map is presented.
- *
- * @param state The map to drive. The caller controls its lifetime.
- * @param bindings Edits to the standard input bindings.
- * @see MaplibreMap
- * @see MapUiOptions
+ * @param state The map to control. The caller controls its lifetime.
+ * @param from The bindings to start from.
+ * @param block Changes to [from]. Settings that it does not change keep their values in [from].
  * @see MapState.panBy
  */
 @ExperimentalMaplibreComposeApi
 @Composable
 public fun Modifier.mapInput(
   state: MapState,
-  bindings: InteractionBindingsBuilder.() -> Unit = {},
+  from: InteractionBindings = InteractionBindings.Standard,
+  block: InteractionBindingsBuilder.() -> Unit = {},
 ): Modifier {
-  val resolved = InteractionBindingsBuilder(InteractionBindings.standard()).apply(bindings).build()
+  val resolved = InteractionBindings(from, block).resolved
   val attachment = state.inputAttachment
   val target = attachment?.target
   val attached = target != null && state.currentMapAttachment?.adapter === target
