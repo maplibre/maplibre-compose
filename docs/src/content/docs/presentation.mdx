@@ -24,10 +24,7 @@ state when you no longer need the map.
 
 A presentation draws only the map. It has no gestures, buttons, or attribution:
 
-- In Compose UI over the presented surface, attach <Api of="mapInput" /> to a
-  node that covers the map. See
-  [Handle gestures and clicks](/maplibre-compose/interaction/).
-- Otherwise pass gestures from your framework to <Api of="MapState.panBy" />,
+- Pass gestures from your framework to <Api of="MapState.panBy" />,
   <Api of="MapState.scaleBy" />, <Api of="MapState.fling" />, and
   <Api of="MapState.click" />.
 - Show the data sources' attribution in your own UI.
