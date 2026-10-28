@@ -128,7 +128,7 @@ internal data class RotaryBinding(
   val idleDuration: Duration = 200.milliseconds,
 )
 
-internal data class InteractionBindings(
+internal data class ResolvedInteractionBindings(
   val drag: DragBinding = DragBinding(),
   val transform: TransformBinding = TransformBinding(),
   val scroll: ScrollBinding = ScrollBinding(),
@@ -142,11 +142,11 @@ internal data class InteractionBindings(
   val rotary: RotaryBinding = RotaryBinding(),
 ) {
   companion object {
-    fun standard(): InteractionBindings {
+    fun standard(): ResolvedInteractionBindings {
       val mouse = setOf(PointerType.Mouse)
       val touch =
         setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown)
-      return InteractionBindings(
+      return ResolvedInteractionBindings(
         drag =
           DragBinding(
             mappings =
@@ -249,8 +249,8 @@ internal data class InteractionBindings(
       )
     }
 
-    fun none(): InteractionBindings =
-      InteractionBindings(
+    fun none(): ResolvedInteractionBindings =
+      ResolvedInteractionBindings(
         drag = DragBinding(enabled = false),
         transform =
           TransformBinding(

@@ -9,7 +9,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.internal.InteractionBindings
+import org.maplibre.compose.interaction.internal.ResolvedInteractionBindings
 
 class MapOptionsTest {
   @Test
@@ -41,8 +41,8 @@ class MapOptionsTest {
 
     val red = MapUiOptions { loadColor = Color.Red }
     assertEquals(Color.Red, MapUiOptions(red) { bindings { scroll { enabled = false } } }.loadColor)
-    assertEquals(InteractionBindings.standard(), red.bindings)
-    assertEquals(InteractionBindings.none(), MapUiOptions.None.bindings)
+    assertEquals(ResolvedInteractionBindings.standard(), red.bindings)
+    assertEquals(ResolvedInteractionBindings.none(), MapUiOptions.None.bindings)
     assertNotEquals(MapUiOptions.Standard, red)
   }
 

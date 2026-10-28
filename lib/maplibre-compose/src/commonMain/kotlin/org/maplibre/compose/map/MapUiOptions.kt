@@ -3,7 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.interaction.InteractionBindingsBuilder
-import org.maplibre.compose.interaction.internal.InteractionBindings
+import org.maplibre.compose.interaction.internal.ResolvedInteractionBindings
 
 /**
  * Settings for the Compose UI that shows the map: what shows before the first frame, and what
@@ -16,7 +16,7 @@ import org.maplibre.compose.interaction.internal.InteractionBindings
 @Immutable
 public expect class MapUiOptions {
   public val loadColor: Color
-  internal val bindings: InteractionBindings
+  internal val bindings: ResolvedInteractionBindings
 
   /** Edits [from]; omitted settings inherit. */
   public constructor(from: MapUiOptions = Standard, block: Builder.() -> Unit)

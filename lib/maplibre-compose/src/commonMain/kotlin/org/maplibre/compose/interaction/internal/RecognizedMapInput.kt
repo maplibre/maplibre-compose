@@ -38,7 +38,7 @@ internal class RecognizedMapInput(
       hasClickHandlers,
       // A host that recognizes its own gestures has no Compose bindings; taps take the standard
       // ones.
-      { InputConfiguration(currentInteractions(), InteractionBindings.standard()) },
+      { InputConfiguration(currentInteractions(), ResolvedInteractionBindings.standard()) },
     )
   private val startedAt = TimeSource.Monotonic.markNow()
 

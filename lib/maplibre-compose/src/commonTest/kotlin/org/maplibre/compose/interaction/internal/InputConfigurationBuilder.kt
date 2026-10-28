@@ -14,7 +14,7 @@ internal fun InputConfiguration(
 
 /** Standard camera policy with no bindings, so a test can enable one family at a time. */
 internal val InputConfiguration.Companion.NoBindings: InputConfiguration
-  get() = InputConfiguration(MapInteractions.Standard, InteractionBindings.none())
+  get() = InputConfiguration(MapInteractions.Standard, ResolvedInteractionBindings.none())
 
 internal class InputConfigurationBuilder(private val from: InputConfiguration) {
   var animationDuration: Duration = from.animationDuration

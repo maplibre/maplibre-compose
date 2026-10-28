@@ -3,8 +3,12 @@ package org.maplibre.compose.map
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -12,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -37,6 +42,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.mapInput
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -46,6 +52,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 /** Exercises the public presenter with a real buffer consumer, without a Compose UI host. */
 class AndroidMapPresentationTest {
@@ -261,6 +268,33 @@ class AndroidMapPresentationTest {
     }
 
   @Test
+  fun compose_input_in_another_host_pans_the_presented_map() = runMapTest {
+    withSurfaceMap { fixture ->
+      fixture.withConsumer(256, 192) { consumer ->
+        fixture.onMain { presenter.attachSurface(consumer.surface, 256, 192, 1f) }
+        consumer.awaitColor(Red)
+        val initial = fixture.onMain { state.cameraPosition }
+
+        ActivityScenario.launch(MapInputActivity::class.java).use { scenario ->
+          lateinit var activity: MapInputActivity
+          scenario.onActivity {
+            activity = it
+            it.map = fixture.state
+          }
+          // A touch that arrives before the node is placed misses it.
+          fixture.await("the input node to be placed") { activity.isInputPlaced }
+          swipeRight()
+          fixture.await("the swipe to pan the presented map and finish") {
+            state.cameraPosition.center.longitude < initial.center.longitude - 0.1 &&
+              !state.isCameraMoving
+          }
+          fixture.onMain { assertEquals(CameraMoveReason.Gesture, state.cameraMoveReason) }
+        }
+      }
+    }
+  }
+
+  @Test
   fun closing_a_map_with_an_attached_surface_leaves_the_borrowed_surface_valid() = runMapTest {
     withSurfaceMap { fixture ->
       fixture.withConsumer(256, 192) { consumer ->
@@ -432,6 +466,46 @@ class SurfaceHandoffActivity : ComponentActivity() {
       }
     }
   }
+}
+
+/** Draws nothing: the map renders to a surface that a [AndroidMapPresentation] owns. */
+class MapInputActivity : ComponentActivity() {
+  var map by mutableStateOf<MapState?>(null)
+  var isInputPlaced by mutableStateOf(false)
+    private set
+
+  @OptIn(ExperimentalMaplibreComposeApi::class)
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    setContent {
+      map?.let { state ->
+        Box(Modifier.fillMaxSize().onPlaced { isInputPlaced = true }.mapInput(state))
+      }
+    }
+  }
+}
+
+/** Injects a touch drag from the screen's center toward its right edge. */
+private fun swipeRight() {
+  val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+  val metrics = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics
+  val y = metrics.heightPixels / 2f
+  val startX = metrics.widthPixels / 2f
+  val downTime = SystemClock.uptimeMillis()
+  fun inject(action: Int, x: Float) {
+    val event =
+      MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0).apply {
+        source = InputDevice.SOURCE_TOUCHSCREEN
+      }
+    try {
+      check(automation.injectInputEvent(event, true)) { "Touch injection failed" }
+    } finally {
+      event.recycle()
+    }
+  }
+  inject(MotionEvent.ACTION_DOWN, startX)
+  for (step in 1..10) inject(MotionEvent.ACTION_MOVE, startX + step * metrics.widthPixels / 40f)
+  inject(MotionEvent.ACTION_UP, startX + metrics.widthPixels / 4f)
 }
 
 /**

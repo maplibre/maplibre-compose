@@ -1448,6 +1448,21 @@ public final class org/maplibre/compose/interaction/InputAction$None : org/mapli
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/maplibre/compose/interaction/InteractionBindings {
+	public static final field $stable I
+	public static final field Companion Lorg/maplibre/compose/interaction/InteractionBindings$Companion;
+	public fun <init> (Lorg/maplibre/compose/interaction/InteractionBindings;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lorg/maplibre/compose/interaction/InteractionBindings;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/InteractionBindings$Companion {
+	public final fun getNone ()Lorg/maplibre/compose/interaction/InteractionBindings;
+	public final fun getStandard ()Lorg/maplibre/compose/interaction/InteractionBindings;
+}
+
 public final class org/maplibre/compose/interaction/InteractionBindingsBuilder {
 	public static final field $stable I
 	public final fun doubleTap (Lkotlin/jvm/functions/Function1;)V
@@ -1533,6 +1548,10 @@ public final class org/maplibre/compose/interaction/KeyModifier$Shift : org/mapl
 public final class org/maplibre/compose/interaction/LongClickCallbackBuilder {
 	public static final field $stable I
 	public final fun onEvent (Lkotlin/jvm/functions/Function1;)V
+}
+
+public final class org/maplibre/compose/interaction/MapInputKt {
+	public static final fun mapInput (Landroidx/compose/ui/Modifier;Lorg/maplibre/compose/map/MapState;Lorg/maplibre/compose/interaction/InteractionBindings;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Landroidx/compose/ui/Modifier;
 }
 
 public abstract interface annotation class org/maplibre/compose/interaction/MapInteractionDsl : java/lang/annotation/Annotation {
