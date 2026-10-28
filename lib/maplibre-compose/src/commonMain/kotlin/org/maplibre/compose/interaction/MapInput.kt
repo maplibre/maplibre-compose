@@ -25,8 +25,10 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
  * Attaches this library's map pointer, scroll, key, and rotary input to the composable.
  *
  * The node is the map's hit rectangle. Apply it to a parent or overlay of the surface that presents
- * [state]; the surface itself should not consume pointer events. Over its content, the node draws
- * the box-zoom selection and, while it has focus, the
+ * [state]; the surface itself should not consume pointer events. Input positions are measured from
+ * the node's top-left corner in dp at the node's [androidx.compose.ui.platform.LocalDensity], so
+ * the node must have the same bounds as the surface, and the presentation must use the same
+ * density. Over its content, the node draws the box-zoom selection and, while it has focus, the
  * [androidx.compose.foundation.LocalIndication].
  *
  * Camera permissions, click callbacks, and animation duration come from the [MapInteractions] of
