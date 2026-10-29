@@ -129,3 +129,17 @@ class DevicesTest(unittest.TestCase):
                 if route
                 else ["org.maplibre.compose.demoapp/.MainActivity"],
             )
+
+        picker = self.bin / "pick-android-device"
+        picker.write_text('#!/bin/sh\nprintf "%s\\n" "${1:-$ANDROID_SERIAL}"\n')
+        picker.chmod(0o755)
+        self.run_script("run-android-demo", "physical-phone")
+        self.assertEqual(
+            (self.root / "build/android-emulator/serial").read_text(),
+            "physical-phone\n",
+        )
+        self.env["ANDROID_SERIAL"] = "env-phone"
+        self.run_script("run-android-demo")
+        self.assertEqual(
+            (self.root / "build/android-emulator/serial").read_text(), "env-phone\n"
+        )
