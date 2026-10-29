@@ -3,7 +3,7 @@ package org.maplibre.compose.demoapp.demos
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -168,8 +169,10 @@ object OverlayAlignmentDemo : Demo {
       }
     } else {
       current.anchors.forEach { anchor ->
+        // Anchors are measured from the left edge, so neither placement mirrors in RTL.
         Box(
-          Modifier.offset {
+          Modifier.align(AbsoluteAlignment.TopLeft)
+            .absoluteOffset {
               val radius = discDiameter / 2
               with(density) {
                 IntOffset(
