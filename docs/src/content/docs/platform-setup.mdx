@@ -214,8 +214,8 @@ The library imports MapLibre GL JS as an ES module, so the JS target must build
 ES modules with `useEsModules()`. The library includes its own build of MapLibre
 GL JS; you don't add it from npm.
 
-Call <Api of="installMaplibreCompose" /> inside `onWasmReady`, before
-`ComposeViewport`, as shown in
+Compose provides the shared WebGL render target. Call
+<Api of="installMaplibreCompose" /> before creating a map to configure its worker, as shown in
 [Getting started](/maplibre-compose/getting-started/#web-js).
 
 ## Use a development snapshot
