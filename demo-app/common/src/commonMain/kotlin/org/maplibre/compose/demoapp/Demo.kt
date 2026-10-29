@@ -10,6 +10,7 @@ import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
+import org.maplibre.compose.demoapp.demos.OverlayAlignmentDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.demoapp.demos.editablemarkers.EditableMarkersDemo
 import org.maplibre.compose.demoapp.demos.featureediting.FeatureEditingDemo
@@ -127,4 +128,5 @@ val allDemos: List<Demo> =
     MapSnapshotterDemo,
     TransitNetworkDemo,
     MaterialStyleDemo,
+    OverlayAlignmentDemo,
   )
