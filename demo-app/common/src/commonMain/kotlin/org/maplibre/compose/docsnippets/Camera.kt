@@ -116,10 +116,11 @@ fun VisibleArea(mapState: MapState) {
 
 fun convertCoordinates(mapState: MapState) {
   // #region convert
+  val viewport = mapState.viewport
   val centerOnScreen: DpOffset? =
-    mapState.screenLocationFromPosition(mapState.cameraPosition.center)
+    viewport?.screenLocationFromPosition(viewport.cameraPosition.center)
   val positionAtPoint: Position? =
-    mapState.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
+    viewport?.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
   // #endregion convert
 }
 

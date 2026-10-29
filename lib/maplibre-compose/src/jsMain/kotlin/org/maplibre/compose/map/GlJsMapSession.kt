@@ -74,9 +74,6 @@ import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.DelicateMaplibreComposeApi
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
-import org.maplibre.compose.util.VisibleBounds
-import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.positions
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraPadding
@@ -90,7 +87,6 @@ import org.maplibre.compose.util.toPaddingOptions
 import org.maplibre.compose.util.toPoint
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toStyleJson
-import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -1037,18 +1033,6 @@ internal class GlJsMapSession(
     if (value.maxPitch < maxPitch) map.setMaxPitch(value.maxPitch)
   }
 
-  override fun getVisibleBounds(): VisibleBounds =
-    withMap(VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0))) {
-      it.getBounds().toVisibleBounds()
-    }
-
-  override fun getVisibleRegion(): VisibleRegion =
-    withMap(
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
-    ) { map ->
-      map.readVisibleRegion(appliedExtent.width.toDouble(), appliedExtent.height.toDouble())
-    }
-
   override fun getViewport(): Viewport? =
     withMap(null as Viewport?) { map ->
       // GL JS adopts a resize synchronously in applyExtent, so the applied extent, the bounds, and
@@ -1197,9 +1181,6 @@ internal class GlJsMapSession(
       }
       features.map { it.second }
     }
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(getCameraPosition().zoom, latitude)
 
   // endregion
 

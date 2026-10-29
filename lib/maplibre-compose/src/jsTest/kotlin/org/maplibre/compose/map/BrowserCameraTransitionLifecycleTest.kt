@@ -132,7 +132,7 @@ class BrowserCameraTransitionLifecycleTest {
           map.isPointOnMapSurface(point.toPoint()),
           "the anchor must lie above the horizon",
         )
-        val location = requireNotNull(fixture.state.positionFromScreenLocation(point))
+        val location = requireNotNull(fixture.state.viewport?.positionFromScreenLocation(point))
         val before = fixture.session.getCameraPosition()
         assertTrue(
           abs(location.longitude - before.center.longitude) > 180.0,

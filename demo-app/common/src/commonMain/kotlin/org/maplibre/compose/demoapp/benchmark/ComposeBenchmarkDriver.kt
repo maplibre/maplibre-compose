@@ -204,7 +204,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   }
 
   override suspend fun overlayVisible(): Boolean {
-    val offset = checkNotNull(state.screenLocationFromPosition(BenchmarkOrigin))
+    val offset = checkNotNull(state.viewport?.screenLocationFromPosition(BenchmarkOrigin))
     return state.queryRenderedFeatures(offset, layerIds = setOf(metadataOverlayId)).isNotEmpty()
   }
 
@@ -277,7 +277,7 @@ internal class ComposeBenchmarkDriver(private val resources: BenchmarkFixture) :
   }
 
   override suspend fun renderedRevisions(): List<Int> {
-    val offset = checkNotNull(state.screenLocationFromPosition(BenchmarkOrigin))
+    val offset = checkNotNull(state.viewport?.screenLocationFromPosition(BenchmarkOrigin))
     return state.queryRenderedFeatures(offset).mapNotNull {
       it.properties?.get("revision")?.jsonPrimitive?.intOrNull
     }

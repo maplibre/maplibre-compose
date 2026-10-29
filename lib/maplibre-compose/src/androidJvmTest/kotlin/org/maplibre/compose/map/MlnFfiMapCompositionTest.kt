@@ -463,7 +463,7 @@ class MlnFfiMapCompositionTest {
           assertEquals(start.zoom, camera.zoom, 1e-6)
           assertEquals(start.bearing, camera.bearing, 1e-6)
           assertEquals(start.pitch, camera.pitch, 1e-6)
-          return checkNotNull(state.screenLocationFromPosition(start.center)).y.value
+          return checkNotNull(state.viewport?.screenLocationFromPosition(start.center)).y.value
         }
 
         for (direction in listOf(-1f, 1f)) {

@@ -14,8 +14,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameProjection
 import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.compose.util.VisibleBounds
-import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toDpOffset
@@ -185,10 +183,6 @@ internal class NativeViewport {
         extents = it
       }
 
-  fun getVisibleBounds(): VisibleBounds = viewportExtents().bounds
-
-  fun getVisibleRegion(): VisibleRegion = viewportExtents().region
-
   fun getViewport(): Viewport? {
     if (!hasViewport || size == DpSize.Zero) return null
     cachedViewport?.let {
@@ -202,6 +196,7 @@ internal class NativeViewport {
         visibleRegion = extents.region,
         metersPerDpAtCenter = metersPerDpAtLatitude(camera.center.latitude),
       )
+      .withProjection(snapshot?.view?.let(::MapViewProjection))
       .also { cachedViewport = it }
   }
 
@@ -225,7 +220,7 @@ internal class NativeViewport {
     return screenLocationFromPosition(position)
   }
 
-  fun metersPerDpAtLatitude(latitude: Double): Double =
+  private fun metersPerDpAtLatitude(latitude: Double): Double =
     projection?.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
       ?: metersPerDpAtLatitude(camera.zoom, latitude)
 }

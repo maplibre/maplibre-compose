@@ -123,8 +123,9 @@ the visible area or to show the current zoom:
 
 <Code code={region(camera, "viewport")} lang="kotlin" title="App.kt" />
 
-The viewport is `null` until the map draws for the first time. A composable that
-reads it recomposes when the camera moves or the map changes size.
+The viewport is `null` until the map is on screen with a nonzero size. A
+composable that reads it recomposes when the camera moves or the map changes
+size.
 
 The map repeats the world to the left and right, so longitudes in
 <Api of="Viewport.visibleBounds" /> can go past ±180°. Call
@@ -132,14 +133,15 @@ The map repeats the world to the left and right, so longitudes in
 
 ## Convert between screen and map coordinates
 
-<Api of="MapState.screenLocationFromPosition" /> finds where a geographic
+<Api of="Viewport.screenLocationFromPosition" /> finds where a geographic
 position appears on screen.
-<Api of="MapState.positionFromScreenLocation" /> finds the geographic position
+<Api of="Viewport.positionFromScreenLocation" /> finds the geographic position
 under a screen point. Screen points are in dp from the map's top-left corner:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />
 
-Both return `null` until the map draws for the first time. To place Compose UI
+Each viewport converts for the camera and size it describes, so read
+<Api of="MapState.viewport" /> again after the camera moves. To place Compose UI
 at a geographic position, use <Api of="MapOverlayScope.placedAt" /> from
 [Overlay Compose UI](/maplibre-compose/controls/) instead.
 

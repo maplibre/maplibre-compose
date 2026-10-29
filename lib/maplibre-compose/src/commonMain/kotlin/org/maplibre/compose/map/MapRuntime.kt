@@ -90,8 +90,6 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
-import org.maplibre.compose.util.VisibleBounds
-import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.formatToString
 import org.maplibre.compose.util.positions
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -901,24 +899,8 @@ internal constructor(
     )
   }
 
-  fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
-
-  fun getVisibleBounds(): VisibleBounds? = withViewport { it.getVisibleBounds() }
-
-  fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
-    it.screenLocationFromPosition(position)
-  }
-
   fun overlayScreenLocationFromPosition(position: Position): DpOffset? = withViewport {
     it.overlayScreenLocationFromPosition(position)
-  }
-
-  fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
-    it.positionFromScreenLocation(offset)
-  }
-
-  fun metersPerDpAtLatitude(latitude: Double): Double? = withViewport {
-    it.metersPerDpAtLatitude(latitude)
   }
 
   suspend fun queryRenderedFeatures(
@@ -1047,8 +1029,9 @@ internal constructor(
   internal var inputAttachment: MapInputAttachment? by mutableStateOf(null)
 
   /**
-   * The current camera: the last one the map rendered, or the initial or requested camera before
-   * the map renders. Padding excludes the presentation's viewport insets.
+   * The current camera: the one in [viewport], which the map draws in its next frame. Before the
+   * map has a viewport, and after [setCameraPosition] until the map applies it, this is the
+   * requested camera. Padding excludes the presentation's viewport insets.
    */
   public val cameraPosition: CameraPosition
     get() = attachmentAuthority.cameraPosition
@@ -1057,8 +1040,9 @@ internal constructor(
     get() = attachmentAuthority.current
 
   /**
-   * The last rendered transform, or null until the map renders. Its camera, size and visible area
-   * describe the same frame.
+   * The map's current transform, or null until the map is presented at a nonzero size. The map
+   * replaces it when it applies a new camera or size, and draws it in its next frame. Read its
+   * camera, size, and visible area, and convert between positions and screen offsets through it.
    */
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport
@@ -1388,41 +1372,10 @@ internal constructor(
     recognizedInput?.click(offset)
   }
 
-  /** Returns the visible region, or null while no viewport is available. */
-  public fun getVisibleRegion(): VisibleRegion? =
-    withAttachmentRead(MapAttachment::getVisibleRegion)
-
-  /** Returns the visible axis-aligned bounds, or null while no viewport is available. */
-  public fun getVisibleBounds(): VisibleBounds? =
-    withAttachmentRead(MapAttachment::getVisibleBounds)
-
-  /**
-   * Projects [position] into a logical-pixel offset, or returns null without a viewport.
-   *
-   * Longitudes equivalent modulo 360° project onto the world copy nearest the camera center.
-   */
-  public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
-    it.screenLocationFromPosition(position)
-  }
-
   internal fun overlayScreenLocationFromPosition(position: Position): DpOffset? =
     withAttachmentRead {
       it.overlayScreenLocationFromPosition(position)
     }
-
-  /**
-   * Unprojects [offset] into a geographic position, or returns null without a viewport.
-   *
-   * Longitude preserves the visible world copy and may extend past ±180°.
-   */
-  public fun positionFromScreenLocation(offset: DpOffset): Position? = withAttachmentRead {
-    it.positionFromScreenLocation(offset)
-  }
-
-  /** Returns the ground distance per dp, or null while no viewport is available. */
-  public fun metersPerDpAtLatitude(latitude: Double): Double? = withAttachmentRead {
-    it.metersPerDpAtLatitude(latitude)
-  }
 
   /**
    * Waits for a viewport, then queries rendered features at [offset] in front-to-back render order.

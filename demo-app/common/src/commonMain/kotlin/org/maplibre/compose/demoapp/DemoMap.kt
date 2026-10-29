@@ -451,13 +451,13 @@ private fun PointerPinDestinationOverlay(
   destination: DemoDestination,
   modifier: Modifier = Modifier,
 ) {
-  // The viewport read recomputes the projection when the camera changes.
+  // Each viewport projects through its own transform, so a new viewport recomputes the projection.
   val viewport = mapState.viewport
   val projected =
     remember(destination, viewport) {
       when (destination) {
         is DemoDestination.ExactCamera ->
-          mapState.screenLocationFromPosition(destination.position.center)?.let(::listOf)
+          viewport?.screenLocationFromPosition(destination.position.center)?.let(::listOf)
         is DemoDestination.FitBounds -> {
           val bounds = destination.bounds
           listOf(
@@ -466,7 +466,7 @@ private fun PointerPinDestinationOverlay(
               Position(longitude = bounds.east, latitude = bounds.south),
               Position(longitude = bounds.west, latitude = bounds.south),
             )
-            .mapNotNull { mapState.screenLocationFromPosition(it) }
+            .mapNotNull { viewport?.screenLocationFromPosition(it) }
             .takeIf { it.size == 4 }
         }
         DemoDestination.None -> null
@@ -505,7 +505,7 @@ private fun PointerPinPlacementOverlay(
   modifier: Modifier = Modifier,
 ) {
   val viewport = mapState.viewport
-  val projected = remember(target, viewport) { mapState.screenLocationFromPosition(target) }
+  val projected = remember(target, viewport) { viewport?.screenLocationFromPosition(target) }
   val layoutDirection = LocalLayoutDirection.current
 
   Canvas(modifier) {

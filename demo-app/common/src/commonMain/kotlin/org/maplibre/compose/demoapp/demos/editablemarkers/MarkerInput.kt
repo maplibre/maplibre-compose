@@ -52,7 +52,7 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
           if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null
         },
         onPress = { rootPosition ->
-          anchor = mapState.screenLocationFromPosition(marker.position)
+          anchor = mapState.viewport?.screenLocationFromPosition(marker.position)
           trashTarget = MarkerTrashTarget(rootPosition)
           pressedId = marker.id
         },
@@ -65,7 +65,9 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
           overTrash = trashTarget?.update(rootPosition, trashBounds) == true
           trashNeedsExit = trashTarget?.needsExit == true
           anchor?.let { start ->
-            mapState.positionFromScreenLocation(start + distance)?.let { marker.position = it }
+            mapState.viewport?.positionFromScreenLocation(start + distance)?.let {
+              marker.position = it
+            }
           }
           dragLean = (delta.x * 0.7f).coerceIn(-18f, 18f)
         },
