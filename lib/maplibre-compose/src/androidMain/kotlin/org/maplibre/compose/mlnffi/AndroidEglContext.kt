@@ -6,8 +6,8 @@ import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.view.Surface
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.nativeffi.generated.OpenglClientApi
-import org.maplibre.nativeffi.generated.OpenglContextOwnership
+import org.maplibre.nativeffi.OpenGlClientApi
+import org.maplibre.nativeffi.OpenGlContextOwnership
 
 /**
  * EGL display, config, and window surface that a dedicated OpenGL surface session presents into.
@@ -28,8 +28,8 @@ private constructor(
         shareContext = NativeHandle(0L),
         // Android's EGL dispatch is supplied by the runtime; no host proc loader is needed.
         getProcAddress = NativeHandle(0L),
-        ownership = OpenglContextOwnership.DEDICATED,
-        clientApi = OpenglClientApi.GLES,
+        ownership = OpenGlContextOwnership.DEDICATED,
+        clientApi = OpenGlClientApi.GLES,
       )
 
   val surfaceHandle: NativeHandle

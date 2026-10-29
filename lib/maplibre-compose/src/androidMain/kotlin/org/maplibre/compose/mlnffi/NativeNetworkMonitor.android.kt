@@ -2,7 +2,7 @@ package org.maplibre.compose.mlnffi
 
 import android.net.ConnectivityManager
 import android.net.Network
-import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.NetworkStatus
 
 internal actual fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit): AutoCloseable {
   val manager =

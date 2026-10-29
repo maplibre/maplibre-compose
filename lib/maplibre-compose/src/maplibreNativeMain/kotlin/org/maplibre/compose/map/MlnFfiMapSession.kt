@@ -32,7 +32,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -41,8 +40,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapFrameProjection
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
-import org.maplibre.compose.mlnffi.failed
-import org.maplibre.compose.mlnffi.failureMessage
 import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.compose.mlnffi.use
 import org.maplibre.compose.style.BaseStyle
@@ -70,35 +67,34 @@ import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.generated.AnimationOptions
-import org.maplibre.nativeffi.generated.BoundOptions
-import org.maplibre.nativeffi.generated.CameraDelta
-import org.maplibre.nativeffi.generated.CameraFitOptions
-import org.maplibre.nativeffi.generated.CameraOptions
-import org.maplibre.nativeffi.generated.CameraUpdate as FfiCameraUpdate
-import org.maplibre.nativeffi.generated.CameraUpdateMode
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.GesturePhase
-import org.maplibre.nativeffi.generated.LogicalExtent
-import org.maplibre.nativeffi.generated.MapDebugOption
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MapMode
-import org.maplibre.nativeffi.generated.MapTileOptions
-import org.maplibre.nativeffi.generated.ProjectionMode
-import org.maplibre.nativeffi.generated.QueriedFeature
-import org.maplibre.nativeffi.generated.RenderSessionHandle
-import org.maplibre.nativeffi.generated.RenderedQueryGeometry
-import org.maplibre.nativeffi.generated.RenderedQueryGeometryData
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventMask
-import org.maplibre.nativeffi.generated.RuntimeEventType
-import org.maplibre.nativeffi.generated.ScreenBox
-import org.maplibre.nativeffi.generated.ScreenPoint
-import org.maplibre.nativeffi.generated.Status
-import org.maplibre.nativeffi.generated.UnitBezier
-import org.maplibre.nativeffi.runtime.CommandCompletion
+import org.maplibre.nativeffi.AnimationOptions
+import org.maplibre.nativeffi.BoundOptions
+import org.maplibre.nativeffi.CameraDelta
+import org.maplibre.nativeffi.CameraFitOptions
+import org.maplibre.nativeffi.CameraOptions
+import org.maplibre.nativeffi.CameraUpdate as FfiCameraUpdate
+import org.maplibre.nativeffi.CameraUpdateMode
+import org.maplibre.nativeffi.CommandCompletion
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.GesturePhase
+import org.maplibre.nativeffi.LogicalExtent
+import org.maplibre.nativeffi.MapDebugFlag
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapOptions
+import org.maplibre.nativeffi.MapProjectionHandle
+import org.maplibre.nativeffi.MapTileOptions
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.ProjectionMode
+import org.maplibre.nativeffi.RenderSessionHandle
+import org.maplibre.nativeffi.RenderedFeature
+import org.maplibre.nativeffi.RenderedQueryGeometry
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventFlag
+import org.maplibre.nativeffi.RuntimeEventType
+import org.maplibre.nativeffi.ScreenBox
+import org.maplibre.nativeffi.ScreenPoint
+import org.maplibre.nativeffi.Status
+import org.maplibre.nativeffi.UnitBezier
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -106,17 +102,17 @@ import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
 /** The events [MlnFfiMapSession.handleEvent] consumes. */
-private val HandledMapEvents: RuntimeEventMask =
-  RuntimeEventMask.MAP_STYLE_LOADED or
-    RuntimeEventMask.MAP_IDLE or
-    RuntimeEventMask.MAP_SOURCE_CHANGED or
-    RuntimeEventMask.MAP_LOADING_FAILED or
-    RuntimeEventMask.MAP_CAMERA_WILL_CHANGE or
-    RuntimeEventMask.MAP_CAMERA_IS_CHANGING or
-    RuntimeEventMask.MAP_CAMERA_DID_CHANGE or
-    RuntimeEventMask.MAP_RENDER_ERROR or
-    RuntimeEventMask.MAP_RENDER_FRAME_FINISHED or
-    RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
+private val HandledMapEvents: RuntimeEventFlag =
+  RuntimeEventFlag.MAP_STYLE_LOADED or
+    RuntimeEventFlag.MAP_IDLE or
+    RuntimeEventFlag.MAP_SOURCE_CHANGED or
+    RuntimeEventFlag.MAP_LOADING_FAILED or
+    RuntimeEventFlag.MAP_CAMERA_WILL_CHANGE or
+    RuntimeEventFlag.MAP_CAMERA_IS_CHANGING or
+    RuntimeEventFlag.MAP_CAMERA_DID_CHANGE or
+    RuntimeEventFlag.MAP_RENDER_ERROR or
+    RuntimeEventFlag.MAP_RENDER_FRAME_FINISHED or
+    RuntimeEventFlag.MAP_STYLE_IMAGE_MISSING
 
 /**
  * One logical MapLibre Native map. Commands and event delivery run on main; native orders the
@@ -165,7 +161,6 @@ internal class MlnFfiMapSession(
       canRender = { !isClosing && presentationActive },
       getLogger = { logger },
       viewport = viewport,
-      postToMain = owner::postToMain,
       onAttached = {
         owner.postToMain {
           val map = map ?: return@postToMain
@@ -386,25 +381,26 @@ internal class MlnFfiMapSession(
 
   private suspend fun createMap() {
     val runtime = owner.awaitRuntime()
-    val created =
-      runtime
-        .createMap(
-          GeneratedApi.mapOptionsDefault()
-            .copy(
-              // The bootstrap extent until a render target applies its own. The scale factor is
-              // fixed for the map's lifetime.
-              initialExtent = LogicalExtent(1u, 1u, scaleFactor),
-              mapMode = MapMode.CONTINUOUS,
-              eventMask = HandledMapEvents,
-            ),
-        )
-        .await()
-    if (!owner.register(created, child)) {
-      created.release().await()
-      error("The map runtime is closed")
+    val (created, ready) =
+      runtime.createMap(
+        MapOptions(
+          // Bootstrap extent until a render target applies its own. Scale is fixed for the map.
+          initialExtent = LogicalExtent(1u, 1u, scaleFactor),
+          eventMask = HandledMapEvents,
+        ),
+      )
+    try {
+      check(owner.register(created, child)) { "The map runtime is closed" }
+      this@MlnFfiMapSession.map = created
+      ready.await()
+    } catch (error: Throwable) {
+      this@MlnFfiMapSession.map = null
+      owner.unregister(created)
+      withContext(NonCancellable) {
+        runCatching { created.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
+      }
+      throw error
     }
-
-    this@MlnFfiMapSession.map = created
     viewport.prepareCamera(requestedCamera)?.let { created.updateCamera(it).report("move") }
     cameraConstraints?.let { created.applyConstraints(it) }
     renderSettings?.let { created.applyRenderSettings(it, projectionChanged = true) }
@@ -482,12 +478,13 @@ internal class MlnFfiMapSession(
         val request = styleLoadTracker.requestId
         val submitted = styleCompletion ?: return
         owner.launchOnMain {
-          val completion = submitted.await()
-          if (
-            !isCurrentStyleRequest(request) ||
-              completion.failed ||
-              event.generation < completion.generation
-          )
+          val completion =
+            try {
+              submitted.await()
+            } catch (_: MaplibreException) {
+              return@launchOnMain
+            }
+          if (!isCurrentStyleRequest(request) || event.generation < completion.generation)
             return@launchOnMain
           val binding = createStyleBinding(map)
           if (
@@ -518,12 +515,13 @@ internal class MlnFfiMapSession(
         val request = styleLoadTracker.requestId
         val submitted = styleCompletion ?: return
         owner.launchOnMain {
-          val completion = submitted.await()
-          if (
-            !isCurrentStyleRequest(request) ||
-              completion.failed ||
-              event.generation < completion.generation
-          )
+          val completion =
+            try {
+              submitted.await()
+            } catch (_: MaplibreException) {
+              return@launchOnMain
+            }
+          if (!isCurrentStyleRequest(request) || event.generation < completion.generation)
             return@launchOnMain
           val reason = event.styleLoadFailureReason()
           if (styleLoadTracker.failed(request)) {
@@ -646,7 +644,7 @@ internal class MlnFfiMapSession(
         styleBinding?.invalidate()
         when (style) {
           is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-          is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
+          is BaseStyle.Json -> map.setStyleJson(style.json)
           UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
         }
       } catch (error: MaplibreException) {
@@ -655,22 +653,18 @@ internal class MlnFfiMapSession(
       }
     styleCompletion = submitted
     owner.launchOnMain {
-      val completion =
-        try {
-          submitted.await()
-        } catch (error: Throwable) {
-          if (error is CancellationException) throw error
-          if (isCurrentStyleRequest(request))
-            styleRequestFailed(
-              request,
-              style,
-              error.message ?: "Failed to apply the base style",
-              error,
-            )
-          return@launchOnMain
-        }
-      if (completion.failed && isCurrentStyleRequest(request)) {
-        styleRequestFailed(request, style, completion.failureMessage(), null)
+      try {
+        submitted.await()
+      } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        if (isCurrentStyleRequest(request))
+          styleRequestFailed(
+            request,
+            style,
+            error.message ?: "Failed to apply the base style",
+            error,
+          )
+        return@launchOnMain
       }
     }
   }
@@ -745,7 +739,7 @@ internal class MlnFfiMapSession(
     fitPadding: DpPadding,
   ): CameraPosition {
     val map = checkNotNull(map) { "The map became unavailable during the geometry query" }
-    val geoJson = geometry.toJson().encodeToByteArray()
+    val geoJson = geometry.toJson()
     val insets = viewport.appliedViewportInsets
     return fitCamera(map, bearing, pitch, cameraPadding, fitPadding, insets) {
         map.cameraForGeometry(geoJson, it)
@@ -770,8 +764,7 @@ internal class MlnFfiMapSession(
     val camera = cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
     if (guard?.isValid() == false) return
     // Returns once main has handled the command's camera events.
-    val completion = owner.inEventOrder(map.updateCamera(FfiCameraUpdate(camera = camera))).await()
-    if (completion.failed) throw CommandFailedException(completion)
+    owner.inEventOrder(map.updateCamera(FfiCameraUpdate(camera = camera))).await()
   }
 
   private suspend fun cameraForBounds(
@@ -813,7 +806,7 @@ internal class MlnFfiMapSession(
     // One view, so the projection and its extent describe the same viewport.
     val view = map.getSnapshot().view
     val center =
-      GeneratedApi.mapProjectionCreate(view).use { projection ->
+      MapProjectionHandle.create(view).use { projection ->
         projection.setCamera(camera)
         val size = view.extent
         projection.latLngForPixel(
@@ -868,7 +861,7 @@ internal class MlnFfiMapSession(
       val view = map.getSnapshot().view
       val size = view.extent
       val point =
-        GeneratedApi.mapProjectionCreate(view).use { projection ->
+        MapProjectionHandle.create(view).use { projection ->
           anchor.resolveScreenPoint(
             DpSize(size.width.toInt().dp, size.height.toInt().dp),
             centerLongitude = checkNotNull(projection.getCamera().center).longitude,
@@ -1016,11 +1009,11 @@ internal class MlnFfiMapSession(
   }
 
   private fun MapHandle.applyRenderSettings(value: RenderOptions, projectionChanged: Boolean) {
-    var options = MapDebugOption(0u)
-    if (value.debug.tileBorders) options = options or MapDebugOption.TILE_BORDERS
-    if (value.debug.tileTimestamps) options = options or MapDebugOption.TIMESTAMPS
-    if (value.debug.collisionBoxes) options = options or MapDebugOption.COLLISION
-    if (value.debug.tileParseStatus) options = options or MapDebugOption.PARSE_STATUS
+    var options = MapDebugFlag(0u)
+    if (value.debug.tileBorders) options = options or MapDebugFlag.TILE_BORDERS
+    if (value.debug.tileTimestamps) options = options or MapDebugFlag.TIMESTAMPS
+    if (value.debug.collisionBoxes) options = options or MapDebugFlag.COLLISION
+    if (value.debug.tileParseStatus) options = options or MapDebugFlag.PARSE_STATUS
     discarding.setDebugOptions(options)
     if (projectionChanged) {
       val mode = setProjectionMode(value.cameraProjection.toFfi()).report("set the projection mode")
@@ -1086,36 +1079,37 @@ internal class MlnFfiMapSession(
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = query(rect.toQueryGeometry(), layerIds, predicate)
 
-  /** Submits every layer's query at once instead of one round trip per layer. */
+  /** Queries layers with the same hit area together, then groups the hits by their style layer. */
   override suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
     hitPadding: Map<String, Dp>,
   ): Map<String, List<Feature<Geometry, JsonObject?>>> {
     val session = presentation.readySession() ?: return hitPadding.mapValues { emptyList() }
-    val pending = hitPadding.mapValues { (id, padding) ->
-      val geometry =
-        if (padding == 0.dp) offset.toQueryGeometry()
-        else
-          DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
-            .toQueryGeometry()
-      submitQuery(session, geometry, setOf(id), null)
-    }
-    val results = pending.mapValues { (_, query) -> query?.awaitQuery() ?: emptyList() }
+    val pending =
+      hitPadding.entries
+        .groupBy { it.value }
+        .map { (padding, layers) ->
+          val geometry =
+            if (padding == 0.dp) offset.toQueryGeometry()
+            else
+              DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
+                .toQueryGeometry()
+          submitQuery(session, geometry, layers.map { it.key }.toSet(), null)
+        }
+    val results = pending.flatMap { it?.awaitQuery() ?: emptyList() }.groupBy { it.layerId }
     return withContext(Dispatchers.Default) {
-      results.mapValues { (_, features) -> features.toGeoJsonFeatures().asReversed() }
+      hitPadding.mapValues { (id, _) -> results[id].orEmpty().toGeoJsonFeatures().asReversed() }
     }
   }
 
   private fun DpOffset.toQueryGeometry(): RenderedQueryGeometry =
-    RenderedQueryGeometry(RenderedQueryGeometryData.Point(toScreenPoint()))
+    RenderedQueryGeometry.Point(toScreenPoint())
 
   private fun DpRect.toQueryGeometry(): RenderedQueryGeometry =
-    RenderedQueryGeometry(
-      RenderedQueryGeometryData.Box(
-        ScreenBox(
-          min = DpOffset(left, top).toScreenPoint(),
-          max = DpOffset(right, bottom).toScreenPoint(),
-        ),
+    RenderedQueryGeometry.Box(
+      ScreenBox(
+        min = DpOffset(left, top).toScreenPoint(),
+        max = DpOffset(right, bottom).toScreenPoint(),
       ),
     )
 
@@ -1141,7 +1135,7 @@ internal class MlnFfiMapSession(
     geometry: RenderedQueryGeometry,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): Deferred<List<QueriedFeature>>? =
+  ): Deferred<List<RenderedFeature>>? =
     try {
       session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
     } catch (error: MaplibreException) {
@@ -1150,7 +1144,7 @@ internal class MlnFfiMapSession(
     }
 
   /** A session that detached before answering has nothing to report. */
-  private suspend fun Deferred<List<QueriedFeature>>.awaitQuery(): List<QueriedFeature> =
+  private suspend fun Deferred<List<RenderedFeature>>.awaitQuery(): List<RenderedFeature> =
     try {
       await()
     } catch (error: MaplibreException) {
@@ -1356,7 +1350,7 @@ internal class MlnFfiMapSession(
       if (feedback && bearingDelta != 0.0 && gestureToken != null) {
         val (from, to) =
           run {
-            val from = gestureBearing ?: getSnapshot().view.camera.bearing ?: 0.0
+            val from = gestureBearing ?: getSnapshot().view.camera.bearing
             val to = from + bearingDelta
             gestureBearing = to
             from to to
@@ -1390,7 +1384,7 @@ internal class MlnFfiMapSession(
     if (!acceptsGestures) return
     val map = map ?: return
     // Snapshot reads can precede queued rotation. The ordered query observes every earlier delta.
-    val current = map.getCamera().await().camera.bearing ?: 0.0
+    val current = map.getCamera().await().camera.bearing
     val bearing = current + (snapping.delta(current) ?: return)
     startTransitionAwaitingRelease(
       duration.toAnimationOptions(),

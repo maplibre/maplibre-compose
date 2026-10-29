@@ -4,7 +4,7 @@ package org.maplibre.compose.mlnffi
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.io.files.Path
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.loadNativeLibrary
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUUID
@@ -13,7 +13,7 @@ internal actual object FfiTestPlatform {
   actual fun initialize() {
     // The runtime klib links MapLibre Native statically into the test binary, so loading only
     // checks that the linked archive's C ABI matches the binding.
-    Maplibre.loadNativeLibrary()
+    loadNativeLibrary()
   }
 
   actual fun createCacheFile(): Path {

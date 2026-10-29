@@ -5,11 +5,12 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.map.CameraPadding
-import org.maplibre.nativeffi.generated.CameraOptions
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.LatLng
-import org.maplibre.nativeffi.generated.LatLngBounds
-import org.maplibre.nativeffi.generated.ScreenPoint
+import org.maplibre.nativeffi.Camera
+import org.maplibre.nativeffi.CameraOptions
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.LatLng
+import org.maplibre.nativeffi.LatLngBounds
+import org.maplibre.nativeffi.ScreenPoint
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -46,6 +47,16 @@ internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraP
     bearing = bearing ?: 0.0,
     pitch = pitch ?: 0.0,
     padding = (padding ?: EdgeInsets()).relativeTo(viewportInsets),
+  )
+
+/** A published camera has every field; no defaults need to be supplied by Compose. */
+internal fun Camera.toCameraPosition(viewportInsets: EdgeInsets): CameraPosition =
+  CameraPosition(
+    center = center.toPosition(),
+    zoom = zoom,
+    bearing = bearing,
+    pitch = pitch,
+    padding = padding.relativeTo(viewportInsets),
   )
 
 internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =

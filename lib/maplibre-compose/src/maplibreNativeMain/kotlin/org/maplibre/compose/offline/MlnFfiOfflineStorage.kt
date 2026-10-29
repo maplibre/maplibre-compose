@@ -27,15 +27,15 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.toCommon
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.generated.AmbientCacheOperation
-import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
-import org.maplibre.nativeffi.generated.OfflineRegionInfo
-import org.maplibre.nativeffi.generated.OfflineRegionStatus
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventPayload
-import org.maplibre.nativeffi.generated.RuntimeEventType
-import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.AmbientCacheOperation
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.OfflineRegionDownloadState
+import org.maplibre.nativeffi.OfflineRegionInfo
+import org.maplibre.nativeffi.OfflineRegionStatus
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventPayload
+import org.maplibre.nativeffi.RuntimeEventType
+import org.maplibre.nativeffi.RuntimeHandle
 
 /**
  * The MapLibre Native FFI offline storage that belongs to one map runtime. Every operation is one

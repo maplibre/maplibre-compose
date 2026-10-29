@@ -27,16 +27,16 @@ import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.generated.ResourceErrorReason
-import org.maplibre.nativeffi.generated.ResourceKind
-import org.maplibre.nativeffi.generated.ResourceLoadingMethod
-import org.maplibre.nativeffi.generated.ResourcePriority
-import org.maplibre.nativeffi.generated.ResourceRange
-import org.maplibre.nativeffi.generated.ResourceRequestInfo
-import org.maplibre.nativeffi.generated.ResourceResponse
-import org.maplibre.nativeffi.generated.ResourceResponseStatus
-import org.maplibre.nativeffi.generated.ResourceStoragePolicy
-import org.maplibre.nativeffi.generated.ResourceUsage
+import org.maplibre.nativeffi.ResourceErrorReason
+import org.maplibre.nativeffi.ResourceKind
+import org.maplibre.nativeffi.ResourceLoadingMethod
+import org.maplibre.nativeffi.ResourcePriority
+import org.maplibre.nativeffi.ResourceRange
+import org.maplibre.nativeffi.ResourceRequestInfo
+import org.maplibre.nativeffi.ResourceResponse
+import org.maplibre.nativeffi.ResourceResponseStatus
+import org.maplibre.nativeffi.ResourceStoragePolicy
+import org.maplibre.nativeffi.ResourceUsage
 
 /**
  * How long a read or load held open by a test waits to be released, so that a failed test does not
@@ -362,7 +362,7 @@ class MlnFfiResourceRequestTest {
           range = null,
           priorModifiedUnixMs = null,
           priorExpiresUnixMs = null,
-          priorEtag = null,
+          priorEtag = "",
           priorData = ByteArray(0),
         )
         .toLoadRequest()
@@ -386,7 +386,7 @@ class MlnFfiResourceRequestTest {
           range = null,
           priorModifiedUnixMs = null,
           priorExpiresUnixMs = null,
-          priorEtag = null,
+          priorEtag = "",
           priorData = ByteArray(0),
         )
         .toLoadRequest()

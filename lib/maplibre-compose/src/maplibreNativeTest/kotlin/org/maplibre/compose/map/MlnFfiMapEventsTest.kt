@@ -6,13 +6,13 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.nativeffi.generated.RenderMode
-import org.maplibre.nativeffi.generated.RenderingStats
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventPayload
-import org.maplibre.nativeffi.generated.RuntimeEventRenderFrame
-import org.maplibre.nativeffi.generated.RuntimeEventSourceType
-import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.RenderMode
+import org.maplibre.nativeffi.RenderingStats
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventPayload
+import org.maplibre.nativeffi.RuntimeEventRenderFrame
+import org.maplibre.nativeffi.RuntimeEventSourceType
+import org.maplibre.nativeffi.RuntimeEventType
 
 class MlnFfiMapEventsTest {
 
@@ -93,12 +93,14 @@ class MlnFfiMapEventsTest {
 
   private fun runtimeEvent(
     type: RuntimeEventType,
-    code: Int = 0,
+    code: UInt = 0u,
     payload: RuntimeEventPayload = RuntimeEventPayload.None,
     message: String = "",
   ) =
     RuntimeEvent(
       type = type,
+      source = 1uL,
+      generation = 1uL,
       sourceType = RuntimeEventSourceType.MAP,
       code = code,
       payload = payload,

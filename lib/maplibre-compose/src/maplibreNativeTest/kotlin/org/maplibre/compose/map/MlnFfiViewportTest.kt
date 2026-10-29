@@ -26,11 +26,11 @@ import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toPosition
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.ProjectionMode
-import org.maplibre.nativeffi.generated.ScreenPoint
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapProjectionHandle
+import org.maplibre.nativeffi.ProjectionMode
+import org.maplibre.nativeffi.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiViewportTest {
@@ -67,7 +67,7 @@ class MlnFfiViewportTest {
       val expected =
         assertNotNull(
           session.readMap { map ->
-            GeneratedApi.mapProjectionCreate(map.getSnapshot().view).use { projection ->
+            MapProjectionHandle.create(map.getSnapshot().view).use { projection ->
               listOf(viewport.cameraPosition.center.latitude, -90.0, 90.0)
                 .map(projection::metersPerPixelAtLatitude)
             }
@@ -119,7 +119,7 @@ class MlnFfiViewportTest {
       assertEquals(target.zoom, after.zoom, 0.0001)
       assertEquals(target.bearing, after.bearing, 0.0001)
       assertEquals(start.padding, after.padding)
-      assertEquals(36.0, fixture.session.readMap { it.camera().padding?.top })
+      assertEquals(36.0, fixture.session.readMap { it.camera().padding.top })
     }
   }
 
@@ -235,7 +235,7 @@ class MlnFfiViewportTest {
     val width = extent.width.toDouble()
     val height = extent.height.toDouble()
     val corners =
-      GeneratedApi.mapProjectionCreate(getSnapshot().view).use { projection ->
+      MapProjectionHandle.create(getSnapshot().view).use { projection ->
         listOf(
             ScreenPoint(0.0, 0.0),
             ScreenPoint(width, 0.0),

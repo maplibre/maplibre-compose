@@ -2145,7 +2145,7 @@ final class org.maplibre.compose.map/MutableMapStyleState { // org.maplibre.comp
 final class org.maplibre.compose.map/PlatformMapScope { // org.maplibre.compose.map/PlatformMapScope|null[0]
     final val map // org.maplibre.compose.map/PlatformMapScope.map|{}map[0]
         // Targets: [apple]
-        final fun <get-map>(): org.maplibre.nativeffi.generated/MapHandle // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
+        final fun <get-map>(): org.maplibre.nativeffi/MapHandle // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
 
         // Targets: [js]
         final fun <get-map>(): dynamic // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]

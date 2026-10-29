@@ -18,11 +18,11 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestMapMain
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.generated.OfflineRegionStatus
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventOfflineRegionStatus
-import org.maplibre.nativeffi.generated.RuntimeEventPayload
-import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.OfflineRegionStatus
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventOfflineRegionStatus
+import org.maplibre.nativeffi.RuntimeEventPayload
+import org.maplibre.nativeffi.RuntimeEventType
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -67,10 +67,16 @@ class MlnFfiOfflineStorageTest {
           storage.refreshStatus(pack) { held }
         }
       assertFalse(query.isCompleted)
-      val newer = OfflineRegionStatus(completedResourceCount = 7uL)
+      val before = owner.awaitRuntime().getOfflineRegionStatus(pack.regionId).await()
+      val newer = before.copy(completedResourceCount = 7uL)
       owner.onRuntimeEvent(
         RuntimeEvent(
           type = RuntimeEventType.OFFLINE_REGION_STATUS_CHANGED,
+          sourceType = org.maplibre.nativeffi.RuntimeEventSourceType.RUNTIME,
+          source = 0uL,
+          generation = 0uL,
+          code = 0u,
+          message = "",
           payload =
             RuntimeEventPayload.OfflineRegionStatus(
               RuntimeEventOfflineRegionStatus(pack.regionId, newer),
@@ -79,7 +85,7 @@ class MlnFfiOfflineStorageTest {
       )
       assertEquals(newer.toDownloadProgress(), pack.downloadProgress.value)
 
-      held.complete(OfflineRegionStatus(completedResourceCount = 2uL))
+      held.complete(before.copy(completedResourceCount = 2uL))
       query.await()
 
       assertEquals(newer.toDownloadProgress(), pack.downloadProgress.value)

@@ -4,11 +4,10 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.logging.MapLogging
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.LogEvent
-import org.maplibre.nativeffi.generated.LogHandler
-import org.maplibre.nativeffi.generated.LogSeverity
-import org.maplibre.nativeffi.generated.logSetCallback
+import org.maplibre.nativeffi.LogEvent
+import org.maplibre.nativeffi.LogHandler
+import org.maplibre.nativeffi.LogSeverity
+import org.maplibre.nativeffi.setLogCallback
 
 /**
  * Forwards MapLibre Native's process-global log stream to [MapLogging.logger] through [MapLog].
@@ -25,12 +24,17 @@ internal object MlnFfiLogBridge {
   fun ensureInstalled() {
     lock.withLock {
       if (installed) return
-      GeneratedApi.logSetCallback(LogHandler(::forward))
+      setLogCallback(LogHandler(::forward))
       installed = true
     }
   }
 
-  private fun forward(severity: LogSeverity, event: LogEvent, code: Long, message: String): UInt {
+  private fun forward(
+    severity: LogSeverity,
+    event: LogEvent,
+    code: Long,
+    message: String,
+  ): Boolean {
     MapLog.log(
       level = severity.toMapLogLevel(),
       throwable = null,
@@ -39,7 +43,7 @@ internal object MlnFfiLogBridge {
       category = event.categoryName(),
     )
     // Consumed, so the engine's platform logger stays quiet.
-    return 1u
+    return true
   }
 }
 

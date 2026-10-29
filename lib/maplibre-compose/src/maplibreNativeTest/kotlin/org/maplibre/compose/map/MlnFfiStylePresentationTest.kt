@@ -23,7 +23,7 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.onRejected
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.runtime.CommandCompletion
+import org.maplibre.nativeffi.CommandCompletion
 
 class MlnFfiStylePresentationTest {
 

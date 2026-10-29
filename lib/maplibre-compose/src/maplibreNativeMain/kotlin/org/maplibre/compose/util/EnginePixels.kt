@@ -2,7 +2,7 @@ package org.maplibre.compose.util
 
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
-import org.maplibre.nativeffi.generated.PremultipliedRgba8Image
+import org.maplibre.nativeffi.PremultipliedRgba8Image
 
 /** The tightly packed premultiplied RGBA8 that MapLibre Native uploads. */
 internal actual class EnginePixels(val ffi: PremultipliedRgba8Image) {

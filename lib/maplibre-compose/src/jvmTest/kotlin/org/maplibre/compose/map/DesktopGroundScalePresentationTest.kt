@@ -45,7 +45,7 @@ class DesktopGroundScalePresentationTest {
         suspend fun assertGroundScale(latitude: Double) {
           val globalState =
             Json.parseToJsonElement(
-                state.withPlatformMap { map.getGlobalState() }.await().decodeToString(),
+                state.withPlatformMap { map.getGlobalState() }.await(),
               )
               .jsonObject
           val written =

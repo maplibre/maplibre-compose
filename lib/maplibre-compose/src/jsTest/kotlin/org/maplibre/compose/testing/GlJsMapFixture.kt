@@ -234,5 +234,3 @@ internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTes
 
 internal actual fun skipMapTest(reason: String): Nothing =
   error("Browser tests must run with the required capabilities: $reason")
-
-internal actual fun skipUnlessSnapshotsAvailable() = Unit

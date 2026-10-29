@@ -44,12 +44,12 @@ internal fun GeoJsonData.toDataJson(): JsonElement =
     is GeoJsonData.Features -> Json.parseToJsonElement(geoJson.toJson())
   }
 
-/** UTF-8 GeoJSON for an inline value, or null when the data is a URL. */
-internal fun GeoJsonData.toInlineUtf8(): ByteArray? =
+/** GeoJSON text for an inline value, or null when the data is a URL. */
+internal fun GeoJsonData.toInlineJson(): String? =
   when (this) {
     is GeoJsonData.Uri -> null
-    is GeoJsonData.JsonString -> json.encodeToByteArray()
-    is GeoJsonData.Features -> geoJson.toJson().encodeToByteArray()
+    is GeoJsonData.JsonString -> json
+    is GeoJsonData.Features -> geoJson.toJson()
   }
 
 /**

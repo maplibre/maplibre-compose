@@ -35,9 +35,8 @@ internal actual suspend fun MapFixture.readLayerProperty(
           map.getStyleLayerProperty(layerId, name)
         }
         .await()
-        ?.let { Json.parseToJsonElement(it.decodeToString()) }
+        ?.let { Json.parseToJsonElement(it) }
   }
 
 internal actual suspend fun MapFixture.readGlobalState(): JsonObject? =
-  Json.parseToJsonElement(state.withPlatformMap { map.getGlobalState() }.await().decodeToString())
-    .jsonObject
+  Json.parseToJsonElement(state.withPlatformMap { map.getGlobalState() }.await()).jsonObject

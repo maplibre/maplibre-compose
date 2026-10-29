@@ -15,8 +15,8 @@ import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.generated.CanonicalTileId
-import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.CanonicalTileId
+import org.maplibre.nativeffi.MapHandle
 
 /**
  * Runs cancellable tile requests for one custom source of one loaded style, and delivers only the

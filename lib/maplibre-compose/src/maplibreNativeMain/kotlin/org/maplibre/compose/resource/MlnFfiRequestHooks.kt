@@ -1,13 +1,12 @@
 package org.maplibre.compose.resource
 
 import org.maplibre.compose.mlnffi.reportFailure
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.HttpHeaderTransform
-import org.maplibre.nativeffi.generated.ResourceKind
-import org.maplibre.nativeffi.generated.ResourceTransform
-import org.maplibre.nativeffi.generated.RuntimeHandle
-import org.maplibre.nativeffi.generated.httpHeaderTransformResponseSetHeader
-import org.maplibre.nativeffi.generated.setHttpHeaderTransform
+import org.maplibre.nativeffi.HttpHeaderTransform
+import org.maplibre.nativeffi.ResourceKind
+import org.maplibre.nativeffi.ResourceTransform
+import org.maplibre.nativeffi.RuntimeHandle
+import org.maplibre.nativeffi.setHeader
+import org.maplibre.nativeffi.setHttpHeaderTransform
 
 /**
  * Installs the URL and header callbacks, each of which uses the interceptor in [config].
@@ -23,7 +22,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
         callback = { kind, url, response ->
           val mapRequest = MapResourceRequest(url, kind.toCommon())
           config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
-            GeneratedApi.httpHeaderTransformResponseSetHeader(response, name, value)
+            response.setHeader(name, value)
           }
         },
       ),

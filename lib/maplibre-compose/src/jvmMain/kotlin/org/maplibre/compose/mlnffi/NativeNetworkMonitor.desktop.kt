@@ -1,6 +1,6 @@
 package org.maplibre.compose.mlnffi
 
-import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.NetworkStatus
 
 internal actual fun startNativeNetworkMonitor(onStatus: (NetworkStatus) -> Unit): AutoCloseable =
   if (System.getProperty("os.name").lowercase().contains("mac")) MacosNetworkMonitor(onStatus)

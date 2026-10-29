@@ -5,8 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import org.maplibre.nativeffi.generated.ResourceErrorReason
-import org.maplibre.nativeffi.generated.ResourceResponseStatus
+import org.maplibre.nativeffi.ResourceErrorReason
+import org.maplibre.nativeffi.ResourceResponseStatus
 
 /**
  * Turning a resource URI into bytes, against files that exist and files that do not. Driven

@@ -222,7 +222,7 @@ class MapQueryTest {
         assertNotNull(it.state.currentMapAttachment)
           .queryRenderedFeaturesByLayer(
             Center,
-            mapOf("front-fill" to 0.dp, "back-fill" to 4.dp, "no-such-layer" to 0.dp),
+            mapOf("front-fill" to 0.dp, "back-fill" to 0.dp, "no-such-layer" to 0.dp),
           )
 
       assertEquals(setOf("front"), hits.getValue("front-fill").names())

@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,16 +47,10 @@ import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.groundScale
 import org.maplibre.compose.testing.setImage
-import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SnapshotCompositionTest {
-  @BeforeTest
-  fun requireSnapshots() {
-    skipUnlessSnapshotsAvailable()
-  }
-
   @Test
   fun repeated_captures_update_declared_content_and_release_its_ids() = runTest {
     val binding = RecordingStyleBinding()
