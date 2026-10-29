@@ -1,5 +1,5 @@
 // Klib ABI Dump
-// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64]
+// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64, wasmJs]
 // Alias: apple => [iosArm64, iosSimulatorArm64, macosArm64]
 // Alias: ios => [iosArm64, iosSimulatorArm64]
 // Rendering settings:
@@ -447,7 +447,7 @@ final class org.maplibre.compose.location/IosHeadingProvider : org.maplibre.comp
     final fun updates(org.maplibre.compose.location/HeadingRequest): kotlinx.coroutines.flow/Flow<org.maplibre.compose.location/HeadingEvent> // org.maplibre.compose.location/IosHeadingProvider.updates|updates(org.maplibre.compose.location.HeadingRequest){}[0]
 }
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final class org.maplibre.compose.location/WebLocationPermissionRequester { // org.maplibre.compose.location/WebLocationPermissionRequester|null[0]
     constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/WebLocationPermissionRequester.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
 
@@ -459,7 +459,7 @@ final class org.maplibre.compose.location/WebLocationPermissionRequester { // or
     final fun requestForegroundPermission() // org.maplibre.compose.location/WebLocationPermissionRequester.requestForegroundPermission|requestForegroundPermission(){}[0]
 }
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final class org.maplibre.compose.location/WebLocationProvider : org.maplibre.compose.location/LocationProvider { // org.maplibre.compose.location/WebLocationProvider|null[0]
     constructor <init>(kotlinx.coroutines/CoroutineScope) // org.maplibre.compose.location/WebLocationProvider.<init>|<init>(kotlinx.coroutines.CoroutineScope){}[0]
 

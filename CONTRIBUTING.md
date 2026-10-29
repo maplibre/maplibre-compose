@@ -48,7 +48,9 @@ CI tests the AWT desktop host. For desktop bridge changes, also run
 `demo:desktop` and `demo:desktop-nucleus` with each backend and check resize,
 zoom, pan, and window closure.
 
-The browser demo serves a Compose HTML ferry departure board at `/?ferries`.
+The browser demo runs as Kotlin/JS with `mise run demo:js` or Kotlin/Wasm with
+`mise run demo:wasm`. The Kotlin/JS demo also serves a Compose HTML ferry
+departure board at `/?ferries`.
 
 ### Android and iOS devices
 
@@ -113,6 +115,11 @@ of the next patch; `mise run version` prints what this checkout builds as.
 `mise run check` reports problems and `mise run fix` rewrites what it can; the
 pre-commit hook that mise installs runs them on staged files.
 `mise run lint:android` runs Android Lint, which CI runs in the same job.
+
+Run browser tests with `mise run test:js` and `mise run test:wasm`. The Wasm
+suite uses Karma and Chromium because Kotlin’s Playwright test runner currently
+supports only JavaScript. Its adapter applies Kotlin’s test filtering in
+JavaScript to avoid a Kotlin 2.4.21 Wasm callback cast in the Karma transformer.
 
 Public API changes follow the
 [API guidelines](docs/src/content/docs/api-guidelines.md).

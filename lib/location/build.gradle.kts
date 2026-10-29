@@ -1,5 +1,5 @@
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
   id("multiplatform-library-conventions")
@@ -39,7 +39,17 @@ kotlin {
   }
 
   @OptIn(ExperimentalWasmDsl::class)
-  wasmJs { browser() }
+  wasmJs {
+    binaries.executable()
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadlessNoSandbox()
+          useConfigDirectory(rootProject.file("ci/karma"))
+        }
+      }
+    }
+  }
 
   applyDefaultHierarchyTemplate()
 
@@ -48,7 +58,8 @@ kotlin {
       it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
     }
 
-    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    webTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    wasmJsTest { resources.srcDir(rootProject.file("ci/wasm-test-resources")) }
 
     listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
       .forEach {

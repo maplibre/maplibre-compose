@@ -198,6 +198,20 @@ class LayerPropertyRoundTripTest {
         val expectedNumber = expected.doubleOrNull
         if (!isString && !expected.isString && actualNumber != null && expectedNumber != null) {
           abs(actualNumber - expectedNumber) <= 1e-5
+        } else if (
+          isString &&
+            expected.isString &&
+            content.startsWith("rgba(") &&
+            expected.content.startsWith("rgba(")
+        ) {
+          // Compose Color channels are Float values on Wasm and Native, and JS numbers on JS.
+          val actualChannels = content.removePrefix("rgba(").removeSuffix(")").split(',')
+          val expectedChannels = expected.content.removePrefix("rgba(").removeSuffix(")").split(',')
+          actualChannels.size == 4 &&
+            expectedChannels.size == 4 &&
+            actualChannels.zip(expectedChannels).all { (actual, wanted) ->
+              abs(actual.trim().toDouble() - wanted.trim().toDouble()) <= 1e-5
+            }
         } else this == expected
       }
       this is JsonArray && expected is JsonArray ->

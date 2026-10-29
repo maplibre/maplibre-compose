@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import js.objects.unsafeJso
+import kotlin.js.JsAny
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -8,6 +9,8 @@ import org.maplibre.compose.gljs.GeoJsonToTileOptions
 import org.maplibre.compose.gljs.VectorTileEncodingOptions
 import org.maplibre.compose.gljs.fromGeojsonVt
 import org.maplibre.compose.gljs.geoJSONToTile
+import org.maplibre.compose.gljs.jsSet
+import org.maplibre.compose.gljs.parseJson
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -49,7 +52,7 @@ internal class GlJsCustomGeometryAttachment(
   fun close() = tiles.close()
 
   private fun encodeTile(features: FeatureCollection<*, *>, tile: TileCoordinate): ByteArray {
-    val data: dynamic = JSON.parse(features.toJson())
+    val data = parseJson(features.toJson())
     val encoded =
       geoJSONToTile(
         data = data,
@@ -67,8 +70,8 @@ internal class GlJsCustomGeometryAttachment(
           },
       )
     if (encoded == null || encoded.features.length == 0) return byteArrayOf()
-    val layers: dynamic = js("Object.create(null)")
-    layers[sourceLayerName] = encoded
+    val layers = emptyLayers()
+    jsSet(layers, sourceLayerName, encoded)
     val bytes =
       fromGeojsonVt(
         layers,
@@ -77,7 +80,7 @@ internal class GlJsCustomGeometryAttachment(
           extent = Extent.toDouble()
         },
       )
-    return ByteArray(bytes.length) { bytes[it].toByte() }
+    return ByteArray(bytes.length) { encodedByteAt(bytes, it).toByte() }
   }
 
   private companion object {
@@ -94,3 +97,7 @@ internal class GlJsCustomGeometryAttachment(
     const val MaxZoom = 24
   }
 }
+
+private fun emptyLayers(): JsAny = js("Object.create(null)")
+
+private fun encodedByteAt(bytes: js.typedarrays.Uint8Array<*>, index: Int): Int = js("bytes[index]")

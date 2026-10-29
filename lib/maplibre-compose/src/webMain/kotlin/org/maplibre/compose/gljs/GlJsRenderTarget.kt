@@ -21,12 +21,12 @@ internal interface GlJsRenderTarget {
 
 internal class GlJsMapRenderState(private val gl: WebGL2RenderingContext) {
   private val fragmentTextureUnits =
-    glGetNumber(gl, GL_MAX_TEXTURE_IMAGE_UNITS)?.toInt()
+    glGetNumber(gl, GlMaxTextureImageUnits)?.toInt()
       ?: error("WebGL did not report its fragment texture unit count")
 
   fun prepare() {
     repeat(fragmentTextureUnits) { unit -> bindSamplerNone(gl, unit) }
-    gl.disable(glEnum(GL_SCISSOR_TEST))
+    gl.disable(glEnum(GlScissorTest))
   }
 }
 

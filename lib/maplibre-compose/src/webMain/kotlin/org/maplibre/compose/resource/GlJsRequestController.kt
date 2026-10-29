@@ -16,6 +16,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import org.maplibre.compose.gljs.ProtocolAbortController
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
@@ -56,22 +57,32 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     abortController: ProtocolAbortController,
   ): Promise<ProtocolResponse> {
     val parsed = parseProtocolUrl(request.url)
-    val work = scope.async {
-      val provider =
-        config.provider ?: throw IllegalStateException("No resource provider is installed")
-      // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
-      val result =
+    val work =
+      scope.async<JsAny> {
         try {
-          provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
+          val provider =
+            config.provider ?: throw IllegalStateException("No resource provider is installed")
+          // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
+          val result =
+            try {
+              provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
+            } catch (error: Throwable) {
+              // A cancelled job means the request ended. The provider's own cancellation, such as a
+              // timeout, leaves the job active and fails like any other exception.
+              if (error is CancellationException) currentCoroutineContext().ensureActive()
+              throw resourceLoadError(error.message ?: error.toString(), status = null, parsed.url)
+            }
+          val workerTile = parsed.kind == MapResourceKind.Tile && request.type == "arrayBuffer"
+          result.toProtocolResponse(parsed.url, workerTile)
         } catch (error: Throwable) {
-          // A cancelled job means the request ended. The provider's own cancellation, such as a
-          // timeout, leaves the job active and fails like any other exception.
           if (error is CancellationException) currentCoroutineContext().ensureActive()
-          throw resourceLoadError(error.message ?: error.toString(), status = null, parsed.url)
+          protocolError(
+            error.message ?: error.toString(),
+            (error as? ResourceLoadFailure)?.status,
+            parsed.url,
+          )
         }
-      val workerTile = parsed.kind == MapResourceKind.Tile && request.type == "arrayBuffer"
-      result.toProtocolResponse(parsed.url, workerTile)
-    }
+      }
     val signal = abortController.signal
     val abort: () -> Unit = { work.cancel() }
     signal.addEventListener("abort", abort)
@@ -163,15 +174,11 @@ internal fun MapResourceError.httpStatus(): Int? =
 
 /**
  * The rejection of a protocol load, with [status] and [url] set for MapLibre GL JS to read as it
- * reads an HTTP failure. A plain JS error, because MapLibre copies a tile error through its worker
- * boundary, and a Kotlin exception's message does not survive that copy.
+ * reads an HTTP failure. [GlJsRequestController] converts it to a plain JS error at the promise
+ * boundary so its message survives MapLibre's worker boundary on both Kotlin/JS and Kotlin/Wasm.
  */
 internal fun resourceLoadError(message: String, status: Int?, url: String): Throwable {
-  val error = js("new Error()")
-  error.message = message
-  if (status != null) error.status = status
-  error.url = url
-  return error.unsafeCast<Throwable>()
+  return ResourceLoadFailure(message, status, url)
 }
 
 /**
@@ -213,9 +220,12 @@ private fun ByteArray.toProtocolResponse(expires: Date?): ProtocolResponse {
   }
 }
 
-/** Constructs the rejection value without passing it through Kotlin exception wrapping. */
-private fun protocolError(message: String, status: Int?): JsAny =
-  js("{ const error = new Error(message); error.status = status; return error; }")
+/** Carries HTTP metadata until the protocol promise constructs a plain JS rejection value. */
+private class ResourceLoadFailure(message: String, val status: Int?, val url: String) :
+  Exception(message)
+
+private fun protocolError(message: String, status: Int?, url: String): JsAny =
+  js("{ const error = new Error(message); error.status = status; error.url = url; return error; }")
 
 private fun unwrapProtocolResult(promise: Promise<JsAny>): Promise<ProtocolResponse> =
   js("promise.then(value => { if (value instanceof Error) throw value; return value; })")

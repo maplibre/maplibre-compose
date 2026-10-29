@@ -402,9 +402,10 @@ private class FakeBrowserGeolocationBoundary(
   var requestPositionAction: suspend (BrowserOptions) -> BrowserResult = { awaitCancellation() }
   val requestedOptions = mutableListOf<BrowserOptions>()
   val watchedOptions = mutableListOf<BrowserOptions>()
-  private val callbacks = mutableSetOf<(BrowserResult) -> Unit>()
+  private val callbacks = mutableMapOf<Int, (BrowserResult) -> Unit>()
+  private var nextWatchId = 0
   val callback: ((BrowserResult) -> Unit)?
-    get() = callbacks.firstOrNull()
+    get() = callbacks.values.firstOrNull()
 
   var stopCount = 0
   var startFailure: Throwable? = null
@@ -425,14 +426,15 @@ private class FakeBrowserGeolocationBoundary(
   ): () -> Unit {
     startFailure?.let { throw it }
     watchedOptions += options
-    callbacks += onResult
+    val watchId = nextWatchId++
+    callbacks[watchId] = onResult
     return {
       stopCount += 1
-      callbacks -= onResult
+      callbacks.remove(watchId)
     }
   }
 
   fun send(result: BrowserResult) {
-    callbacks.toList().forEach { it(result) }
+    callbacks.values.toList().forEach { it(result) }
   }
 }

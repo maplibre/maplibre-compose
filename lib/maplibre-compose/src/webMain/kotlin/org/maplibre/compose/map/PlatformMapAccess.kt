@@ -10,7 +10,10 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 // Exposes MapLibre GL JS bindings, which may change in minor releases.
 @ExperimentalMaplibreComposeApi
 public actual class PlatformMapScope internal constructor(private val engineMap: MaplibreMap) {
-  /** The raw MapLibre GL JS `Map` object. */
+  /**
+   * The raw MapLibre GL JS `Map` object. Kotlin/JS callers can use `asDynamic()` to call its
+   * methods. Kotlin/Wasm callers can cast it to their own external interface.
+   */
   public val map: kotlin.js.JsAny
     get() = engineMap
 }

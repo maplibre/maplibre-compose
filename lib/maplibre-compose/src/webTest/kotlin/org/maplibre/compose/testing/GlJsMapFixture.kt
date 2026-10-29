@@ -1,24 +1,28 @@
 package org.maplibre.compose.testing
 
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.platform.registerSkikoComposeImplementation
 import androidx.compose.ui.unit.LayoutDirection
-import kotlin.js.Date
+import js.date.Date
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
 import kotlin.js.Promise
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.async
 import kotlinx.coroutines.await
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.promise
 import org.jetbrains.skiko.wasm.onWasmReady
-import org.khronos.webgl.Uint8Array
-import org.khronos.webgl.get
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.gljs.DefaultWorkerUrl
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSurfaceSession
+import org.maplibre.compose.gljs.jsNumberToDouble
 import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.GlJsMapSession
@@ -34,6 +38,7 @@ import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
+import web.html.HTMLCanvasElement
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
 internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
@@ -164,11 +169,11 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
     frame()
     val canvas =
       checkNotNull(glJsSession.detachedCanvas()) { "the map has not built its canvas yet" }
-    val gl = canvas.asDynamic().getContext("webgl2")
-    val pixels = Uint8Array(4)
-    // WebGL reads from the bottom left; every other coordinate on this fixture is top left.
-    gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-    return RgbaPixel(pixels[0].toInt(), pixels[1].toInt(), pixels[2].toInt(), pixels[3].toInt())
+    val pixels =
+      readCanvasPixel(canvas, x, canvas.height - 1 - y).toList().map {
+        jsNumberToDouble(it).toInt()
+      }
+    return RgbaPixel(pixels[0], pixels[1], pixels[2], pixels[3])
   }
 
   override suspend fun <T> awaitWhileRendering(
@@ -217,20 +222,29 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GlJs
 /**
  * `Promise` without its parameter: an `expect class` cannot be actualized by a parameterized one.
  */
-@JsName("Promise") external class JsPromise
+@JsName("Promise") external class JsPromise : JsAny
 
 actual typealias MapTestResult = JsPromise
 
+@OptIn(InternalComposeUiApi::class)
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult {
   GlJsRuntime.pointAtWorker(DefaultWorkerUrl)
   return MainScope()
-    .promise {
+    .async<JsAny?> {
       // Style declarations use a Skia graphics context, even on a map with its own WebGL canvas.
-      Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }.await()
+      Promise<JsAny?> { resolve, _ -> onWasmReady { resolve(null) } }.await()
+      registerSkikoComposeImplementation()
       block()
+      null
     }
+    .asPromise()
     .unsafeCast<JsPromise>()
 }
 
 internal actual fun skipMapTest(reason: String): Nothing =
   error("Browser tests must run with the required capabilities: $reason")
+
+private fun readCanvasPixel(canvas: HTMLCanvasElement, x: Int, y: Int): JsArray<JsNumber> =
+  js(
+    "{ const gl = canvas.getContext('webgl2'); const pixels = new Uint8Array(4); gl.readPixels(x,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixels); return Array.from(pixels); }",
+  )

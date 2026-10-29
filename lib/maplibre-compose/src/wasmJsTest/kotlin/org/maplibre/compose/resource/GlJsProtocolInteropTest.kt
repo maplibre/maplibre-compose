@@ -28,7 +28,7 @@ class GlJsProtocolInteropTest {
       assertEquals(
         404.0,
         org.maplibre.compose.gljs.jsNumberToDouble(
-          rejectionStatus(controller.loadProtocol(request, abortController())).await()
+          rejectionStatus(controller.loadProtocol(request, abortController())).await(),
         ),
       )
     }
@@ -40,7 +40,7 @@ class GlJsProtocolInteropTest {
   ) {
     val controller =
       GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result }))
+        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result })),
       )
     try {
       action(
@@ -62,5 +62,5 @@ private fun byteValues(buffer: ArrayBuffer): String =
 
 private fun rejectionStatus(promise: Promise<ProtocolResponse>): Promise<kotlin.js.JsNumber> =
   js(
-    "promise.then(() => { throw new Error('Expected rejection'); }, error => { if (typeof error.status !== 'number') throw new Error('Missing JavaScript status'); return error.status; })"
+    "promise.then(() => { throw new Error('Expected rejection'); }, error => { if (typeof error.status !== 'number') throw new Error('Missing JavaScript status'); return error.status; })",
   )

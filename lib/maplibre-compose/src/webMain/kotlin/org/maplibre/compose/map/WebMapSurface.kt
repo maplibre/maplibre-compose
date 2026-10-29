@@ -2,13 +2,17 @@ package org.maplibre.compose.map
 
 import kotlin.time.Duration
 import kotlin.time.TimeSource
-import kotlinx.browser.window
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsSurfaceSession
-import org.w3c.dom.events.Event
+import web.animations.cancelAnimationFrame
+import web.animations.requestAnimationFrame
+import web.cssom.matchMedia
 import web.dom.document
+import web.events.EventHandler
 import web.html.HTMLElement
 import web.resize.ResizeObserver
+import web.timers.clearTimeout
+import web.timers.setTimeout
 
 /** Owns the DOM and frame requests, independently of the framework hosting the container. */
 internal class WebMapSurface(
@@ -17,18 +21,17 @@ internal class WebMapSurface(
 ) : GlJsSurfaceSession, AutoCloseable {
   val element = document.createElement("div").unsafeCast<HTMLElement>()
   private var renderer: GlJsMapSession? = null
-  private var frame: Int? = null
-  private var timer: Int? = null
+  private var frame: web.animations.FrameRequestId? = null
+  private var timer: web.timers.Timeout? = null
   private val pacer = MapFramePacer(followsFrameClock = true)
   private var closed = false
   private var host: HTMLElement? = null
-  private var extent = MapExtent.fromLogical(1, 1, window.devicePixelRatio)
+  private var extent = MapExtent.fromLogical(1, 1, browserPixelRatio())
   private var hasSize = false
   private var presentFrames = false
   private var hasPresentedFrame = false
   private val observer = ResizeObserver { _, _ -> resize() }
-  private var resolution = window.matchMedia("(resolution: ${window.devicePixelRatio}dppx)")
-  private val resolutionChanged: (Event) -> Unit = { updateResolution() }
+  private var resolution = matchMedia(resolutionQuery(browserPixelRatio()))
 
   var isActive: Boolean = true
     set(value) {
@@ -39,7 +42,7 @@ internal class WebMapSurface(
   init {
     element.style.overflow = "hidden"
     park()
-    resolution.addEventListener("change", resolutionChanged)
+    resolution.onchange = EventHandler { updateResolution() }
   }
 
   fun connect(renderer: GlJsMapSession) {
@@ -88,7 +91,7 @@ internal class WebMapSurface(
     if (closed) return
     val host = host
     hasSize = host != null && host.clientWidth > 0 && host.clientHeight > 0
-    val scale = window.devicePixelRatio
+    val scale = browserPixelRatio()
     extent =
       if (host != null && hasSize) {
         MapExtent.fromLogical(host.clientWidth, host.clientHeight, scale)
@@ -101,9 +104,9 @@ internal class WebMapSurface(
   }
 
   private fun updateResolution() {
-    resolution.removeEventListener("change", resolutionChanged)
-    resolution = window.matchMedia("(resolution: ${window.devicePixelRatio}dppx)")
-    resolution.addEventListener("change", resolutionChanged)
+    resolution.onchange = null
+    resolution = matchMedia(resolutionQuery(browserPixelRatio()))
+    resolution.onchange = EventHandler { updateResolution() }
     resize()
   }
 
@@ -113,12 +116,12 @@ internal class WebMapSurface(
 
   override fun requestFrame() {
     if (closed || !isActive || frame != null || renderer == null) return
-    timer?.let(window::clearTimeout)
+    timer?.let(::clearTimeout)
     timer = null
     val remaining = pacer.remaining(renderer?.maximumFps)
     if (remaining > Duration.ZERO) {
       timer =
-        window.setTimeout(
+        setTimeout(
           {
             timer = null
             requestFrame()
@@ -129,7 +132,7 @@ internal class WebMapSurface(
         )
       return
     }
-    frame = window.requestAnimationFrame {
+    frame = requestAnimationFrame {
       frame = null
       if (!closed && isActive) {
         try {
@@ -153,9 +156,9 @@ internal class WebMapSurface(
   }
 
   private fun cancelFrame() {
-    timer?.let(window::clearTimeout)
+    timer?.let(::clearTimeout)
     timer = null
-    frame?.let(window::cancelAnimationFrame)
+    frame?.let(::cancelAnimationFrame)
     frame = null
   }
 
@@ -164,9 +167,14 @@ internal class WebMapSurface(
     closed = true
     cancelFrame()
     observer.disconnect()
-    resolution.removeEventListener("change", resolutionChanged)
+    resolution.onchange = null
     renderer = null
     host = null
     element.remove()
   }
 }
+
+internal fun browserPixelRatio(): Double = js("window.devicePixelRatio")
+
+private fun resolutionQuery(density: Double): web.cssom.MediaQuery =
+  js("'(resolution: ' + density + 'dppx)'")

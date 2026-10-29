@@ -38,7 +38,6 @@ import org.maplibre.compose.gljs.DefaultWorkerUrl
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.FlyToOptions
-import org.maplibre.compose.gljs.GL_MAX_TEXTURE_SIZE
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.GlJsMapRenderer
@@ -48,6 +47,7 @@ import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.GlJsTerrain
 import org.maplibre.compose.gljs.GlJsTransform
+import org.maplibre.compose.gljs.GlMaxTextureSize
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MaplibreMap
@@ -55,11 +55,15 @@ import org.maplibre.compose.gljs.PaddedCameraOptions
 import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
+import org.maplibre.compose.gljs.fireStyleError
+import org.maplibre.compose.gljs.glGetNumber
 import org.maplibre.compose.gljs.isPointOnMapSurface
+import org.maplibre.compose.gljs.jsPair
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.gljs.toJsStringArray
+import org.maplibre.compose.gljs.toKotlinStrings
 import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
@@ -476,7 +480,7 @@ internal class GlJsMapSession(
   }
 
   private fun maxTextureSize(gl: WebGL2RenderingContext): JsArray<JsNumber> {
-    val size = glGetNumber(gl, GL_MAX_TEXTURE_SIZE) ?: 4096.0
+    val size = glGetNumber(gl, GlMaxTextureSize) ?: 4096.0
     return jsPair(size, size)
   }
 
@@ -505,7 +509,7 @@ internal class GlJsMapSession(
             throwable = null,
             message = { reason },
             source = MapLogSource.WebEngine,
-            category = event.sourceId ?: event.asDynamic().layer?.id as? String,
+            category = event.sourceId ?: org.maplibre.compose.gljs.eventLayerId(event),
           )
         }
       }
@@ -515,14 +519,14 @@ internal class GlJsMapSession(
     map.setMissingStyleImageResolver { imageId ->
       val binding = styleBinding?.takeIf { it.isLoaded }
       binding?.let {
-        Promise<Unit> { resolve, _ ->
+        Promise<JsAny?> { resolve, _ ->
           deliverListener {
             val resolution =
               if (styleBinding === binding && binding.isLoaded)
                 callbacks.resolveMissingImage(this, imageId)
               else null
-            if (resolution == null) resolve(Unit)
-            else resolution.invokeOnCompletion { resolve(Unit) }
+            if (resolution == null) resolve(null)
+            else resolution.invokeOnCompletion { resolve(null) }
           }
         }
       }
@@ -1182,12 +1186,14 @@ internal class GlJsMapSession(
         else
           map
             .queryRenderedFeatures(geometry, options)
+            .toList()
             .map { it.layer.id to it.toGeoJsonFeature() }
             .toMutableList()
       // Native's dynamic indicator index also bypasses source-feature predicates.
       val indicators = styleBinding?.indicatorFeatures(rect, layerIds).orEmpty()
       if (indicators.isEmpty()) return@withMap features.map { it.second }
-      val order = map.getLayersOrder().withIndex().associate { it.value to it.index }
+      val order =
+        map.getLayersOrder().toKotlinStrings().withIndex().associate { it.value to it.index }
       for (hit in indicators) {
         val index = features.indexOfFirst { order.getValue(it.first) < order.getValue(hit.first) }
         features.add(if (index < 0) features.size else index, hit)
@@ -1476,8 +1482,8 @@ internal class GlJsMapSession(
 }
 
 private fun completionPromise(
-  register: ((kotlin.js.JsAny?) -> Unit) -> Unit
+  register: ((kotlin.js.JsAny?) -> Unit) -> Unit,
 ): kotlin.js.Promise<kotlin.js.JsAny?> =
   js(
-    "new Promise((resolve, reject) => register(error => error == null ? resolve(null) : reject(error)))"
+    "new Promise((resolve, reject) => register(error => error == null ? resolve(null) : reject(error)))",
   )

@@ -297,13 +297,12 @@ internal interface BrowserGeolocationBoundary {
 }
 
 private object BrowserGeolocation : BrowserGeolocationBoundary {
-  private val rawNavigator: dynamic = js("navigator")
 
   override val supported: Boolean
-    get() = rawNavigator.geolocation != null
+    get() = supportsGeolocation()
 
   override fun permissionChanges(): Flow<BrowserPermission> = callbackFlow {
-    if (!supported || rawNavigator.permissions?.query == null) {
+    if (!supported || !supportsPermissions()) {
       trySend(BrowserPermission.Unknown)
       awaitCancellation()
     }
@@ -363,8 +362,7 @@ private fun LocationRequest.asBrowserOptions(): BrowserOptions =
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {
   val result = unsafeJso<PositionOptions> { enableHighAccuracy = highAccuracy }
-  val rawResult: dynamic = result
-  timeout?.let { rawResult.timeout = it.inWholeMilliseconds.toDouble() }
+  timeout?.let { setPositionTimeout(result, it.inWholeMilliseconds.toDouble()) }
   return result
 }
 
@@ -419,3 +417,11 @@ private fun PermissionState.asBrowserPermission(): BrowserPermission =
     PermissionState.denied -> BrowserPermission.Denied
     PermissionState.prompt -> BrowserPermission.Prompt
   }
+
+private fun supportsGeolocation(): Boolean = js("navigator.geolocation != null")
+
+private fun supportsPermissions(): Boolean =
+  js("navigator.permissions != null && typeof navigator.permissions.query === 'function'")
+
+private fun setPositionTimeout(options: PositionOptions, timeout: Double): Unit =
+  js("{ options.timeout = timeout }")

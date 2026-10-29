@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlinx.browser.window
+import js.numbers.JsNumbers.toKotlinDouble
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,8 +24,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
+import web.animations.cancelAnimationFrame
+import web.animations.requestAnimationFrame
 import web.dom.document
 import web.html.HTMLElement
+import web.timers.setTimeout
 
 /**
  * Presents [state] in an HTML container without a Compose UI hierarchy or Skiko initialization.
@@ -63,11 +66,11 @@ public class WebMapPresentation(
       ),
     )
   private var direction by mutableStateOf(layoutDirection)
-  private var density by mutableStateOf(window.devicePixelRatio.toFloat())
+  private var density by mutableStateOf(browserPixelRatio().toFloat())
   private var composition: PresentationComposition? = null
   private var binding: ContainerBinding? = null
   private var surface: WebMapSurface? = null
-  private var clockFrame: Int? = null
+  private var clockFrame: web.animations.FrameRequestId? = null
   private var closed = false
   private val scope =
     CoroutineScope(
@@ -125,9 +128,9 @@ public class WebMapPresentation(
     val owner = MapPresentationOwnerToken()
     lateinit var clock: BroadcastFrameClock
     clock = BroadcastFrameClock {
-      clockFrame = window.requestAnimationFrame { time ->
+      clockFrame = requestAnimationFrame { time ->
         clockFrame = null
-        clock.sendFrame((time * 1_000_000).toLong())
+        clock.sendFrame((time.toKotlinDouble() * 1_000_000).toLong())
       }
     }
     try {
@@ -196,7 +199,7 @@ public class WebMapPresentation(
       composition = null
       surface?.close()
       surface = null
-      clockFrame?.let(window::cancelAnimationFrame)
+      clockFrame?.let(::cancelAnimationFrame)
       clockFrame = null
       scope.cancel()
     }
@@ -237,5 +240,5 @@ public class WebMapPresentation(
 }
 
 private fun post(action: () -> Unit) {
-  window.setTimeout(action, 0)
+  setTimeout(action, 0)
 }

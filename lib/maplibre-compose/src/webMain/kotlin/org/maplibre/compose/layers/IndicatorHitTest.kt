@@ -1,16 +1,18 @@
 package org.maplibre.compose.layers
 
+import kotlin.js.JsAny
+
 internal data class IndicatorPoint(val x: Double, val y: Double)
 
 /** Clips the two captured strip triangles to the viewport and the globe horizon in clip space. */
 internal fun indicatorClipTriangles(
-  corners: dynamic,
+  corners: JsAny,
   width: Double,
   height: Double,
 ): List<List<IndicatorPoint>> =
   listOf(0, 3).map { start ->
     clipTriangle(
-      (start until start + 3).map { i -> DoubleArray(4) { j -> corners[i * 4 + j] as Double } },
+      (start until start + 3).map { i -> DoubleArray(4) { j -> clipFloatAt(corners, i * 4 + j) } },
       width,
       height,
     )
@@ -82,3 +84,5 @@ internal fun indicatorIntersects(
     p.max() >= q.min() && q.max() >= p.min()
   }
 }
+
+private fun clipFloatAt(values: JsAny, index: Int): Double = js("values[index]")

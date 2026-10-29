@@ -76,7 +76,7 @@ internal external class MaplibreMap(options: MapOptions) : JsAny {
   fun isSourceLoaded(id: String): Boolean
 
   /** Reloads the loaded or errored tiles of [sourceId] whose canonical IDs are in [tileIds]. */
-  fun refreshTiles(sourceId: String, tileIds: Array<CanonicalTileId>)
+  fun refreshTiles(sourceId: String, tileIds: JsArray<CanonicalTileId>)
 
   fun getRenderWorldCopies(): Boolean
 
@@ -142,11 +142,11 @@ internal external class MaplibreMap(options: MapOptions) : JsAny {
     options: QuerySourceFeatureOptions,
   ): JsArray<GeoJsonFeature>
 
-  fun setGlobalStateProperty(propertyName: String, value: Any?)
+  fun setGlobalStateProperty(propertyName: String, value: JsAny?)
 
-  fun getGlobalState(): Any
+  fun getGlobalState(): JsAny
 
-  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+  fun setFeatureState(feature: FeatureIdentifier, state: JsAny)
 
   fun getFeatureState(feature: FeatureIdentifier): JsAny?
 
@@ -214,7 +214,7 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) : JsAny {
 internal external class Style {
   var stylesheet: StyleSpecification
 
-  val tileManagers: JsRecord<Any>
+  val tileManagers: JsRecord<JsAny>
 
   val light: Light
 

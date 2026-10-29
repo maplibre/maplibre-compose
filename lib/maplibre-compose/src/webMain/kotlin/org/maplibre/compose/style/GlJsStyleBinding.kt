@@ -5,6 +5,8 @@ import js.objects.unsafeJso
 import kotlin.js.JsAny
 import kotlin.js.JsArray
 import kotlin.js.JsNumber
+import kotlin.js.Promise
+import kotlin.js.toJsArray
 import kotlin.js.toJsString
 import kotlin.js.toList
 import kotlin.time.Duration
@@ -51,7 +53,6 @@ import org.maplibre.compose.gljs.StyleSetterOptions
 import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.jsGet
-import org.maplibre.compose.gljs.jsNumberAt
 import org.maplibre.compose.gljs.jsNumberToDouble
 import org.maplibre.compose.gljs.jsPair
 import org.maplibre.compose.gljs.jsQuad
@@ -59,6 +60,8 @@ import org.maplibre.compose.gljs.jsSet
 import org.maplibre.compose.gljs.jsUnsafeCast
 import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.gljs.toJsStringArray
+import org.maplibre.compose.gljs.toKotlinStrings
 import org.maplibre.compose.layers.GlJsLocationIndicator
 import org.maplibre.compose.layers.IndicatorImage
 import org.maplibre.compose.layers.LayerSummary
@@ -181,12 +184,12 @@ internal class GlJsStyleBinding(
   // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer
   // positions before it destroys the style, then reattach them after the restored style loads.
   // Image sources come back without their pixels, which are applied again the same way.
-  private var layerOrder = map.getLayersOrder().toList()
+  private var layerOrder = map.getLayersOrder().toKotlinStrings()
   private var restoringContext = false
   private val orderChanges =
     map.subscribe("styledata") {
-      if (!restoringContext && map.asDynamic().style != null)
-        layerOrder = map.getLayersOrder().toList()
+      if (!restoringContext && jsGet(map, "style") != null)
+        layerOrder = map.getLayersOrder().toKotlinStrings()
     }
   private val contextLost =
     map.subscribe("webglcontextlost") {
@@ -206,7 +209,7 @@ internal class GlJsStyleBinding(
           }
           if (map.getLayer(id) != null) before = id
         }
-        layerOrder = map.getLayersOrder().toList()
+        layerOrder = map.getLayersOrder().toKotlinStrings()
         val pendingUrls = pendingImageSourceUrls.toMap()
         pendingImageSourceUrls.clear()
         imageSourceImages.forEach { (id, image) -> updateImageSource(id, image) }
@@ -248,7 +251,7 @@ internal class GlJsStyleBinding(
   override val supportsRasterDemScheme: Boolean = false
 
   override val baseLayers: List<LayerSummary> =
-    map.getLayersOrder().mapNotNull { id ->
+    map.getLayersOrder().toKotlinStrings().mapNotNull { id ->
       map.getLayer(id)?.let { LayerSummary(id, it.type, it.source, it.sourceLayer) }
     }
   override val baseSources: Map<String, Source> =
@@ -368,7 +371,7 @@ internal class GlJsStyleBinding(
 
   override suspend fun layerIds(): List<String> {
     requireCurrent()
-    return if (restoringContext) layerOrder else map.getLayersOrder().toList()
+    return if (restoringContext) layerOrder else map.getLayersOrder().toKotlinStrings()
   }
 
   private fun reconstructSource(id: String): Source? {
@@ -467,7 +470,7 @@ internal class GlJsStyleBinding(
     }
     val failed = attachment.failedTiles.toList()
     mutate("invalidate custom source '$sourceId'") {
-      source.setTiles(arrayOf(attachment.invalidate()))
+      source.setTiles(listOf(attachment.invalidate()).toJsStringArray())
       // The new URL reloads an errored tile as loading, and a vector source then waits for a
       // response to a request it never sends. Refreshing the tile requests it again.
       if (failed.isNotEmpty())
@@ -481,7 +484,7 @@ internal class GlJsStyleBinding(
                 z = tile.zoomLevel
               }
             }
-            .toTypedArray(),
+            .toJsArray(),
         )
     }
   }
@@ -594,7 +597,7 @@ internal class GlJsStyleBinding(
     mutate("set the bounds of image source '$sourceId'") {
       // GL JS stores the coordinates before validating them. Validate before changing the source.
       coordinates.forEach { LngLat(it.longitude, it.latitude) }
-      val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+      val corners = coordinates.map { jsPair(it.longitude, it.latitude) }.toJsArray()
       map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
     }
   }
@@ -620,7 +623,11 @@ internal class GlJsStyleBinding(
     queryCluster(sourceId, feature) { query ->
       // geojson-vt derives the zoom from the ID without checking that the cluster exists, and an
       // unknown ID can give 0 or less. A cluster always expands at zoom 1 or higher.
-      query.source.getClusterExpansionZoom(query.clusterId).await()?.takeIf { it > 0.0 }
+      query.source
+        .getClusterExpansionZoom(query.clusterId)
+        .awaitClusterResult()
+        ?.let(::jsNumberToDouble)
+        ?.takeIf { it > 0.0 }
     }
 
   override suspend fun clusterChildren(
@@ -628,7 +635,7 @@ internal class GlJsStyleBinding(
     feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>? =
     queryCluster(sourceId, feature) { query ->
-      query.source.getClusterChildren(query.clusterId).await()?.toFeatureCollection()
+      query.source.getClusterChildren(query.clusterId).awaitClusterResult()?.toFeatureCollection()
     }
 
   override suspend fun clusterLeaves(
@@ -644,7 +651,7 @@ internal class GlJsStyleBinding(
           limit.toDouble(),
           offset.toDouble(),
         )
-        .await()
+        .awaitClusterResult()
         ?.toFeatureCollection()
     }
 
@@ -674,7 +681,7 @@ internal class GlJsStyleBinding(
       }
       // The worker transfers the missing-cluster error as an ordinary JavaScript Error, so only its
       // message identifies it.
-      if (error.message == "No cluster with the specified id: ${query.clusterId}") {
+      if (error.message == missingClusterMessage(query.clusterId)) {
         logger?.w { "Cluster query matched no cluster in source '$sourceId'" }
         return null
       }
@@ -708,7 +715,7 @@ internal class GlJsStyleBinding(
     featureId: String,
     state: JsonObject,
   ): () -> Unit {
-    val js = state.toJsValue<Any>()
+    val js = state.toJsValue<JsAny>()
     return {
       requireCurrent()
       for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
@@ -804,7 +811,7 @@ internal class GlJsStyleBinding(
       // find.
       if (beforeLayerId.isEmpty()) map.addLayer(spec) else map.addLayer(spec, beforeLayerId)
       if (renderer != null) indicators[id] = renderer
-      layerOrder = map.getLayersOrder().toList()
+      layerOrder = map.getLayersOrder().toKotlinStrings()
     }
   }
 
@@ -825,7 +832,7 @@ internal class GlJsStyleBinding(
     return inlineStyleCommand {
       mutate("remove layer '$layerId'") { map.removeLayer(layerId) }
       indicators.remove(layerId)?.close()
-      layerOrder = map.getLayersOrder().toList()
+      layerOrder = map.getLayersOrder().toKotlinStrings()
     }
   }
 
@@ -836,7 +843,7 @@ internal class GlJsStyleBinding(
         if (beforeLayerId.isEmpty()) map.moveLayer(layerId)
         else map.moveLayer(layerId, beforeLayerId)
       }
-      layerOrder = map.getLayersOrder().toList()
+      layerOrder = map.getLayersOrder().toKotlinStrings()
     }
   }
 
@@ -851,7 +858,7 @@ internal class GlJsStyleBinding(
       it.update(name, value, kind)
       return
     }
-    val js = value.toJsValue<Any?>()
+    val js = value.toJsValue<JsAny?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
         LayerPropertyKind.Layout -> map.setLayoutProperty(layerId, name, js)
@@ -950,13 +957,13 @@ internal class GlJsStyleBinding(
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     requireCurrent()
-    val js = value.toJsValue<Any?>()
+    val js = value.toJsValue<JsAny?>()
     mutate("set global state") { map.setGlobalStateProperty(name, js) }
   }
 
   override suspend fun lightProperty(name: String): JsonElement? {
     requireCurrent()
-    return map.getLight().asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+    return jsGet(map.getLight(), name)?.toJsonElement()
   }
 
   /**
@@ -1048,3 +1055,23 @@ private fun List<Pair<Float, Float>>.toGlJsStretch(): JsArray<JsArray<JsNumber>>
       result[index] = jsPair(start.toDouble(), end.toDouble())
     }
   }
+
+private external interface ClusterResult<T : JsAny> : JsAny {
+  val value: T?
+  val error: String?
+}
+
+/** Preserve the engine's error message before coroutines wrap a non-Kotlin Wasm rejection. */
+private suspend fun <T : JsAny> Promise<T?>.awaitClusterResult(): T? {
+  val result = clusterResult(this).await()
+  result.error?.let { throw IllegalStateException(it) }
+  return result.value
+}
+
+private fun <T : JsAny> clusterResult(promise: Promise<T?>): Promise<ClusterResult<T>> =
+  js(
+    "promise.then(function(value) { return {value: value, error: null}; }, function(error) { return {value: null, error: String(error && error.message || error)}; })",
+  )
+
+private fun missingClusterMessage(id: Double): String =
+  js("'No cluster with the specified id: ' + id")

@@ -7,8 +7,9 @@ import js.array.jsArrayOf
 import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
-import kotlin.coroutines.resume
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.js.JsString
+import kotlin.js.Promise
+import kotlinx.coroutines.await
 import web.dom.document
 import web.encoding.atob
 import web.file.File
@@ -31,19 +32,10 @@ internal class JsSnapshotSharer : SnapshotSharer {
     val file = dataUrlToFile(image.toDataUrl(), fileName)
     val data = unsafeJso<ShareData> { files = jsArrayOf(file) }
     if (!navigator.canShare(data)) return SnapshotActionResult.Failed
-    return suspendCancellableCoroutine { continuation ->
-      navigator
-        .asDynamic()
-        .share(data)
-        .then(
-          { continuation.resume(SnapshotActionResult.Completed()) },
-          { error: dynamic ->
-            val aborted = error.name as? String == "AbortError"
-            continuation.resume(
-              if (aborted) SnapshotActionResult.Cancelled else SnapshotActionResult.Failed,
-            )
-          },
-        )
+    return when (asKotlinString(shareSnapshot(data).await())) {
+      "completed" -> SnapshotActionResult.Completed()
+      "cancelled" -> SnapshotActionResult.Cancelled
+      else -> SnapshotActionResult.Failed
     }
   }
 
@@ -62,8 +54,7 @@ internal class JsSnapshotSharer : SnapshotSharer {
 internal actual fun rememberSnapshotSharer(): SnapshotSharer = remember { JsSnapshotSharer() }
 
 private fun webShareSupported(): Boolean {
-  val nav = navigator.asDynamic()
-  if (nav.share == undefined || nav.canShare == undefined) return false
+  if (!hasWebShare()) return false
   // Some browsers share text but not files; only a real File probe tells them apart.
   val probe = dataUrlToFile(TinyPngDataUrl, "probe.png")
   val data = unsafeJso<ShareData> { files = jsArrayOf(probe) }
@@ -81,40 +72,48 @@ private const val TinyPngDataUrl =
 /** Decodes a PNG data URL into a [File] without any async step. */
 private fun dataUrlToFile(dataUrl: String, fileName: String): File {
   val binary = atob(dataUrl.substringAfter(','))
-  val bytes = Uint8Array<ArrayBuffer>(binary.length).asDynamic()
+  val bytes = Uint8Array<ArrayBuffer>(binary.length)
   for (index in binary.indices) {
-    bytes[index] = binary[index].code
+    setByte(bytes, index, binary[index].code)
   }
   return File(
-    jsArrayOf(bytes.buffer.unsafeCast<js.buffer.ArrayBuffer>()),
+    jsArrayOf(bytes.buffer),
     fileName,
     unsafeJso<FilePropertyBag> { type = "image/png" },
   )
 }
 
-@Suppress("UnsafeCastFromDynamic")
-private fun ImageBitmap.toDataUrl(): String =
-  toCanvas().asDynamic().toDataURL("image/png").unsafeCast<String>()
-
-private fun ImageBitmap.toCanvas(): HTMLCanvasElement {
+private fun ImageBitmap.toDataUrl(): String {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
   canvas.width = width
   canvas.height = height
-  val context = canvas.asDynamic().getContext("2d")
-  check(context != null && context != undefined) {
-    "The browser would not give a 2D context for encoding a ${width}x$height image"
-  }
-  val imageData = context.createImageData(width, height)
-  // ImageBitmap.readPixels hands back straight-alpha ARGB; canvases take RGBA bytes.
   val argb = IntArray(width * height)
   readPixels(argb)
+  val rgba = Uint8Array<ArrayBuffer>(argb.size * 4)
   argb.forEachIndexed { index, pixel ->
     val offset = index * 4
-    imageData.data[offset] = (pixel ushr 16) and 0xFF
-    imageData.data[offset + 1] = (pixel ushr 8) and 0xFF
-    imageData.data[offset + 2] = pixel and 0xFF
-    imageData.data[offset + 3] = (pixel ushr 24) and 0xFF
+    setByte(rgba, offset, (pixel ushr 16) and 0xff)
+    setByte(rgba, offset + 1, (pixel ushr 8) and 0xff)
+    setByte(rgba, offset + 2, pixel and 0xff)
+    setByte(rgba, offset + 3, (pixel ushr 24) and 0xff)
   }
-  context.putImageData(imageData, 0, 0)
-  return canvas
+  return encodeCanvas(canvas, rgba)
 }
+
+private fun encodeCanvas(canvas: HTMLCanvasElement, rgba: Uint8Array<*>): String =
+  js(
+    "{ const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('The browser would not give a 2D context'); ctx.putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer),canvas.width,canvas.height),0,0); return canvas.toDataURL('image/png'); }",
+  )
+
+private fun setByte(bytes: Uint8Array<*>, index: Int, value: Int): Unit =
+  js("{ bytes[index] = value }")
+
+private fun hasWebShare(): Boolean =
+  js("typeof navigator.share === 'function' && typeof navigator.canShare === 'function'")
+
+private fun shareSnapshot(data: ShareData): Promise<JsString> =
+  js(
+    "navigator.share(data).then(() => 'completed', error => error.name === 'AbortError' ? 'cancelled' : 'failed')",
+  )
+
+private fun asKotlinString(value: JsString): String = js("value")

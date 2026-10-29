@@ -63,8 +63,8 @@ internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : Gl
     val gl = mapTarget.gl
     val limit =
       minOf(
-        gl.getParameter(gl.MAX_TEXTURE_SIZE).unsafeCast<Int>(),
-        gl.getParameter(gl.MAX_RENDERBUFFER_SIZE).unsafeCast<Int>(),
+        glGetNumber(gl, GlMaxTextureSize)!!.toInt(),
+        glGetNumber(gl, 0x84E8)!!.toInt(),
       )
     if (extent.physicalWidth > limit || extent.physicalHeight > limit) {
       return GlJsFrameTarget.UnsupportedSize

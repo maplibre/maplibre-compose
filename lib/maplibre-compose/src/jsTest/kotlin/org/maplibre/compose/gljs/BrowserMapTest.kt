@@ -14,8 +14,6 @@ import kotlin.js.Date
 import kotlin.js.Promise
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.browser.window
-import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.camera.CameraPosition
 
@@ -73,8 +71,3 @@ internal fun CameraPosition.isNear(other: CameraPosition): Boolean =
     pitch.isNear(other.pitch)
 
 private fun Double.isNear(other: Double): Boolean = kotlin.math.abs(this - other) < 0.001
-
-/** Gives the browser's own event loop a turn, which the test dispatcher otherwise never does. */
-internal suspend fun yieldToBrowser() {
-  Promise<Unit> { resolve, _ -> window.setTimeout({ resolve(Unit) }, 8) }.await()
-}

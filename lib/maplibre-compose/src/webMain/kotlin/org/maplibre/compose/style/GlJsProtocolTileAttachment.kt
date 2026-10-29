@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
+import kotlin.js.JsAny
 import kotlin.js.Promise
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -16,10 +17,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import org.maplibre.compose.gljs.ProtocolAbortController
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
+import org.maplibre.compose.gljs.jsError
 import org.maplibre.compose.gljs.removeProtocol
+import org.maplibre.compose.gljs.setUint8At
 import org.maplibre.compose.sources.TileCoordinate
 
 /**
@@ -64,7 +68,7 @@ internal class GlJsProtocolTileAttachment(
 
   private fun loadProtocolTile(
     request: RequestParameters,
-    abortController: Any,
+    abortController: ProtocolAbortController,
   ): Promise<ProtocolResponse> {
     check(open) { "Protocol tile attachment '$name' is detached" }
     val tile = parseTileCoordinate(request.url)
@@ -80,7 +84,7 @@ internal class GlJsProtocolTileAttachment(
                   // such as a timeout, leaves the job active and fails the tile.
                   if (error is CancellationException) currentCoroutineContext().ensureActive()
                   failed += tile
-                  throw protocolFailure(error)
+                  throw error
                 }
               currentCoroutineContext().ensureActive()
               if (!open)
@@ -91,12 +95,17 @@ internal class GlJsProtocolTileAttachment(
           )
           .also { requests[tile] = it }
     val work =
-      scope.async(start = CoroutineStart.LAZY) {
-        shared.work.await().toProtocolResponse()
+      scope.async<JsAny>(start = CoroutineStart.LAZY) {
+        try {
+          shared.work.await().toProtocolResponse()
+        } catch (error: Throwable) {
+          if (error is CancellationException) currentCoroutineContext().ensureActive()
+          jsError(error.message ?: error.toString())
+        }
       }
     shared.clients++
 
-    val signal = abortController.asDynamic().signal
+    val signal = abortController.signal
     val abort: () -> Unit = { work.cancel() }
     signal.addEventListener("abort", abort)
     work.invokeOnCompletion {
@@ -109,7 +118,7 @@ internal class GlJsProtocolTileAttachment(
     }
     if (signal.aborted == true) work.cancel()
     work.start()
-    return work.asPromise()
+    return unwrapTileResult(work.asPromise())
   }
 
   /** Changes the URL so GL JS cannot reuse a cached response after invalidation. */
@@ -152,14 +161,11 @@ private fun parseTileCoordinate(url: String): TileCoordinate {
  * and a Kotlin exception's non-enumerable `message` does not survive that copy, while a JS error's
  * does.
  */
-private fun protocolFailure(error: Throwable): Throwable {
-  val jsError = js("new Error()")
-  jsError.message = error.message ?: error.toString()
-  return jsError.unsafeCast<Throwable>()
-}
+private fun unwrapTileResult(promise: Promise<JsAny>): Promise<ProtocolResponse> =
+  js("promise.then(value => { if (value instanceof Error) throw value; return value; })")
 
 private fun ByteArray.toProtocolResponse(): ProtocolResponse {
   val bytes = Uint8Array<ArrayBuffer>(size)
-  forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
+  forEachIndexed { index, byte -> setUint8At(bytes, index, byte.toInt() and 0xFF) }
   return unsafeJso { data = bytes.buffer }
 }

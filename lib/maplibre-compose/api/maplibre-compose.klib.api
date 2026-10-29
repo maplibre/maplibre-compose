@@ -1,5 +1,5 @@
 // Klib ABI Dump
-// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64]
+// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64, wasmJs]
 // Alias: apple => [iosArm64, iosSimulatorArm64, macosArm64]
 // Alias: ios => [iosArm64, iosSimulatorArm64]
 // Rendering settings:
@@ -262,17 +262,17 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
                 final fun <get-speed>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<get-speed>|<get-speed>(){}[0]
                 final fun <set-speed>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.speed.<set-speed>|<set-speed>(kotlin.Double){}[0]
 
-            // Targets: [js]
+            // Targets: [js, wasmJs]
             final var curve // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve|{}curve[0]
                 final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<get-curve>|<get-curve>(){}[0]
                 final fun <set-curve>(kotlin/Double) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.curve.<set-curve>|<set-curve>(kotlin.Double){}[0]
 
-            // Targets: [js]
+            // Targets: [js, wasmJs]
             final var maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration|{}maxDuration[0]
                 final fun <get-maxDuration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration.<get-maxDuration>|<get-maxDuration>(){}[0]
                 final fun <set-maxDuration>(kotlin.time/Duration?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.maxDuration.<set-maxDuration>|<set-maxDuration>(kotlin.time.Duration?){}[0]
 
-            // Targets: [js]
+            // Targets: [js, wasmJs]
             final var screenSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed|{}screenSpeed[0]
                 final fun <get-screenSpeed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed.<get-screenSpeed>|<get-screenSpeed>(){}[0]
                 final fun <set-screenSpeed>(kotlin/Double?) // org.maplibre.compose.camera/CameraAnimation.Fly.Builder.screenSpeed.<set-screenSpeed>|<set-screenSpeed>(kotlin.Double?){}[0]
@@ -285,30 +285,30 @@ sealed interface org.maplibre.compose.camera/CameraAnimation { // org.maplibre.c
             final val Standard // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard|{}Standard[0]
                 final fun <get-Standard>(): org.maplibre.compose.camera/CameraAnimation.Fly // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.Standard.<get-Standard>|<get-Standard>(){}[0]
 
-            // Targets: [js]
+            // Targets: [js, wasmJs]
             final const val DefaultCurve // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve|{}DefaultCurve[0]
                 final fun <get-DefaultCurve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.Companion.DefaultCurve.<get-DefaultCurve>|<get-DefaultCurve>(){}[0]
         }
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final val curve // org.maplibre.compose.camera/CameraAnimation.Fly.curve|{}curve[0]
             final fun <get-curve>(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.curve.<get-curve>|<get-curve>(){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final val maxDuration // org.maplibre.compose.camera/CameraAnimation.Fly.maxDuration|{}maxDuration[0]
             final fun <get-maxDuration>(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.maxDuration.<get-maxDuration>|<get-maxDuration>(){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final val screenSpeed // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed|{}screenSpeed[0]
             final fun <get-screenSpeed>(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.screenSpeed.<get-screenSpeed>|<get-screenSpeed>(){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final fun component5(): kotlin/Double // org.maplibre.compose.camera/CameraAnimation.Fly.component5|component5(){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final fun component6(): kotlin/Double? // org.maplibre.compose.camera/CameraAnimation.Fly.component6|component6(){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final fun component7(): kotlin.time/Duration? // org.maplibre.compose.camera/CameraAnimation.Fly.component7|component7(){}[0]
     }
 }
@@ -1867,12 +1867,12 @@ final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map
             final fun <get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>(){}[0]
             final fun <set-tileTimestamps>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.tileTimestamps.<set-tileTimestamps>|<set-tileTimestamps>(kotlin.Boolean){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final var overdrawInspector // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector|{}overdrawInspector[0]
             final fun <get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>(){}[0]
             final fun <set-overdrawInspector>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.overdrawInspector.<set-overdrawInspector>|<set-overdrawInspector>(kotlin.Boolean){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final var padding // org.maplibre.compose.map/DebugOverlays.Builder.padding|{}padding[0]
             final fun <get-padding>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.Builder.padding.<get-padding>|<get-padding>(){}[0]
             final fun <set-padding>(kotlin/Boolean) // org.maplibre.compose.map/DebugOverlays.Builder.padding.<set-padding>|<set-padding>(kotlin.Boolean){}[0]
@@ -1886,11 +1886,11 @@ final class org.maplibre.compose.map/DebugOverlays { // org.maplibre.compose.map
     final val tileTimestamps // org.maplibre.compose.map/DebugOverlays.tileTimestamps|{}tileTimestamps[0]
         final fun <get-tileTimestamps>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.tileTimestamps.<get-tileTimestamps>|<get-tileTimestamps>(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final val overdrawInspector // org.maplibre.compose.map/DebugOverlays.overdrawInspector|{}overdrawInspector[0]
         final fun <get-overdrawInspector>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.overdrawInspector.<get-overdrawInspector>|<get-overdrawInspector>(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final val padding // org.maplibre.compose.map/DebugOverlays.padding|{}padding[0]
         final fun <get-padding>(): kotlin/Boolean // org.maplibre.compose.map/DebugOverlays.padding.<get-padding>|<get-padding>(){}[0]
 }
@@ -1975,13 +1975,13 @@ final class org.maplibre.compose.map/MapRuntimeOptions { // org.maplibre.compose
     // Targets: [apple]
     final fun component5(): kotlinx.coroutines/CoroutineDispatcher // org.maplibre.compose.map/MapRuntimeOptions.component5|component5(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final fun component1(): org.maplibre.compose.resource/MapRequestInterceptor? // org.maplibre.compose.map/MapRuntimeOptions.component1|component1(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final fun component2(): org.maplibre.compose.resource/MapResourceProvider? // org.maplibre.compose.map/MapRuntimeOptions.component2|component2(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final fun component3(): kotlinx.coroutines/CoroutineDispatcher // org.maplibre.compose.map/MapRuntimeOptions.component3|component3(){}[0]
 }
 
@@ -2148,7 +2148,10 @@ final class org.maplibre.compose.map/PlatformMapScope { // org.maplibre.compose.
         final fun <get-map>(): org.maplibre.nativeffi/MapHandle // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
 
         // Targets: [js]
-        final fun <get-map>(): dynamic // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
+        final fun <get-map>(): kotlin/Any // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
+
+        // Targets: [wasmJs]
+        final fun <get-map>(): kotlin.js/JsAny // org.maplibre.compose.map/PlatformMapScope.map.<get-map>|<get-map>(){}[0]
 }
 
 final class org.maplibre.compose.map/RenderOptions { // org.maplibre.compose.map/RenderOptions|null[0]
@@ -2340,12 +2343,12 @@ final class org.maplibre.compose.map/TileLodOptions { // org.maplibre.compose.ma
             final fun <get-algorithm>(): org.maplibre.compose.map/TileLodAlgorithm // org.maplibre.compose.map/TileLodOptions.Builder.algorithm.<get-algorithm>|<get-algorithm>(){}[0]
             final fun <set-algorithm>(org.maplibre.compose.map/TileLodAlgorithm) // org.maplibre.compose.map/TileLodOptions.Builder.algorithm.<set-algorithm>|<set-algorithm>(org.maplibre.compose.map.TileLodAlgorithm){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final var maxZoomLevelsOnScreen // org.maplibre.compose.map/TileLodOptions.Builder.maxZoomLevelsOnScreen|{}maxZoomLevelsOnScreen[0]
             final fun <get-maxZoomLevelsOnScreen>(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.Builder.maxZoomLevelsOnScreen.<get-maxZoomLevelsOnScreen>|<get-maxZoomLevelsOnScreen>(){}[0]
             final fun <set-maxZoomLevelsOnScreen>(kotlin/Double) // org.maplibre.compose.map/TileLodOptions.Builder.maxZoomLevelsOnScreen.<set-maxZoomLevelsOnScreen>|<set-maxZoomLevelsOnScreen>(kotlin.Double){}[0]
 
-        // Targets: [js]
+        // Targets: [js, wasmJs]
         final var tileCountMaxMinRatio // org.maplibre.compose.map/TileLodOptions.Builder.tileCountMaxMinRatio|{}tileCountMaxMinRatio[0]
             final fun <get-tileCountMaxMinRatio>(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.Builder.tileCountMaxMinRatio.<get-tileCountMaxMinRatio>|<get-tileCountMaxMinRatio>(){}[0]
             final fun <set-tileCountMaxMinRatio>(kotlin/Double) // org.maplibre.compose.map/TileLodOptions.Builder.tileCountMaxMinRatio.<set-tileCountMaxMinRatio>|<set-tileCountMaxMinRatio>(kotlin.Double){}[0]
@@ -2367,18 +2370,18 @@ final class org.maplibre.compose.map/TileLodOptions { // org.maplibre.compose.ma
     // Targets: [apple]
     final fun component1(): org.maplibre.compose.map/TileLodAlgorithm // org.maplibre.compose.map/TileLodOptions.component1|component1(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final val maxZoomLevelsOnScreen // org.maplibre.compose.map/TileLodOptions.maxZoomLevelsOnScreen|{}maxZoomLevelsOnScreen[0]
         final fun <get-maxZoomLevelsOnScreen>(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.maxZoomLevelsOnScreen.<get-maxZoomLevelsOnScreen>|<get-maxZoomLevelsOnScreen>(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final val tileCountMaxMinRatio // org.maplibre.compose.map/TileLodOptions.tileCountMaxMinRatio|{}tileCountMaxMinRatio[0]
         final fun <get-tileCountMaxMinRatio>(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.tileCountMaxMinRatio.<get-tileCountMaxMinRatio>|<get-tileCountMaxMinRatio>(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final fun component1(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.component1|component1(){}[0]
 
-    // Targets: [js]
+    // Targets: [js, wasmJs]
     final fun component2(): kotlin/Double // org.maplibre.compose.map/TileLodOptions.component2|component2(){}[0]
 }
 
@@ -5393,7 +5396,7 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_AppleMapPresentation
 // Targets: [ios]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_MaplibreMapView$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_MaplibreMapView$stableprop_getter|org_maplibre_compose_map_MaplibreMapView$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final class org.maplibre.compose.map/WebMapPresentation : kotlin/AutoCloseable { // org.maplibre.compose.map/WebMapPresentation|null[0]
     constructor <init>(org.maplibre.compose.map/MapState, androidx.compose.foundation.layout/PaddingValues = ..., org.maplibre.compose.map/CameraConstraints = ..., org.maplibre.compose.map/RenderOptions = ..., org.maplibre.compose.interaction/MapInteractions = ..., androidx.compose.ui.unit/LayoutDirection = ..., kotlin/Boolean = ...) // org.maplibre.compose.map/WebMapPresentation.<init>|<init>(org.maplibre.compose.map.MapState;androidx.compose.foundation.layout.PaddingValues;org.maplibre.compose.map.CameraConstraints;org.maplibre.compose.map.RenderOptions;org.maplibre.compose.interaction.MapInteractions;androidx.compose.ui.unit.LayoutDirection;kotlin.Boolean){}[0]
 
@@ -5429,46 +5432,46 @@ final class org.maplibre.compose.map/WebMapPresentation : kotlin/AutoCloseable {
     }
 }
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop|#static{}org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop|#static{}org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop|#static{}org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop|#static{}org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$stableprop|#static{}org_maplibre_compose_map_WebMapPresentation$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final val org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop|#static{}org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.browser/configureMaplibreWorker(kotlin/String) // org.maplibre.compose.browser/configureMaplibreWorker|configureMaplibreWorker(kotlin.String){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.browser/installMaplibreCompose(kotlin/String = ...) // org.maplibre.compose.browser/installMaplibreCompose|installMaplibreCompose(kotlin.String){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter(): kotlin/Int // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter|org_maplibre_compose_gljs_GlJsFrameTarget_Composited$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop_getter(): kotlin/Int // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop_getter|org_maplibre_compose_gljs_GlJsFrameTarget_NotReady$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop_getter(): kotlin/Int // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop_getter|org_maplibre_compose_gljs_GlJsFrameTarget_OwnCanvas$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop_getter(): kotlin/Int // org.maplibre.compose.gljs/org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop_getter|org_maplibre_compose_gljs_GlJsFrameTarget_UnsupportedSize$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation$stableprop_getter|org_maplibre_compose_map_WebMapPresentation$stableprop_getter(){}[0]
 
-// Targets: [js]
+// Targets: [js, wasmJs]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter|org_maplibre_compose_map_WebMapPresentation_ContainerBinding$stableprop_getter(){}[0]
 
 // Targets: [macosArm64]

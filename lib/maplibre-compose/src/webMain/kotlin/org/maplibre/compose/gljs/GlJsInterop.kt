@@ -9,9 +9,9 @@ import kotlin.js.toJsString
 import web.gl.GLenum
 import web.gl.WebGL2RenderingContext
 
-internal const val GL_MAX_TEXTURE_IMAGE_UNITS: Int = 0x8872
-internal const val GL_MAX_TEXTURE_SIZE: Int = 0x0D33
-internal const val GL_SCISSOR_TEST: Int = 0x0C11
+internal const val GlMaxTextureImageUnits: Int = 0x8872
+internal const val GlMaxTextureSize: Int = 0x0D33
+internal const val GlScissorTest: Int = 0x0C11
 
 /** `value == null` in JavaScript, so it is true for both `null` and `undefined`. */
 internal fun isJsNullish(value: JsAny?): Boolean = js("value == null")
@@ -75,7 +75,7 @@ internal fun eventLayerId(event: GlJsMapEvent): String? =
 
 internal fun fireStyleError(map: MaplibreMap, message: String): Unit =
   js(
-    "{ map.fire('error', {error: new Error(message), style: map.style, sourceId: 'unrelated-source'}) }"
+    "{ map.fire('error', {error: new Error(message), style: map.style, sourceId: 'unrelated-source'}) }",
   )
 
 internal fun jsError(message: String): JsAny = js("new Error(message)")

@@ -36,8 +36,112 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
         );
       })()
       """,
-    )
-    .unsafeCast<String>()
+  )
+
+private fun newCanvasContextHook(): JsAny =
+  js(
+    """({
+    prototype: HTMLCanvasElement.prototype,
+    original: HTMLCanvasElement.prototype.getContext,
+    lent: 0
+  })""",
+  )
+
+private fun installCanvasContextHook(hook: JsAny, gl: WebGL2RenderingContext): Unit =
+  js(
+    """{
+      var original = hook.original;
+      hook.prototype.getContext = function(type, options) {
+        if (this !== gl.canvas && (type === 'webgl2' || type === 'webgl')) {
+          hook.lent = hook.lent + 1;
+          return gl;
+        }
+        return original.call(this, type, options);
+      };
+    }""",
+  )
+
+private fun restoreCanvasContextHook(hook: JsAny): Int =
+  js(
+    """{
+      hook.prototype.getContext = hook.original;
+      return hook.lent;
+    }""",
+  )
+
+private fun defineDrawingBufferSize(gl: WebGL2RenderingContext, width: Int, height: Int): JsAny =
+  js(
+    """{
+      var objects = Object;
+      var previousWidth = objects.getOwnPropertyDescriptor(gl, "drawingBufferWidth");
+      var previousHeight = objects.getOwnPropertyDescriptor(gl, "drawingBufferHeight");
+      objects.defineProperty(gl, "drawingBufferWidth", {configurable: true, value: width});
+      objects.defineProperty(gl, "drawingBufferHeight", {configurable: true, value: height});
+      return {
+        objects: objects,
+        gl: gl,
+        previousWidth: previousWidth,
+        previousHeight: previousHeight
+      };
+    }""",
+  )
+
+private fun restoreDrawingBufferSize(state: JsAny): Unit =
+  js(
+    """{
+      var objects = state.objects;
+      var gl = state.gl;
+      if (state.previousWidth == null) {
+        Reflect.deleteProperty(gl, "drawingBufferWidth");
+      } else {
+        objects.defineProperty(gl, "drawingBufferWidth", state.previousWidth);
+      }
+      if (state.previousHeight == null) {
+        Reflect.deleteProperty(gl, "drawingBufferHeight");
+      } else {
+        objects.defineProperty(gl, "drawingBufferHeight", state.previousHeight);
+      }
+    }""",
+  )
+
+private fun hasBindFramebufferSet(context: Context): Boolean =
+  js("!!context.bindFramebuffer && typeof context.bindFramebuffer.set === 'function'")
+
+private fun installFramebufferRedirect(context: Context, target: () -> JsAny?): Unit =
+  js(
+    """{
+      var binding = context.bindFramebuffer;
+      binding.set = function(requested) {
+        var next = (requested == null) ? target() : requested;
+        if (next !== this.current || this.dirty === true) {
+          this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, next);
+          this.current = next;
+          this.dirty = false;
+        }
+      };
+    }""",
+  )
+
+private fun installLoseContextBlock(gl: WebGL2RenderingContext): JsAny =
+  js(
+    """{
+      var original = gl.getExtension.bind(gl);
+      gl.getExtension = function(name) {
+        if (name === 'WEBGL_lose_context') return null;
+        return original(name);
+      };
+      return original;
+    }""",
+  )
+
+private fun restoreGetExtension(gl: WebGL2RenderingContext, original: JsAny): Unit =
+  js("{ gl.getExtension = original; }")
+
+private fun hasTriggerRepaint(map: MaplibreMap): Boolean =
+  js("typeof map.triggerRepaint === 'function'")
+
+private fun setTriggerRepaint(map: MaplibreMap, onRequest: () -> Unit): Unit =
+  js("{ map.triggerRepaint = onRequest; }")
 
 /**
  * Adapts MapLibre GL JS internals for rendering into Compose. Compatibility checks detect changes

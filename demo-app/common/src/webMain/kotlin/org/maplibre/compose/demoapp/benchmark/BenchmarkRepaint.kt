@@ -7,5 +7,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 
 @OptIn(DelicateMaplibreComposeApi::class, ExperimentalMaplibreComposeApi::class)
 internal actual suspend fun benchmarkRequestRepaint(state: MapState) {
-  state.withPlatformMap { map.triggerRepaint() }
+  state.withPlatformMap { requestRepaint(map) }
 }
+
+private fun requestRepaint(map: kotlin.js.JsAny): Unit = js("{ map.triggerRepaint() }")

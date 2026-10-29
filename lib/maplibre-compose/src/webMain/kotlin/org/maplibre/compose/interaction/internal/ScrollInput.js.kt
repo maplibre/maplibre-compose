@@ -12,7 +12,7 @@ private val browserLineHeight: Float by lazy { measureBrowserLineHeight().toFloa
 
 private fun measureBrowserLineHeight(): Double =
   js(
-    "{ const body = document.body; if (!body) return 16; const probe = document.createElement('div'); probe.style.fontSize = 'initial'; probe.style.display = 'none'; body.appendChild(probe); try { return parseFloat(window.getComputedStyle(probe).fontSize) || 16; } finally { body.removeChild(probe); } }"
+    "{ const body = document.body; if (!body) return 16; const probe = document.createElement('div'); probe.style.fontSize = 'initial'; probe.style.display = 'none'; body.appendChild(probe); try { return parseFloat(window.getComputedStyle(probe).fontSize) || 16; } finally { body.removeChild(probe); } }",
   )
 
 private val BrowserScrollConverter: ScrollConverter = { event, density, bounds ->

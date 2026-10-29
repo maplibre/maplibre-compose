@@ -58,16 +58,18 @@ class BrowserPlatformMapAccessTest {
     try {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.state.withPlatformMap {
-        map.addLayer(
-          unsafeJso<CustomLayerInterface> {
-            id = "custom"
-            type = "custom"
-            renderingMode = "2d"
-            onAdd = { _, _ -> }
-            onRemove = { _, _ -> }
-            render = { _, _ -> }
-          },
-        )
+        map
+          .asDynamic()
+          .addLayer(
+            unsafeJso<CustomLayerInterface> {
+              id = "custom"
+              type = "custom"
+              renderingMode = "2d"
+              onAdd = { _, _ -> }
+              onRemove = { _, _ -> }
+              render = { _, _ -> }
+            },
+          )
       }
       fixture.state.style.sources.add(
         GeoJsonSource(
@@ -82,7 +84,9 @@ class BrowserPlatformMapAccessTest {
       assertTrue(fixture.state.style.sources["points"]?.asMutable != null)
       assertEquals(
         listOf("custom", "above"),
-        fixture.state.withPlatformMap { (map.getLayersOrder() as Array<String>).toList() },
+        fixture.state.withPlatformMap {
+          (map.asDynamic().getLayersOrder() as Array<String>).toList()
+        },
       )
     } finally {
       fixture.close()

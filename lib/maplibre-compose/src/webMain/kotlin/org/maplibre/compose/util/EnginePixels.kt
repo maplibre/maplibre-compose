@@ -2,12 +2,12 @@ package org.maplibre.compose.util
 
 import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
-import js.typedarrays.Int8Array
 import js.typedarrays.Uint8Array
 import js.typedarrays.Uint8ClampedArray
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.gljs.StyleImageData
+import org.maplibre.compose.gljs.setUint8At
 import web.images.ImageData
 
 /**
@@ -44,8 +44,11 @@ internal actual class EnginePixels(
   }
 
   // Kotlin/JS represents a ByteArray as an Int8Array.
-  private val bytes: Int8Array<ArrayBuffer>
-    get() = rgba.unsafeCast<Int8Array<ArrayBuffer>>()
+  private val bytes: Uint8Array<ArrayBuffer> by lazy {
+    Uint8Array<ArrayBuffer>(rgba.size).also { array ->
+      rgba.forEachIndexed { index, byte -> setUint8At(array, index, byte.toInt() and 0xff) }
+    }
+  }
 
   private val hash by lazy { 31 * (31 * width + height) + rgba.contentHashCode() }
 

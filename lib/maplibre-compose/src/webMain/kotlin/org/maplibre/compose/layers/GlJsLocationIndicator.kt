@@ -1,6 +1,9 @@
 package org.maplibre.compose.layers
 
 import js.objects.unsafeJso
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
 import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -31,6 +34,7 @@ import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.StyleImageData
+import org.maplibre.compose.gljs.jsNumberToDouble
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.spatialk.geojson.Position
@@ -78,7 +82,7 @@ internal class GlJsLocationIndicator(
   }
 
   private var appearance = Appearance()
-  private val quadVertices: dynamic = js("new Float32Array(24)")
+  private val quadVertices = floatArray(24)
   private val quadUvs = doubleArrayOf(0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0)
   private val sectorUvs = DoubleArray(12) { quadUvs[it] * 2 - 1 }
 
@@ -106,31 +110,34 @@ internal class GlJsLocationIndicator(
       "bearing-accuracy-radius" to sectorRadius,
       "bearing-accuracy-color" to sectorColor,
     )
-  private var gl: dynamic = null
-  private var vao: dynamic = null
-  private var quadBuffer: dynamic = null
-  private var accuracyBuffer: dynamic = null
+  private var context: IndicatorGl? = null
+  private val gl: IndicatorGl
+    get() = checkNotNull(context)
+
+  private var vao: JsAny? = null
+  private var quadBuffer: JsAny? = null
+  private var accuracyBuffer: JsAny? = null
   private var meshLatitude = Double.NaN
   private var meshRadius = Double.NaN
   private var accuracyVertexCount = 0
   internal var accuracyUploadCount = 0
     private set
 
-  private var emptyTexture: dynamic = null
-  private var feedback: dynamic = null
-  private var feedbackBuffer: dynamic = null
+  private var emptyTexture: JsAny? = null
+  private var feedback: JsAny? = null
+  private var feedbackBuffer: JsAny? = null
   private var feedbackCapacity = 0
 
-  private inner class Program(val handle: dynamic) {
-    private val uniforms = mutableMapOf<String, dynamic>()
+  private inner class Program(val handle: JsAny?) {
+    private val uniforms = mutableMapOf<String, JsAny?>()
 
-    fun uniform(name: String): dynamic =
+    fun uniform(name: String): JsAny? =
       uniforms.getOrPut(name) { gl.getUniformLocation(handle, name) }
   }
 
   private val programs = mutableMapOf<String, Program>()
 
-  private class Texture(val image: IndicatorImage, val handle: dynamic)
+  private class Texture(val image: IndicatorImage, val handle: JsAny?)
 
   private val textures = mutableMapOf<String, Texture>()
   private var subscriptions = emptyList<GlJsSubscription>()
@@ -154,7 +161,7 @@ internal class GlJsLocationIndicator(
     type = "custom"
     renderingMode = "2d"
     onAdd = { _, context ->
-      gl = context
+      this@GlJsLocationIndicator.context = context.unsafeCast<IndicatorGl>()
       removed = false
       subscriptions =
         listOf(
@@ -170,8 +177,8 @@ internal class GlJsLocationIndicator(
     }
     onRemove = { _, _ -> close() }
     render = { context, input ->
-      gl = context
-      if (!lost && !removed && context.isContextLost() != true) render(input)
+      this@GlJsLocationIndicator.context = context.unsafeCast<IndicatorGl>()
+      if (!lost && !removed && !gl.isContextLost()) render(input)
     }
   }
 
@@ -240,7 +247,14 @@ internal class GlJsLocationIndicator(
   fun propertyValue(name: String): JsonElement? = property(name)
 
   fun hitTest(left: Double, top: Double, right: Double, bottom: Double): Boolean {
-    if (lost || removed || gl == null || gl.isContextLost() == true || !visible() || hitCount == 0)
+    if (
+      lost ||
+        removed ||
+        context == null ||
+        gl.isContextLost() == true ||
+        !visible() ||
+        hitCount == 0
+    )
       return false
     if (polygons == null) {
       // Read only on interaction, never on the animation/render critical path. Feedback retains
@@ -248,7 +262,7 @@ internal class GlJsLocationIndicator(
       val previous = gl.getParameter(gl.COPY_READ_BUFFER_BINDING)
       try {
         gl.bindBuffer(gl.COPY_READ_BUFFER, feedbackBuffer)
-        val corners = js("new Float32Array(24)")
+        val corners = floatArray(24)
         polygons =
           (0 until hitCount).flatMap { index ->
             gl.getBufferSubData(gl.COPY_READ_BUFFER, index * 96, corners)
@@ -273,7 +287,7 @@ internal class GlJsLocationIndicator(
   }
 
   private fun release(delete: Boolean) {
-    if (delete && gl != null) {
+    if (delete && context != null) {
       programs.values.forEach { gl.deleteProgram(it.handle) }
       textures.values.forEach { gl.deleteTexture(it.handle) }
       gl.deleteTexture(emptyTexture)
@@ -436,11 +450,11 @@ internal class GlJsLocationIndicator(
     val program = programs.getOrPut(input.shaderData.variantName) { program(input.shaderData) }
     val oldVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING)
     val oldFeedback = gl.getParameter(gl.TRANSFORM_FEEDBACK_BINDING)
-    val oldActive = gl.getParameter(gl.ACTIVE_TEXTURE)
+    val oldActive = glInt(gl, gl.ACTIVE_TEXTURE)
     gl.activeTexture(gl.TEXTURE0)
     val oldTexture = gl.getParameter(gl.TEXTURE_BINDING_2D)
     val oldSampler = gl.getParameter(gl.SAMPLER_BINDING)
-    val oldUnpack = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)
+    val oldUnpack = glBoolean(gl, gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)
     try {
       gl.bindVertexArray(vao)
       gl.useProgram(program.handle)
@@ -459,7 +473,7 @@ internal class GlJsLocationIndicator(
       hitHeight = frame.height
       gl.uniform1f(
         program.uniform("u_pixel_ratio"),
-        (gl.getParameter(gl.VIEWPORT)[2] as Double) / frame.width,
+        viewportWidth(gl) / frame.width,
       )
       reservePickFeedback(copies.count())
       for (copy in copies) {
@@ -494,7 +508,7 @@ internal class GlJsLocationIndicator(
         0,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        js("new Uint8Array([0,0,0,0])"),
+        transparentPixel(),
       )
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
@@ -531,10 +545,10 @@ internal class GlJsLocationIndicator(
           tile.x + ox * tile.cosine - oy * tile.sine + shiftX,
           tile.y + ox * tile.sine + oy * tile.cosine + shiftY,
         )
-      quadVertices[i * 4] = point.first
-      quadVertices[i * 4 + 1] = point.second
-      quadVertices[i * 4 + 2] = uvs[i * 2]
-      quadVertices[i * 4 + 3] = uvs[i * 2 + 1]
+      setFloat(quadVertices, i * 4, point.first)
+      setFloat(quadVertices, i * 4 + 1, point.second)
+      setFloat(quadVertices, i * 4 + 2, uvs[i * 2])
+      setFloat(quadVertices, i * 4 + 3, uvs[i * 2 + 1])
     }
     bindVertices(quadBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.DYNAMIC_DRAW)
@@ -544,7 +558,7 @@ internal class GlJsLocationIndicator(
     if (!(frame.sectorHalfAngle > 0 && frame.sectorPixels > 0 && frame.sectorRgba[3] > 0)) return
     val radius = frame.sectorPixels * tile.worldPerPixel
     writeQuad(tile, radius, radius, uvs = sectorUvs)
-    gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
+    gl.uniform3f(program.uniform("u_geometry"), 0.0, 0.0, 1.0)
     gl.uniform1i(program.uniform("u_mode"), 2)
     gl.uniform1f(program.uniform("u_sector_angle"), frame.sectorHalfAngle)
     val rgba = frame.sectorRgba
@@ -553,7 +567,7 @@ internal class GlJsLocationIndicator(
   }
 
   private fun drawImages(program: Program, tile: TileFrame) {
-    gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
+    gl.uniform3f(program.uniform("u_geometry"), 0.0, 0.0, 1.0)
     gl.uniform1i(program.uniform("u_mode"), 0)
     for (layer in appearance.images) {
       val imageId = layer.id ?: continue
@@ -595,7 +609,7 @@ internal class GlJsLocationIndicator(
     }
   }
 
-  private fun bindVertices(buffer: dynamic) {
+  private fun bindVertices(buffer: JsAny?) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0)
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8)
@@ -613,7 +627,7 @@ internal class GlJsLocationIndicator(
       val segments = 128
       accuracyVertexCount = rings * segments * 6
       val length = accuracyVertexCount * 4
-      val vertices: dynamic = js("new Float32Array(length)")
+      val vertices = floatArray(length)
       val angularRadius = (radius / 6371008.8).coerceAtMost(PI - 1e-6)
       val phi = lat * PI / 180
       val centerY = mercatorY(lat)
@@ -625,10 +639,10 @@ internal class GlJsLocationIndicator(
             (sin(phi) * cos(distance) + cos(phi) * sin(distance) * cos(angle)).coerceIn(-1.0, 1.0),
           )
         val dl = atan2(sin(angle) * sin(distance) * cos(phi), cos(distance) - sin(phi) * sin(p))
-        vertices[index++] = dl / (2 * PI)
-        vertices[index++] = mercatorY(p * 180 / PI) - centerY
-        vertices[index++] = r * sin(angle)
-        vertices[index++] = r * cos(angle)
+        setFloat(vertices, index++, dl / (2 * PI))
+        setFloat(vertices, index++, mercatorY(p * 180 / PI) - centerY)
+        setFloat(vertices, index++, r * sin(angle))
+        setFloat(vertices, index++, r * cos(angle))
       }
       for (ring in 0 until rings) for (segment in 0 until segments) {
         val inner = ring.toDouble() / rings
@@ -656,30 +670,20 @@ internal class GlJsLocationIndicator(
   }
 
   private val colors = mutableMapOf<String, Pair<String, DoubleArray>>()
-  private val colorCanvas: dynamic = js("document.createElement('canvas')")
+  private val colorCanvas = createColorCanvas()
 
   private fun color(program: Program, uniform: String, css: String) {
     val rgba =
       colors[uniform]?.takeIf { it.first == css }?.second
         ?: run {
-          val ctx = colorCanvas.getContext("2d")
-          ctx.clearRect(0, 0, 1, 1)
-          ctx.fillStyle = css
-          ctx.fillRect(0, 0, 1, 1)
-          val pixel = ctx.getImageData(0, 0, 1, 1).data
-          val alpha = (pixel[3] as Int) / 255.0
-          doubleArrayOf(
-              (pixel[0] as Int) / 255.0 * alpha,
-              (pixel[1] as Int) / 255.0 * alpha,
-              (pixel[2] as Int) / 255.0 * alpha,
-              alpha,
-            )
-            .also { colors[uniform] = css to it }
+          cssColor(colorCanvas, css).toList().map(::jsNumberToDouble).toDoubleArray().also {
+            colors[uniform] = css to it
+          }
         }
     gl.uniform4f(program.uniform(uniform), rgba[0], rgba[1], rgba[2], rgba[3])
   }
 
-  private fun texture(id: String, data: IndicatorImage): dynamic {
+  private fun texture(id: String, data: IndicatorImage): JsAny? {
     val previous = textures[id]
     if (previous?.image === data) return previous.handle
     if (previous != null) gl.deleteTexture(previous.handle)
@@ -720,11 +724,11 @@ internal class GlJsLocationIndicator(
     )
     gl.uniform4fv(
       program.uniform("u_projection_tile_mercator_coords"),
-      floats(data.tileMercatorCoords.toList()),
+      floatCopy(data.tileMercatorCoords),
     )
     gl.uniform4fv(
       program.uniform("u_projection_clipping_plane"),
-      floats(data.clippingPlane.toList()),
+      floatCopy(data.clippingPlane),
     )
     gl.uniform1f(
       program.uniform("u_projection_transition"),
@@ -733,18 +737,18 @@ internal class GlJsLocationIndicator(
   }
 
   private fun program(data: CustomShaderData): Program {
-    fun shader(type: Int, source: String): dynamic {
+    fun shader(type: Int, source: String): JsAny? {
       val shader = gl.createShader(type)
       gl.shaderSource(shader, source)
       gl.compileShader(shader)
       check(gl.getShaderParameter(shader, gl.COMPILE_STATUS) == true) {
-        gl.getShaderInfoLog(shader) as String
+        gl.getShaderInfoLog(shader).orEmpty()
       }
       return shader
     }
     val vertex =
       shader(
-        gl.VERTEX_SHADER as Int,
+        gl.VERTEX_SHADER,
         """#version 300 es
       ${data.vertexShaderPrelude}
       ${data.define}
@@ -759,7 +763,7 @@ internal class GlJsLocationIndicator(
       )
     val fragment =
       shader(
-        gl.FRAGMENT_SHADER as Int,
+        gl.FRAGMENT_SHADER,
         """
         #version 300 es
         precision highp float;
@@ -796,22 +800,42 @@ internal class GlJsLocationIndicator(
     val program = gl.createProgram()
     gl.attachShader(program, vertex)
     gl.attachShader(program, fragment)
-    gl.transformFeedbackVaryings(program, arrayOf("v_clip"), gl.INTERLEAVED_ATTRIBS)
+    gl.transformFeedbackVaryings(program, feedbackVaryings(), gl.INTERLEAVED_ATTRIBS)
     gl.linkProgram(program)
     gl.deleteShader(vertex)
     gl.deleteShader(fragment)
     check(gl.getProgramParameter(program, gl.LINK_STATUS) == true) {
-      gl.getProgramInfoLog(program) as String
+      gl.getProgramInfoLog(program).orEmpty()
     }
     return Program(program)
   }
 }
 
-private fun now(): Double = js("performance.now()") as Double
+private fun now(): Double = js("performance.now()")
 
-private fun floatCopy(values: dynamic): dynamic = js("new Float32Array(values)")
+private fun floatArray(length: Int): JsAny = js("new Float32Array(length)")
 
-private fun floats(values: List<Double>): dynamic = floatCopy(values.toTypedArray())
+private fun setFloat(values: JsAny, index: Int, value: Double): Unit =
+  js("{ values[index] = value }")
+
+private fun floatCopy(values: JsAny): JsAny = js("new Float32Array(values)")
+
+private fun transparentPixel(): JsAny = js("new Uint8Array([0,0,0,0])")
+
+private fun feedbackVaryings(): JsAny = js("['v_clip']")
+
+private fun glInt(gl: IndicatorGl, parameter: Int): Int = js("gl.getParameter(parameter)")
+
+private fun glBoolean(gl: IndicatorGl, parameter: Int): Boolean = js("gl.getParameter(parameter)")
+
+private fun viewportWidth(gl: IndicatorGl): Double = js("gl.getParameter(gl.VIEWPORT)[2]")
+
+private fun createColorCanvas(): JsAny = js("document.createElement('canvas')")
+
+private fun cssColor(canvas: JsAny, css: String): JsArray<JsNumber> =
+  js(
+    "{ const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,1,1); ctx.fillStyle = css; ctx.fillRect(0,0,1,1); const p = ctx.getImageData(0,0,1,1).data; const a = p[3]/255; return [p[0]/255*a,p[1]/255*a,p[2]/255*a,a]; }",
+  )
 
 private fun mercatorY(latitude: Double): Double {
   val lat = latitude.coerceIn(-89.999999, 89.999999) * PI / 180

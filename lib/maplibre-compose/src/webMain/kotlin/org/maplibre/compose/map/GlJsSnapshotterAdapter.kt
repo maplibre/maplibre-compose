@@ -245,7 +245,8 @@ internal class GlJsSnapshotterAdapter(
 
     val options =
       headlessMapOptions(host, renderPixelRatio(request), requests) {
-        maxCanvasSize = arrayOf(MaxCanvasSize.toDouble(), MaxCanvasSize.toDouble())
+        maxCanvasSize =
+          org.maplibre.compose.gljs.jsPair(MaxCanvasSize.toDouble(), MaxCanvasSize.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
       }
@@ -383,7 +384,7 @@ private fun snapshotRgba(
   transparent: Boolean,
 ): kotlin.js.JsAny =
   js(
-    "{ const context = output.getContext('2d'); if (!context) throw new Error('The browser would not give a 2D snapshot context'); if (!transparent) {context.fillStyle = '#ffffff'; context.fillRect(0,0,width,height);} context.drawImage(source,0,0,width,height); return context.getImageData(0,0,width,height).data; }"
+    "{ const context = output.getContext('2d'); if (!context) throw new Error('The browser would not give a 2D snapshot context'); if (!transparent) {context.fillStyle = '#ffffff'; context.fillRect(0,0,width,height);} context.drawImage(source,0,0,width,height); return context.getImageData(0,0,width,height).data; }",
   )
 
 private fun snapshotByte(data: kotlin.js.JsAny, index: Int): Int = js("data[index]")

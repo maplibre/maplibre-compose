@@ -85,9 +85,9 @@ internal external interface LayerSpecification : JsAny {
 
 internal external interface SourceSpecification : JsAny
 
-internal external interface RequestParameters {
-  val url: String
-  val headers: Any?
+internal external interface RequestParameters : JsAny {
+  var url: String
+  var headers: JsAny?
   /** How MapLibre GL JS reads the response, such as `arrayBuffer` or `image`. */
   val type: String?
 }
@@ -137,18 +137,18 @@ internal external interface GlJsGeoJsonSource : SourceHandle {
 
   // The cluster queries resolve null for a source that does not cluster, although GL JS's
   // declarations omit it.
-  fun getClusterExpansionZoom(clusterId: Double): Promise<Double?>
+  fun getClusterExpansionZoom(clusterId: Double): Promise<JsNumber?>
 
-  fun getClusterChildren(clusterId: Double): Promise<Array<GeoJsonFeature>?>
+  fun getClusterChildren(clusterId: Double): Promise<JsArray<GeoJsonFeature>?>
 
   fun getClusterLeaves(
     clusterId: Double,
     limit: Double,
     offset: Double,
-  ): Promise<Array<GeoJsonFeature>?>
+  ): Promise<JsArray<GeoJsonFeature>?>
 }
 
-internal external interface CanonicalTileId {
+internal external interface CanonicalTileId : JsAny {
   var x: Int
   var y: Int
   var z: Int
@@ -156,7 +156,7 @@ internal external interface CanonicalTileId {
 
 internal external interface GlJsVectorSource : SourceHandle {
   /** Replaces the source's tile URL templates and reloads its tiles. */
-  fun setTiles(tiles: Array<String>)
+  fun setTiles(tiles: JsArray<JsString>)
 }
 
 /** GeoJSON data or its URL, as defined by the style spec's `data` property. */
@@ -171,7 +171,7 @@ internal external interface GlJsImageSource : SourceHandle {
 }
 
 /** Set exactly one of [url] and [image]. */
-internal external interface UpdateImageOptions {
+internal external interface UpdateImageOptions : JsAny {
   var url: String
   var image: ImageData
 }
@@ -242,7 +242,7 @@ internal external interface CameraOptions : JsAny {
   var pitch: Double?
 }
 
-internal external interface AnimationOptions {
+internal external interface AnimationOptions : JsAny {
   var duration: Double?
   var easing: ((Double) -> Double)?
 }
@@ -293,12 +293,17 @@ internal fun MaplibreMap.isCameraEasing(): Boolean {
  * Use the transform's surface test: projecting an intersection behind the camera can round-trip.
  */
 internal fun MaplibreMap.isPointOnMapSurface(point: Point): Boolean {
-  val transform = asDynamic()._camera.transform
-  check(jsTypeOf(transform.isPointOnMapSurface) == "function") {
+  check(hasPointOnSurface(this)) {
     "MapLibre's transform no longer has an isPointOnMapSurface method"
   }
-  return transform.isPointOnMapSurface(point, asDynamic().terrain) as Boolean
+  return isPointOnSurface(this, point)
 }
+
+private fun hasPointOnSurface(map: MaplibreMap): Boolean =
+  js("typeof map._camera.transform.isPointOnMapSurface === 'function'")
+
+private fun isPointOnSurface(map: MaplibreMap, point: Point): Boolean =
+  js("map._camera.transform.isPointOnMapSurface(point, map.terrain)")
 
 /**
  * Returns `[x, y]`. GL JS treats only an `Array` or a `Point` instance as query geometry. A plain
@@ -312,10 +317,8 @@ internal fun queryBox(first: Point, second: Point): QueryGeometry =
 
 internal fun JsRecord<*>.keys(): List<String> = objectKeys(this).toKotlinStrings()
 
-internal fun JsRecord<*>.keys(): Array<String> = js("Object").keys(this).unsafeCast<Array<String>>()
-
 /** GL JS 6 camera state, including the projection used by its renderer. */
-internal external interface GlJsCamera {
+internal external interface GlJsCamera : JsAny {
   val transform: GlJsTransform
 }
 
@@ -323,7 +326,7 @@ internal external interface GlJsCamera {
  * The clone retains camera matrices and the globe/mercator transition for one rendered frame. The
  * setters apply the map's zoom, pitch, and bounds constraints and recompute the matrices.
  */
-internal external interface GlJsTransform {
+internal external interface GlJsTransform : JsAny {
   val center: LngLat
 
   val zoom: Double
@@ -353,7 +356,7 @@ internal external interface GlJsTransform {
 
 internal external interface GlJsTerrain
 
-internal external interface CameraForBoundsOptions {
+internal external interface CameraForBoundsOptions : JsAny {
   var bearing: Double
   var pitch: Double
   var absolutePadding: Boolean
@@ -361,7 +364,7 @@ internal external interface CameraForBoundsOptions {
   var maxZoom: Double
 }
 
-internal external interface BoundsCamera {
+internal external interface BoundsCamera : JsAny {
   val center: LngLat
   val zoom: Double
   val bearing: Double

@@ -1,5 +1,5 @@
 // Klib ABI Dump
-// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64]
+// Targets: [iosArm64, iosSimulatorArm64, js, macosArm64, wasmJs]
 // Alias: apple => [iosArm64, iosSimulatorArm64, macosArm64]
 // Rendering settings:
 // - Signature version: 2
