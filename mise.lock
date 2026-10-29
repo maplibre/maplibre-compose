@@ -268,9 +268,9 @@ checksum = "sha256:f26081f438319757f8a1b46d7d0b2c5ec7583d4038e485e0aa725cfde7885
 url = "https://dl.google.com/go/go1.27.3.windows-amd64.zip"
 
 [[tools."go:github.com/sargunv/devices-cli"]]
-version = "0.0.0-20261029030736-0ef6167bc524"
+version = "0.0.0-20261029084046-1fb50144e197"
 backend = "go:github.com/sargunv/devices-cli"
-specifiers = ["v0.0.0-20261029030736-0ef6167bc524"]
+specifiers = ["v0.0.0-20261029084046-1fb50144e197"]
 
 [[tools.java]]
 version = "zulu-25.36.205.0"
