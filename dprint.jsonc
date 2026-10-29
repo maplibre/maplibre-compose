@@ -45,7 +45,7 @@
         "exts": ["swift"],
       },
       {
-        "command": "bash .mise/bin/dprint-mdxlint {{file_path}}",
+        "command": "pnpm --dir docs exec mdxlint --rc-path .mdxlintrc.json --file-path {{file_path}}",
         "exts": ["mdx"],
         "cacheKeyFiles": ["pnpm-lock.yaml"],
       },
