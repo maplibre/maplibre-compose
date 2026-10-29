@@ -1,0 +1,427 @@
+package org.maplibre.compose.location
+
+import js.objects.unsafeJso
+import kotlin.coroutines.resume
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
+import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
+import org.maplibre.spatialk.units.extensions.meters
+import web.events.EventHandler
+import web.geolocation.GeolocationPosition
+import web.geolocation.GeolocationPositionError
+import web.geolocation.PositionOptions
+import web.navigator.navigator
+import web.permissions.PermissionDescriptor
+import web.permissions.PermissionName
+import web.permissions.PermissionState
+import web.permissions.denied
+import web.permissions.geolocation
+import web.permissions.granted
+import web.permissions.prompt
+import web.permissions.query
+
+/**
+ * Foreground location from the browser's Geolocation API.
+ *
+ * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] request high accuracy. Applies
+ * [LocationRequest.minimumInterval] and ignores [LocationRequest.minimumDistance].
+ *
+ * A missing Geolocation API reports [LocationBackendAvailability.Unsupported]. Permission denial
+ * reports [LocationUnavailableReason.PermissionDenied] and updates [permission]. Timeouts and
+ * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
+ * location updates reports a `null` reason with the failure as the cause.
+ */
+public class WebLocationProvider
+internal constructor(
+  private val boundary: BrowserGeolocationBoundary,
+  coroutineScope: CoroutineScope,
+) : LocationProvider {
+  /** Creates a provider that observes permission in [coroutineScope]. */
+  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
+
+  private val requester = WebLocationPermissionRequester(boundary, coroutineScope)
+
+  override val backendAvailability: LocationBackendAvailability =
+    if (boundary.supported) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    if (backendAvailability == LocationBackendAvailability.Unsupported) {
+      send(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+      close()
+      return@callbackFlow
+    }
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
+    val collection = launch {
+      permission.collectLatest { status ->
+        when (status) {
+          is LocationPermission.Granted -> {
+            locationUpdates(request).collect { send(it) }
+            close()
+            this@launch.cancel()
+          }
+          LocationPermission.NotDetermined,
+          UnspecifiedLocationPermission -> Unit
+          is LocationPermission.NotGranted ->
+            send(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+        }
+      }
+    }
+    awaitClose { collection.cancel() }
+  }
+
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    var previous: BrowserPosition? = null
+    fun publish(result: BrowserResult) {
+      when (result) {
+        is BrowserResult.Position -> {
+          val current = result.value
+          val last = previous
+          if (last == null || current.capturedAt - last.capturedAt >= request.minimumInterval) {
+            previous = current
+            trySend(
+              LocationEvent.Update(
+                measurement = current.asLocationMeasurement(),
+                measurementMark = TimeSource.Monotonic.markNow(),
+              ),
+            )
+          }
+        }
+        is BrowserResult.Error -> {
+          val reason = result.value.asUnavailableReason()
+          previous = null
+          if (reason == LocationUnavailableReason.PermissionDenied) {
+            requester.acceptDenial()
+          } else {
+            trySend(LocationEvent.Unavailable(reason))
+          }
+        }
+      }
+    }
+
+    val stop =
+      try {
+        boundary.startWatch(request.asBrowserOptions(), ::publish)
+      } catch (error: Throwable) {
+        trySend(LocationEvent.Unavailable(reason = null, cause = error))
+        close()
+        null
+      }
+
+    awaitClose { stop?.invoke() }
+  }
+}
+
+/**
+ * Observes and requests browser geolocation permission.
+ *
+ * [WebLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
+ * [CoroutineScope] to back a custom [LocationProvider].
+ *
+ * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
+ * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
+ * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
+ * reports `canRequest = null` until an explicit request determines the result. A missing
+ * Geolocation API maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
+ */
+public class WebLocationPermissionRequester
+internal constructor(
+  private val boundary: BrowserGeolocationBoundary,
+  private val coroutineScope: CoroutineScope,
+) {
+  /**
+   * Creates a requester whose permission observation runs in [coroutineScope].
+   *
+   * @param coroutineScope Cancelling the scope stops the observation.
+   */
+  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
+
+  /** Whether the browser has a usable Geolocation API. */
+  public val backendAvailability: LocationBackendAvailability =
+    if (boundary.supported) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
+
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.NotDetermined)
+
+  /** Current foreground location permission. */
+  public val status: StateFlow<LocationPermission> = mutableStatus
+
+  internal fun acceptDenial() {
+    if (mutableStatus.value !is LocationPermission.NotGranted) {
+      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+    }
+  }
+
+  private var requestPending = false
+
+  init {
+    coroutineScope.launch {
+      boundary
+        .permissionChanges()
+        .catch { emit(BrowserPermission.Unknown) }
+        .collect {
+          if (it != BrowserPermission.Unknown || status.value == LocationPermission.NotDetermined) {
+            mutableStatus.value = it.asLocationPermission()
+          }
+        }
+    }
+  }
+
+  /**
+   * Starts a foreground permission request and returns immediately.
+   *
+   * The result is published to [status]. Calls made while a request is active do not start another
+   * browser request.
+   */
+  public fun requestForegroundPermission() {
+    val current = status.value
+    if (
+      !boundary.supported ||
+        current is LocationPermission.Granted ||
+        current == LocationPermission.NotGranted(canRequest = false) ||
+        requestPending
+    ) {
+      return
+    }
+    requestPending = true
+    coroutineScope.launch {
+      try {
+        when (
+          val result =
+            boundary.requestPosition(
+              BrowserOptions(highAccuracy = true, timeout = PermissionProbeTimeout),
+            )
+        ) {
+          is BrowserResult.Position ->
+            mutableStatus.value = LocationPermission.Granted(accuracy = null)
+          is BrowserResult.Error ->
+            if (result.value == BrowserError.PermissionDenied) {
+              acceptDenial()
+            } else {
+              mutableStatus.value = LocationPermission.Granted(accuracy = null)
+            }
+        }
+      } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+      } finally {
+        requestPending = false
+      }
+    }
+  }
+
+  private companion object {
+    private val PermissionProbeTimeout = 1.seconds
+  }
+}
+
+/**
+ * Browser Permissions API states that [WebLocationPermissionRequester] maps to
+ * [LocationPermission].
+ */
+internal enum class BrowserPermission {
+  Unknown,
+  Prompt,
+  Granted,
+  Denied,
+}
+
+internal enum class BrowserError {
+  PermissionDenied,
+  PositionUnavailable,
+  Timeout,
+  Unknown,
+}
+
+internal data class BrowserOptions(
+  val highAccuracy: Boolean,
+  val timeout: Duration? = null,
+)
+
+internal data class BrowserPosition(
+  val longitude: Double,
+  val latitude: Double,
+  val altitude: Double?,
+  val horizontalAccuracyMeters: Double,
+  val altitudeAccuracyMeters: Double?,
+  val speedMetersPerSecond: Double?,
+  val headingDegrees: Double?,
+  val capturedAt: Instant,
+)
+
+internal sealed interface BrowserResult {
+  data class Position(val value: BrowserPosition) : BrowserResult
+
+  data class Error(val value: BrowserError) : BrowserResult
+}
+
+internal interface BrowserGeolocationBoundary {
+  val supported: Boolean
+
+  fun permissionChanges(): Flow<BrowserPermission>
+
+  suspend fun requestPosition(options: BrowserOptions): BrowserResult
+
+  fun startWatch(options: BrowserOptions, onResult: (BrowserResult) -> Unit): (() -> Unit)
+}
+
+private object BrowserGeolocation : BrowserGeolocationBoundary {
+
+  override val supported: Boolean
+    get() = supportsGeolocation()
+
+  override fun permissionChanges(): Flow<BrowserPermission> = callbackFlow {
+    if (!supported || !supportsPermissions()) {
+      trySend(BrowserPermission.Unknown)
+      awaitCancellation()
+    }
+
+    val permissionStatus =
+      try {
+        navigator.permissions.query(
+          unsafeJso<PermissionDescriptor> { name = PermissionName.geolocation },
+        )
+      } catch (_: Throwable) {
+        trySend(BrowserPermission.Unknown)
+        awaitCancellation()
+      }
+
+    fun publish() {
+      trySend(permissionStatus.state.asBrowserPermission())
+    }
+    permissionStatus.onchange = EventHandler { publish() }
+    publish()
+    awaitClose { permissionStatus.onchange = null }
+  }
+
+  override suspend fun requestPosition(options: BrowserOptions): BrowserResult {
+    if (!supported) return BrowserResult.Error(BrowserError.Unknown)
+    return suspendCancellableCoroutine { continuation ->
+      navigator.geolocation.getCurrentPositionWithCallbacks(
+        successCallback = { position ->
+          if (continuation.isActive) continuation.resume(BrowserResult.Position(position.toValue()))
+        },
+        errorCallback = { error ->
+          if (continuation.isActive) continuation.resume(BrowserResult.Error(error.toValue()))
+        },
+        options = options.toPositionOptions(),
+      )
+    }
+  }
+
+  override fun startWatch(
+    options: BrowserOptions,
+    onResult: (BrowserResult) -> Unit,
+  ): () -> Unit {
+    val watchId =
+      navigator.geolocation.watchPositionWithCallbacks(
+        successCallback = { onResult(BrowserResult.Position(it.toValue())) },
+        errorCallback = { onResult(BrowserResult.Error(it.toValue())) },
+        options = options.toPositionOptions(),
+      )
+    return { navigator.geolocation.clearWatch(watchId) }
+  }
+}
+
+private fun LocationRequest.asBrowserOptions(): BrowserOptions =
+  BrowserOptions(
+    highAccuracy =
+      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High,
+  )
+
+internal fun BrowserOptions.toPositionOptions(): PositionOptions {
+  val result = unsafeJso<PositionOptions> { enableHighAccuracy = highAccuracy }
+  timeout?.let { setPositionTimeout(result, it.inWholeMilliseconds.toDouble()) }
+  return result
+}
+
+private fun GeolocationPosition.toValue(): BrowserPosition =
+  BrowserPosition(
+    longitude = coords.longitude,
+    latitude = coords.latitude,
+    altitude = coords.altitude,
+    horizontalAccuracyMeters = coords.accuracy,
+    altitudeAccuracyMeters = coords.altitudeAccuracy,
+    speedMetersPerSecond = coords.speed,
+    headingDegrees = coords.heading,
+    capturedAt = Instant.fromEpochMilliseconds(timestamp.toLong()),
+  )
+
+private fun GeolocationPositionError.toValue(): BrowserError =
+  when (code) {
+    GeolocationPositionError.PERMISSION_DENIED -> BrowserError.PermissionDenied
+    GeolocationPositionError.POSITION_UNAVAILABLE -> BrowserError.PositionUnavailable
+    GeolocationPositionError.TIMEOUT -> BrowserError.Timeout
+  }
+
+private fun BrowserPosition.asLocationMeasurement(): LocationMeasurement =
+  LocationMeasurement(
+    position = Position(longitude, latitude, altitude),
+    horizontalAccuracy = horizontalAccuracyMeters.meters,
+    altitudeAccuracy = if (altitude != null) altitudeAccuracyMeters?.meters else null,
+    distancePerSecond = speedMetersPerSecond?.meters,
+    course = headingDegrees?.takeIf { it.isFinite() }?.let { Bearing.North + it.degrees },
+    measuredAt = capturedAt,
+  )
+
+private fun BrowserError.asUnavailableReason(): LocationUnavailableReason? =
+  when (this) {
+    BrowserError.PermissionDenied -> LocationUnavailableReason.PermissionDenied
+    BrowserError.PositionUnavailable,
+    BrowserError.Timeout -> LocationUnavailableReason.TemporarilyUnavailable
+    BrowserError.Unknown -> null
+  }
+
+private fun BrowserPermission.asLocationPermission(): LocationPermission =
+  when (this) {
+    BrowserPermission.Unknown -> LocationPermission.NotGranted(canRequest = null)
+    BrowserPermission.Prompt -> LocationPermission.NotGranted(canRequest = true)
+    BrowserPermission.Granted -> LocationPermission.Granted(accuracy = null)
+    BrowserPermission.Denied -> LocationPermission.NotGranted(canRequest = false)
+  }
+
+private fun PermissionState.asBrowserPermission(): BrowserPermission =
+  when (this) {
+    PermissionState.granted -> BrowserPermission.Granted
+    PermissionState.denied -> BrowserPermission.Denied
+    PermissionState.prompt -> BrowserPermission.Prompt
+  }
+
+private fun supportsGeolocation(): Boolean = js("navigator.geolocation != null")
+
+private fun supportsPermissions(): Boolean =
+  js("navigator.permissions != null && typeof navigator.permissions.query === 'function'")
+
+private fun setPositionTimeout(options: PositionOptions, timeout: Double): Unit =
+  js("{ options.timeout = timeout }")

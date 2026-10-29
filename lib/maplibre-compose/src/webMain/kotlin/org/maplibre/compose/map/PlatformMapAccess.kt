@@ -1,0 +1,29 @@
+package org.maplibre.compose.map
+
+import kotlinx.coroutines.withContext
+import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.util.DelicateMaplibreComposeApi
+import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
+
+/** Provides the borrowed MapLibre GL JS map for one [MapState.withPlatformMap] callback. */
+@DelicateMaplibreComposeApi
+// Exposes MapLibre GL JS bindings, which may change in minor releases.
+@ExperimentalMaplibreComposeApi
+public actual class PlatformMapScope internal constructor(private val engineMap: MaplibreMap) {
+  /**
+   * The raw MapLibre GL JS `Map` object. Kotlin/JS callers can use `asDynamic()` to call its
+   * methods. Kotlin/Wasm callers can cast it to their own external interface.
+   */
+  public val map: kotlin.js.JsAny
+    get() = engineMap
+}
+
+@DelicateMaplibreComposeApi
+// Exposes MapLibre GL JS bindings, which may change in minor releases.
+@ExperimentalMaplibreComposeApi
+public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T {
+  return withContext(runtime.mainDispatcher) {
+    val session = lifecycle.presentationAdapterForPlatformAccess() as GlJsMapSession
+    session.withPlatformMap(block)
+  }
+}

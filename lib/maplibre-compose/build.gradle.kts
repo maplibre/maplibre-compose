@@ -1,5 +1,6 @@
 import kotlin.time.Duration.Companion.minutes
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.DefaultIncrementalSyncTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
@@ -68,10 +69,29 @@ kotlin {
     }
   }
 
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    outputModuleName.set("maplibre-compose")
+    binaries.executable()
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadlessNoSandbox()
+          useConfigDirectory(rootProject.file("ci/karma"))
+        }
+      }
+    }
+  }
+
   applyDefaultHierarchyTemplate()
 
   sourceSets {
-    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    webTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    wasmJsTest { resources.srcDir(rootProject.file("ci/wasm-test-resources")) }
 
     val jvmMain by getting
 
@@ -109,7 +129,7 @@ kotlin {
       dependsOn(commonMain.get())
       jvmMain.dependsOn(this)
       appleMain.get().dependsOn(this)
-      jsMain.get().dependsOn(this)
+      webMain.get().dependsOn(this)
     }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
@@ -154,7 +174,7 @@ kotlin {
       }
     }
 
-    jsMain.dependencies {
+    webMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
       api(libs.kotlin.wrappers.browser)
       implementation(
@@ -179,7 +199,7 @@ kotlin {
     val liveMapTest =
       create("liveMapTest") {
         dependsOn(commonTest.get())
-        jsTest.get().dependsOn(this)
+        webTest.get().dependsOn(this)
       }
 
     // Behavioral contracts for the shared MapLibre Native integration. Every platform that
@@ -311,19 +331,23 @@ val glJsRuntime = layout.buildDirectory.dir("maplibre-gl-js")
 
 tasks.withType<KotlinWebpack>().configureEach { inputs.dir(glJsRuntime) }
 
-val stageMaplibreGlJs by
-  tasks.registering(Sync::class) {
+@OptIn(ExperimentalWasmDsl::class) val browserTargets = listOf(kotlin.js(), kotlin.wasmJs())
+
+for (target in browserTargets) {
+  val stageRuntime =
+    tasks.register<Sync>(
+      "stageMaplibreGlJsFor${target.name.replaceFirstChar(Char::uppercaseChar)}",
+    ) {
+      dependsOn(buildMaplibreGlJs)
+      from(glJsRuntime) { exclude(".stamp") }
+      into(target.compilations.getByName("main").npmProject.dir.map { it.dir("maplibre-gl") })
+    }
+  tasks.named("${target.name}PackageJson") { dependsOn(stageRuntime) }
+  tasks.named<Zip>("${target.name}Jar") {
     dependsOn(buildMaplibreGlJs)
-    from(glJsRuntime) { exclude(".stamp") }
-    into(kotlin.js().compilations.getByName("main").npmProject.dir.map { it.dir("maplibre-gl") })
-  }
-
-tasks.named("jsPackageJson") { dependsOn(stageMaplibreGlJs) }
-
-tasks.named<Zip>("jsJar") {
-  dependsOn(buildMaplibreGlJs)
-  from(glJsRuntime) {
-    into("maplibre-gl")
-    exclude(".stamp")
+    from(glJsRuntime) {
+      into("maplibre-gl")
+      exclude(".stamp")
+    }
   }
 }

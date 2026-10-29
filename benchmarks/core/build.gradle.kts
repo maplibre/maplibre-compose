@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
   id("module-conventions")
@@ -44,9 +45,22 @@ kotlin {
       }
     }
   }
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    binaries.executable()
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadlessNoSandbox()
+          useConfigDirectory(rootProject.file("ci/karma"))
+        }
+      }
+    }
+  }
   sourceSets {
     commonMain { kotlin.srcDir(benchmarkBuildInfo.flatMap { it.outputDirectory }) }
-    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    webTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    wasmJsTest { resources.srcDir(rootProject.file("ci/wasm-test-resources")) }
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
     commonMain.dependencies {
       api(libs.kotlinx.coroutines.core)

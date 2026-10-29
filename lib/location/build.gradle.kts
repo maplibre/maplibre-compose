@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
   id("multiplatform-library-conventions")
@@ -37,10 +38,28 @@ kotlin {
     }
   }
 
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    binaries.executable()
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadlessNoSandbox()
+          useConfigDirectory(rootProject.file("ci/karma"))
+        }
+      }
+    }
+  }
+
   applyDefaultHierarchyTemplate()
 
   sourceSets {
-    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    webTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+    wasmJsTest { resources.srcDir(rootProject.file("ci/wasm-test-resources")) }
 
     listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
       .forEach {
@@ -61,7 +80,7 @@ kotlin {
       implementation(libs.lifecycle.runtime)
     }
 
-    jsMain.dependencies {
+    webMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.kotlin.wrappers.browser)
     }

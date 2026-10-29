@@ -11,7 +11,7 @@ import versions from "../../generated/versions.json";
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
 import macosGettingStarted from "../../../../demo-app/common/src/macosMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedMacos.kt?raw";
-import webGettingStarted from "../../../../demo-app/common/src/jsMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedWeb.kt?raw";
+import webGettingStarted from "../../../../demo-app/common/src/webMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedWeb.kt?raw";
 
 You need a Compose Multiplatform project. To create one, follow
 [the JetBrains guide][compose-guide] or run `kotlin init compose-multiplatform`.
@@ -171,9 +171,10 @@ Wrap the content of each `Window` that shows a map in
 
 <Code code={region(macosGettingStarted, "host")} lang="kotlin" />
 
-### Web (JS)
+### Web
 
-Build the JS target as ES modules:
+The library supports Kotlin/JS and Kotlin/Wasm (`wasmJs`). For Kotlin/JS,
+build the target as ES modules:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -203,8 +204,19 @@ Build the JS target as ES modules:
   </TabItem>
 </Tabs>
 
-Call <Api of="installMaplibreCompose" /> inside `onWasmReady`, before
-`ComposeViewport`. Without it, maps load but never appear on screen.
+For Kotlin/Wasm, configure the browser target in Gradle:
+
+```kotlin title="build.gradle.kts"
+kotlin {
+  wasmJs {
+    browser()
+    binaries.executable()
+  }
+}
+```
+
+Both targets use the same entry point. Call <Api of="installMaplibreCompose" />
+inside `onWasmReady`, before `ComposeViewport`, to configure the map worker.
 
 <Code code={region(webGettingStarted, "main")} lang="kotlin" title="main.kt" />
 

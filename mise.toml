@@ -287,6 +287,26 @@ else
 fi
 '''
 
+[tasks."test:wasm"]
+description = "Run Kotlin/Wasm browser tests in Chromium."
+# Kotlin's Playwright test DSL does not support Wasm yet. Karma uses its installed Chromium.
+run = '''
+./gradlew kotlinInstallPlaywrightBrowsers
+if [[ "$(uname -s)" == Linux ]]; then
+  node build/js/node_modules/playwright/cli.js install-deps chromium
+fi
+export CHROME_BIN="$(node --input-type=module <<'JS'
+import { createRequire } from "node:module";
+const require = createRequire(`${process.cwd()}/build/js/package.json`);
+// Select the headless shell, which differs from executablePath() on macOS.
+const server = await require("playwright").chromium.launchServer();
+console.log(server.process().spawnfile);
+await server.close();
+JS
+)"
+./gradlew wasmJsBrowserTest
+'''
+
 [tasks."test:desktop"]
 description = "Run the desktop (JVM) test suite against the selected map backend."
 usage = '''
@@ -319,9 +339,9 @@ run = "./gradlew :demo-app:common:jsBrowserDistribution"
 description = "Build the complete GitHub Pages site into docs/dist."
 run = '''
 mise run build:docs
-mise run build:js-app
+mise run build:wasm-app
 mkdir -p docs/dist/demo/app
-cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/app/
+cp -a demo-app/common/build/dist/wasmJs/productionExecutable/. docs/dist/demo/app/
 mise run package:cloudflare-pages
 '''
 
@@ -494,6 +514,15 @@ fi
 [tasks."demo:js"]
 description = "Run the demo app in a browser."
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
+
+[tasks."demo:wasm"]
+description = "Run the Kotlin/Wasm demo app in a browser."
+run = "./gradlew :demo-app:common:wasmJsBrowserDevelopmentRun"
+
+[tasks."build:wasm-app"]
+description = "Build the Kotlin/Wasm browser demo for static hosting."
+wait_for = ["//docs:api"]
+run = "./gradlew :demo-app:common:wasmJsBrowserDistribution"
 
 [tasks."demo:ios"]
 description = "Run the demo app on an iOS simulator or a connected iPhone."

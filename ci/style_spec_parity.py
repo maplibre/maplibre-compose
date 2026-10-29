@@ -305,7 +305,7 @@ def source_set_engines(source_set: str) -> set[Engine] | None:
         return None
     if source_set == "commonMain":
         return {"js", "native"}
-    if source_set == "jsMain":
+    if source_set in {"webMain", "jsMain", "wasmJsMain"}:
         return {"js"}
     return {"native"}
 

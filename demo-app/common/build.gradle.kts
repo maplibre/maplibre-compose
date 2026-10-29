@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
@@ -34,6 +35,12 @@ kotlin {
     binaries.executable()
   }
 
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    browser { commonWebpackConfig { outputFileName = "app.js" } }
+    binaries.executable()
+  }
+
   applyDefaultHierarchyTemplate()
 
   compilerOptions {
@@ -41,6 +48,10 @@ kotlin {
   }
 
   sourceSets {
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
@@ -65,7 +76,7 @@ kotlin {
       dependsOn(nonAndroidMain)
     }
 
-    jsMain { dependsOn(nonAndroidMain) }
+    webMain { dependsOn(nonAndroidMain) }
 
     commonMain.dependencies {
       api(project(":benchmarks:core"))
@@ -110,8 +121,9 @@ kotlin {
 
     appleMain.dependencies { implementation(libs.ktor.client.darwin) }
 
-    jsMain.dependencies {
-      implementation(libs.jetbrains.compose.html.core)
+    jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
+
+    webMain.dependencies {
       implementation(libs.kotlin.wrappers.browser)
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.ktor.client.js)

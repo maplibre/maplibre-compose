@@ -40,7 +40,7 @@ every target, including iOS release frameworks, and can exhaust memory.
   fixes. The pre-commit hook still stages its own.
 - Android Lint: `mise run lint:android`.
 - Tests: `mise run test:android`, `test:android:device`, `test:ios`, `test:js`,
-  `test:macos`, or `test:desktop`.
+  `test:wasm`, `test:macos`, or `test:desktop`.
 - Documentation: `mise run build:docs` or `mise run //docs:dev`. These tasks
   supply versions derived from Git tags; direct Gradle builds use placeholders.
 
@@ -63,7 +63,9 @@ repository means the MapLibre Native backend used by desktop, Android, and iOS.
   `androidDeviceTest`.
 - Browser tests run real maps in Chromium, Firefox, and WebKit through Kotlin's
   Playwright runner. `mise run test:js` installs the browsers and their Linux
-  system dependencies.
+  system dependencies. Kotlin/Wasm tests use Karma with Chromium through
+  `mise run test:wasm`, because Kotlin’s Playwright runner does not support Wasm
+  yet.
 - Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
   `ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required
   packages. Without an SDK, run `mise -E android install` and then run Android
@@ -88,8 +90,9 @@ repository means the MapLibre Native backend used by desktop, Android, and iOS.
 `demo-app/common` is the demo's only Kotlin Multiplatform module and contains
 the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, native
 macOS ARM64, and iOS modules launch it; the browser entry point is in
-`common/src/jsMain`. Android Auto and CarPlay share a small map demo with native
-controls, and `demo-app/wearos` presents a map with Wear Compose controls.
+`common/src/webMain`. Android Auto and CarPlay share a small map demo with
+native controls, and `demo-app/wearos` presents a map with Wear Compose
+controls.
 
 Launch the demo directly in a screen instead of tapping through the menu. Every
 launcher reads `route`, `camera`, and `extent`:

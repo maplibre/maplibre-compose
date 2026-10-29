@@ -28,7 +28,8 @@ class BrowserPlatformMapAccessTest {
     val runtime = createMapRuntime()
     val state = runtime.createMapState(BaseStyle.Demo)
 
-    val failure = assertFailsWith<IllegalStateException> { state.withPlatformMap { map.getZoom() } }
+    val failure =
+      assertFailsWith<IllegalStateException> { state.withPlatformMap { map.asDynamic().getZoom() } }
 
     assertEquals("Platform map access requires an attached Web map surface", failure.message)
     assertNull(state.currentMapAttachment)
@@ -42,7 +43,7 @@ class BrowserPlatformMapAccessTest {
     try {
       fixture.awaitMapReady()
 
-      val zoom = fixture.state.withPlatformMap { map.getZoom() }
+      val zoom = fixture.state.withPlatformMap { map.asDynamic().getZoom() }
 
       assertEquals(0.0, zoom)
       assertTrue(fixture.state.currentMapAttachment?.isValid == true)
@@ -57,16 +58,18 @@ class BrowserPlatformMapAccessTest {
     try {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.state.withPlatformMap {
-        map.addLayer(
-          unsafeJso<CustomLayerInterface> {
-            id = "custom"
-            type = "custom"
-            renderingMode = "2d"
-            onAdd = { _, _ -> }
-            onRemove = { _, _ -> }
-            render = { _, _ -> }
-          },
-        )
+        map
+          .asDynamic()
+          .addLayer(
+            unsafeJso<CustomLayerInterface> {
+              id = "custom"
+              type = "custom"
+              renderingMode = "2d"
+              onAdd = { _, _ -> }
+              onRemove = { _, _ -> }
+              render = { _, _ -> }
+            },
+          )
       }
       fixture.state.style.sources.add(
         GeoJsonSource(
@@ -81,7 +84,9 @@ class BrowserPlatformMapAccessTest {
       assertTrue(fixture.state.style.sources["points"]?.asMutable != null)
       assertEquals(
         listOf("custom", "above"),
-        fixture.state.withPlatformMap { (map.getLayersOrder() as Array<String>).toList() },
+        fixture.state.withPlatformMap {
+          (map.asDynamic().getLayersOrder() as Array<String>).toList()
+        },
       )
     } finally {
       fixture.close()
@@ -98,7 +103,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               callbackRan = true
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 
@@ -123,7 +128,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               callbackRan = true
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 
@@ -146,7 +151,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               fixture.state.close()
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 

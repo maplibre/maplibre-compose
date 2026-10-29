@@ -205,12 +205,12 @@ class AuditTest(unittest.TestCase):
             any("written as layout, spec says paint" in line for line in report.errors)
         )
 
-    def test_a_js_main_write_does_not_need_the_native_table(self) -> None:
+    def test_a_web_main_write_does_not_need_the_native_table(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             _layer_file(
                 root,
-                "jsMain",
+                "webMain",
                 "FillLayer.kt",
                 "fill",
                 'paint("fill-opacity", value)',
