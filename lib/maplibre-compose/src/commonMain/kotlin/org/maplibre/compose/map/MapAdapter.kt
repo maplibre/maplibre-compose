@@ -22,8 +22,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.compose.util.VisibleBounds
-import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -113,10 +111,6 @@ internal interface MapAdapter {
   /** The constraints last applied with [setCameraConstraints], or the defaults before any. */
   fun getCameraConstraints(): CameraConstraints
 
-  fun getVisibleBounds(): VisibleBounds
-
-  fun getVisibleRegion(): VisibleRegion
-
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null
    * before the map has one. Implementations answer from where the map's size actually lands, so a
@@ -165,8 +159,6 @@ internal interface MapAdapter {
         setOf(id),
       )
   }
-
-  fun metersPerDpAtLatitude(latitude: Double): Double
 
   /**
    * The sink that a session reports to. [onStyleChanged], [onStyleReady], [onStyleFailed], and

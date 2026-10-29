@@ -117,10 +117,11 @@ internal fun EditingPanel(editor: FeatureEditingState, app: DemoAppState) {
         if (index == shown.vertices.lastIndex && shown.kind == ShapeKind.Polygon) 0 else index + 1
       OutlinedButton(
         onClick = {
-          val a = app.mapState.screenLocationFromPosition(shown.vertices[index])
-          val b = shown.vertices.getOrNull(next)?.let(app.mapState::screenLocationFromPosition)
+          val viewport = app.mapState.viewport ?: return@OutlinedButton
+          val a = viewport.screenLocationFromPosition(shown.vertices[index])
+          val b = shown.vertices.getOrNull(next)?.let(viewport::screenLocationFromPosition)
           if (a != null && b != null)
-            app.mapState
+            viewport
               .positionFromScreenLocation(DpOffset((a.x + b.x) / 2, (a.y + b.y) / 2))
               ?.let(editor::insertVertex)
         },

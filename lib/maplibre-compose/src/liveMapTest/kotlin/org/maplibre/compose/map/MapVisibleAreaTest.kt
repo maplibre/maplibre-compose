@@ -31,7 +31,7 @@ class MapVisibleAreaTest {
       it.state.setCameraPosition(Camera)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(Camera) }
 
-      val box = assertNotNull(it.state.getVisibleBounds())
+      val box = assertNotNull(it.state.viewport?.visibleBounds)
       assertContains(box, Camera.center, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
@@ -46,8 +46,8 @@ class MapVisibleAreaTest {
       it.state.setCameraPosition(RotatedCamera)
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(RotatedCamera) }
 
-      val region = assertNotNull(it.state.getVisibleRegion())
-      val box = assertNotNull(it.state.getVisibleBounds())
+      val region = assertNotNull(it.state.viewport?.visibleRegion)
+      val box = assertNotNull(it.state.viewport?.visibleBounds)
       assertContains(box, region.farLeft, "the far left corner")
       assertContains(box, region.farRight, "the far right corner")
       assertContains(box, region.nearLeft, "the near left corner")
@@ -73,7 +73,7 @@ class MapVisibleAreaTest {
       it.state.setCameraPosition(AntimeridianCamera)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(AntimeridianCamera) }
 
-      val box = assertNotNull(it.state.getVisibleBounds())
+      val box = assertNotNull(it.state.viewport?.visibleBounds)
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(
@@ -81,7 +81,7 @@ class MapVisibleAreaTest {
         "the box should span the short way around the antimeridian, was $box",
       )
       assertContains(box, Position(AntimeridianCamera.center.longitude, 47.0), "the target")
-      val region = assertNotNull(it.state.getVisibleRegion())
+      val region = assertNotNull(it.state.viewport?.visibleRegion)
       for (corner in region.corners()) assertContains(box, corner, "an antimeridian corner")
       assertTrue(region.farRight.longitude > 180.0, "the right corner should keep its world copy")
     }
@@ -100,8 +100,8 @@ class MapVisibleAreaTest {
           abs(it.session.getCameraPosition().center.longitude - camera.center.longitude) < 0.01
       }
 
-      val region = assertNotNull(it.state.getVisibleRegion())
-      val box = assertNotNull(it.state.getVisibleBounds())
+      val region = assertNotNull(it.state.viewport?.visibleRegion)
+      val box = assertNotNull(it.state.viewport?.visibleBounds)
       // At zoom 1 a world is 1024 dp wide. A 1600 dp viewport spans 562.5 degrees.
       val expectedSpan = 360.0 * 1600.0 / 1024.0
       assertEquals(expectedSpan, region.farRight.longitude - region.farLeft.longitude, 1e-5)
@@ -110,7 +110,8 @@ class MapVisibleAreaTest {
       assertEquals(camera.center.longitude + expectedSpan / 2, region.farRight.longitude, 1e-5)
       for (corner in region.corners()) assertContains(box, corner, "a repeated-world corner")
 
-      val right = assertNotNull(it.state.positionFromScreenLocation(DpOffset(1600.dp, 0.dp)))
+      val right =
+        assertNotNull(it.state.viewport?.positionFromScreenLocation(DpOffset(1600.dp, 0.dp)))
       assertEquals(region.farRight.longitude, right.longitude, 1e-5)
     }
   }
@@ -128,12 +129,18 @@ class MapVisibleAreaTest {
       val corner = assertNotNull(viewport.positionFromScreenLocation(origin))
       val screenCenter = DpOffset(viewport.size.width / 2, viewport.size.height / 2)
 
-      it.state.setCameraPosition(Camera.copy(center = Position(25.0, 40.0)))
-      it.pumpUntil("the camera to move") { it.session.hasNativeCamera(Camera) }
+      val moved = Camera.copy(center = Position(25.0, 40.0), zoom = 7.0)
+      it.state.setCameraPosition(moved)
+      it.pumpUntil("the camera to move") { it.session.hasNativeCamera(moved) }
 
       assertNear(screenCenter, viewport.screenLocationFromPosition(center), "the kept center")
       assertNear(origin, viewport.screenLocationFromPosition(corner), "the kept pitched corner")
       assertNear(corner, viewport.positionFromScreenLocation(origin), "the kept pitched corner")
+      val groundScale = assertNotNull(viewport.metersPerDpAtLatitude(center.latitude))
+      assertTrue(
+        abs(groundScale - viewport.metersPerDpAtCenter) <= viewport.metersPerDpAtCenter * 1e-9,
+        "the kept ground scale should be ${viewport.metersPerDpAtCenter}, was $groundScale",
+      )
       assertEquals(null, viewport.copy().positionFromScreenLocation(screenCenter))
     }
   }
@@ -153,7 +160,7 @@ class MapVisibleAreaTest {
     fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
       if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
       if (abs(getCameraPosition().bearing - camera.bearing) >= 0.01) return false
-      val box = getVisibleBounds()
+      val box = getViewport()?.visibleBounds ?: return false
       val latSpan = box.northeast.latitude - box.southwest.latitude
       return latSpan > 0.01 && latSpan < 40.0
     }

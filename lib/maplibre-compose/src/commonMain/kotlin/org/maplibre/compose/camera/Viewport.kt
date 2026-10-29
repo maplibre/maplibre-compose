@@ -8,11 +8,13 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * One rendered transform of the map: its camera, size and visible area.
+ * One rendered frame of the map: its camera, size, visible area, and the conversions between
+ * geographic positions and screen offsets in it.
  *
- * Read a current instance from [org.maplibre.compose.map.MapState.viewport]. A new immutable
- * instance replaces it when the map has rendered a new camera or size. All properties of one
- * instance describe the same frame.
+ * Read the current instance from [org.maplibre.compose.map.MapState.viewport], which is null until
+ * the map renders its first frame. A new immutable instance replaces it when the map renders a new
+ * camera or size. Every property and method of one instance answers for the frame it describes,
+ * even after the camera has moved on, so read `viewport` again for the latest frame.
  */
 @Immutable
 public data class Viewport
@@ -68,6 +70,13 @@ internal constructor(
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position? =
     projection?.positionFromScreenLocation(offset)
+
+  /**
+   * The ground distance that one dp covers at [latitude] in this viewport's frame. Returns null if
+   * the map did not draw this viewport's frame.
+   */
+  public fun metersPerDpAtLatitude(latitude: Double): Double? =
+    projection?.metersPerDpAtLatitude(latitude)
 }
 
 /** The projection of one frame's transform, independent of later camera changes. */
@@ -75,4 +84,6 @@ internal interface ViewportProjection {
   fun screenLocationFromPosition(position: Position): DpOffset
 
   fun positionFromScreenLocation(offset: DpOffset): Position
+
+  fun metersPerDpAtLatitude(latitude: Double): Double
 }

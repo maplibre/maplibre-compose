@@ -66,6 +66,9 @@ private class TransformProjection(
         terrain,
       )
       .toPosition()
+
+  override fun metersPerDpAtLatitude(latitude: Double): Double =
+    metersPerDpAtLatitude(transform.zoom, latitude)
 }
 
 /** Reads the camera this map currently holds, with [viewportInsets] excluded from its padding. */

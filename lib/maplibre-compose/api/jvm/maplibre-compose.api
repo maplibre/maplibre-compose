@@ -254,6 +254,7 @@ public final class org/maplibre/compose/camera/Viewport {
 	public final fun getVisibleBounds ()Lorg/maplibre/compose/util/VisibleBounds;
 	public final fun getVisibleRegion ()Lorg/maplibre/compose/util/VisibleRegion;
 	public fun hashCode ()I
+	public final fun metersPerDpAtLatitude (D)Ljava/lang/Double;
 	public final fun positionFromScreenLocation-jo-Fl9I (J)Lorg/maplibre/spatialk/geojson/Position;
 	public final fun screenLocationFromPosition-qJJM2lo (Lorg/maplibre/spatialk/geojson/Position;)Landroidx/compose/ui/unit/DpOffset;
 	public fun toString ()Ljava/lang/String;
@@ -2628,21 +2629,16 @@ public final class org/maplibre/compose/map/MapState {
 	public final fun getMissingImageResolver ()Lorg/maplibre/compose/map/MissingImageResolver;
 	public final fun getStyle ()Lorg/maplibre/compose/map/MapStyleState;
 	public final fun getViewport ()Lorg/maplibre/compose/camera/Viewport;
-	public final fun getVisibleBounds ()Lorg/maplibre/compose/util/VisibleBounds;
-	public final fun getVisibleRegion ()Lorg/maplibre/compose/util/VisibleRegion;
 	public final fun isCameraMoving ()Z
 	public final fun isClosed ()Z
 	public final fun isEngaged ()Z
-	public final fun metersPerDpAtLatitude (D)Ljava/lang/Double;
 	public final fun panBy-jo-Fl9I (J)V
-	public final fun positionFromScreenLocation-jo-Fl9I (J)Lorg/maplibre/spatialk/geojson/Position;
 	public final fun queryRenderedFeatures (Landroidx/compose/ui/unit/DpRect;Ljava/util/Set;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun queryRenderedFeatures$default (Lorg/maplibre/compose/map/MapState;Landroidx/compose/ui/unit/DpRect;Ljava/util/Set;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun queryRenderedFeatures-uVxBXkw (JLjava/util/Set;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun queryRenderedFeatures-uVxBXkw$default (Lorg/maplibre/compose/map/MapState;JLjava/util/Set;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun scaleBy-3C1MFA8 (DLandroidx/compose/ui/unit/DpOffset;)V
 	public static synthetic fun scaleBy-3C1MFA8$default (Lorg/maplibre/compose/map/MapState;DLandroidx/compose/ui/unit/DpOffset;ILjava/lang/Object;)V
-	public final fun screenLocationFromPosition-qJJM2lo (Lorg/maplibre/spatialk/geojson/Position;)Landroidx/compose/ui/unit/DpOffset;
 	public final fun setCameraPosition (Lorg/maplibre/compose/camera/CameraPosition;)V
 	public final fun setMissingImageResolver (Lorg/maplibre/compose/map/MissingImageResolver;)V
 	public final fun stopCameraMovement ()V

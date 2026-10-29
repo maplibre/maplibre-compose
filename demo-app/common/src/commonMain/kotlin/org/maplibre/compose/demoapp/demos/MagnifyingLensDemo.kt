@@ -110,7 +110,7 @@ object MagnifyingLensDemo : Demo {
         val position = mapState.cameraPosition
         val target =
           currentLensCenter?.let {
-            mapState.positionFromScreenLocation(
+            mapState.viewport?.positionFromScreenLocation(
               with(density) { DpOffset(it.x.toDp(), it.y.toDp()) },
             )
           } ?: position.center

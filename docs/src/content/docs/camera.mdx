@@ -132,14 +132,16 @@ The map repeats the world to the left and right, so longitudes in
 
 ## Convert between screen and map coordinates
 
-<Api of="MapState.screenLocationFromPosition" /> finds where a geographic
+<Api of="Viewport.screenLocationFromPosition" /> finds where a geographic
 position appears on screen.
-<Api of="MapState.positionFromScreenLocation" /> finds the geographic position
+<Api of="Viewport.positionFromScreenLocation" /> finds the geographic position
 under a screen point. Screen points are in dp from the map's top-left corner:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />
 
-Both return `null` until the map draws for the first time. To place Compose UI
+Each viewport converts for the frame it describes, so read
+<Api of="MapState.viewport" /> again for the latest frame. The viewport is
+`null` until the map draws for the first time. To place Compose UI
 at a geographic position, use <Api of="MapOverlayScope.placedAt" /> from
 [Overlay Compose UI](/maplibre-compose/controls/) instead.
 

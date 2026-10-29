@@ -25,7 +25,7 @@ internal fun Modifier.vertexInput(editor: FeatureEditingState, map: MapState): M
         val radius = (if (down.type == PointerType.Mouse) 12.dp else 24.dp).toPx()
         val hits =
           editor.shape.vertices.mapIndexedNotNull { index, position ->
-            map.screenLocationFromPosition(position)?.let { screen ->
+            map.viewport?.screenLocationFromPosition(position)?.let { screen ->
               val pixels = Offset(screen.x.toPx(), screen.y.toPx())
               Triple(index, screen, (pixels - down.position).getDistance())
             }
@@ -50,7 +50,7 @@ internal fun Modifier.vertexInput(editor: FeatureEditingState, map: MapState): M
             if (dragging) {
               // Keep the initial pointer-to-handle offset, even when the press is off center.
               val target = hit.second + DpOffset(travel.x.toDp(), travel.y.toDp())
-              val position = map.positionFromScreenLocation(target) ?: break
+              val position = map.viewport?.positionFromScreenLocation(target) ?: break
               editor.moveVertex(hit.first, position)
             }
             if (!change.pressed) {

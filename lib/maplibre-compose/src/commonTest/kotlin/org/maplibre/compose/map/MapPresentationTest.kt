@@ -509,7 +509,7 @@ class MapPresentationTest {
     fixture.state.setCameraPosition(position)
     assertEquals(position, fixture.state.cameraPosition)
     assertEquals(CameraPosition(), fixture.adapter.lastCameraPosition)
-    assertNull(fixture.state.positionFromScreenLocation(DpOffset.Zero))
+    assertNull(fixture.state.viewport)
     val viewportReads = fixture.adapter.viewportReads
     fixture.adapter.lastCameraPosition = CameraPosition(zoom = 7.0)
     assertNull(fixture.state.attachmentAuthority.synchronizeCamera(fixture.adapter))
@@ -1999,12 +1999,10 @@ class MapPresentationTest {
   }
 
   @Test
-  fun viewport_observations_are_null_before_the_first_viewport() {
+  fun viewport_is_null_before_the_first_viewport() {
     val fixture = presentationFixture()
 
-    assertNull(fixture.state.getVisibleRegion())
-    assertNull(fixture.state.getVisibleBounds())
-    assertNull(fixture.state.metersPerDpAtLatitude(0.0))
+    assertNull(fixture.state.viewport)
     fixture.close()
   }
 
@@ -2478,17 +2476,6 @@ internal open class PresentationTestAdapter(
 
   override fun setCameraConstraints(value: CameraConstraints) = Unit
 
-  override fun getVisibleBounds(): VisibleBounds =
-    VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0))
-
-  override fun getVisibleRegion(): VisibleRegion =
-    VisibleRegion(
-      farLeft = Position(-1.0, 1.0),
-      farRight = Position(1.0, 1.0),
-      nearLeft = Position(-1.0, -1.0),
-      nearRight = Position(1.0, -1.0),
-    )
-
   override fun getViewport(): Viewport? {
     viewportReads++
     // An engine renders its viewport with the camera it holds.
@@ -2517,8 +2504,6 @@ internal open class PresentationTestAdapter(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = awaitCancellation()
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double = 1.0
 }
 
 private fun testViewport(): Viewport =

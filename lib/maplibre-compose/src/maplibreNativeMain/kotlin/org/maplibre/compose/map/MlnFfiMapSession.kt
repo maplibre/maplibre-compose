@@ -1152,10 +1152,6 @@ internal class MlnFfiMapSession(
       emptyList()
     }
 
-  override fun getVisibleBounds() = viewport.getVisibleBounds()
-
-  override fun getVisibleRegion() = viewport.getVisibleRegion()
-
   override fun getViewport() = viewport.getViewport()
 
   override fun positionFromScreenLocation(offset: DpOffset) =
@@ -1168,8 +1164,6 @@ internal class MlnFfiMapSession(
 
   override fun overlayScreenLocationFromPosition(position: Position) =
     viewport.overlayScreenLocationFromPosition(position)
-
-  override fun metersPerDpAtLatitude(latitude: Double) = viewport.metersPerDpAtLatitude(latitude)
 
   override fun readySession(): RenderSessionHandle? = presentation.readySession()
 

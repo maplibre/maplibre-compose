@@ -100,4 +100,9 @@ internal class MapViewProjection(private val view: MapView) : ViewportProjection
     MapProjectionHandle.create(view).use {
       it.latLngForPixelUnwrapped(offset.toScreenPoint()).toPosition()
     }
+
+  override fun metersPerDpAtLatitude(latitude: Double): Double =
+    MapProjectionHandle.create(view).use {
+      it.metersPerPixelAtLatitude(latitude.coerceIn(-90.0, 90.0))
+    }
 }

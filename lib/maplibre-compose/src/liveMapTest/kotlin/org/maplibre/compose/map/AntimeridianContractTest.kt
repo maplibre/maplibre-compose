@@ -42,14 +42,16 @@ class AntimeridianContractTest {
       }
 
       // At zoom 1 a world is 1024 dp wide; lon 190 is the visible copy of the -170 meridian.
-      val expected = assertNotNull(it.state.screenLocationFromPosition(Position(190.0, 0.0)))
+      val expected =
+        assertNotNull(it.state.viewport?.screenLocationFromPosition(Position(190.0, 0.0)))
       assertEquals(831.2889, expected.x.value.toDouble(), 1e-3)
       for (lon in listOf(-170.0, 550.0)) {
-        val offset = assertNotNull(it.state.screenLocationFromPosition(Position(lon, 0.0)))
+        val offset =
+          assertNotNull(it.state.viewport?.screenLocationFromPosition(Position(lon, 0.0)))
         assertEquals(expected.x.value, offset.x.value, 1e-4f, "lon $lon should project like 190")
       }
 
-      val roundTrip = assertNotNull(it.state.positionFromScreenLocation(expected))
+      val roundTrip = assertNotNull(it.state.viewport?.positionFromScreenLocation(expected))
       assertEquals(190.0, roundTrip.longitude, 1e-3)
     }
   }
@@ -76,7 +78,7 @@ class AntimeridianContractTest {
         MapLibreFlavor.GlJs -> assertEquals(539.5, center.longitude, 0.01)
       }
       // Either way, the visible bounds stay continuous around the camera's world copy.
-      val bounds = assertNotNull(it.state.getVisibleBounds())
+      val bounds = assertNotNull(it.state.viewport?.visibleBounds)
       assertEquals(45.0, bounds.east - bounds.west, 1.0)
     }
   }
