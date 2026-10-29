@@ -31,6 +31,25 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:
             ${{ secrets.GPG_PASSPHRASE }}
 
+  publish-github:
+    needs: publish-maven
+    timeout-minutes: 10
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          # Notes come from the annotated tag object, including on reruns.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          gradle: "false"
+      - run: mise run release:github
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   publish-pages:
     needs:
       - publish-maven

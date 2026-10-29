@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# [MISE] description="Publish the current release tag's notes to GitHub after Maven publication."
+set -euo pipefail
+
+notes="$(mktemp)"
+trap 'rm -f "$notes"' EXIT
+python3 tools/release/release_notes.py "${GITHUB_REF_NAME:?}" > "$notes"
+gh release create "$GITHUB_REF_NAME" --verify-tag \
+  --title "MapLibre Compose ${GITHUB_REF_NAME#v}" --notes-file "$notes"
