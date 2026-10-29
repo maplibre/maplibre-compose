@@ -8,21 +8,23 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * One rendered frame of the map: its camera, size, visible area, and the conversions between
- * geographic positions and screen offsets in it.
+ * One transform of the map: its camera, size, visible area, and the conversions between geographic
+ * positions and screen offsets in it.
  *
  * Read the current instance from [org.maplibre.compose.map.MapState.viewport], which is null until
- * the map renders its first frame. A new immutable instance replaces it when the map renders a new
- * camera or size. Every property and method of one instance answers for the frame it describes,
- * even after the camera has moved on, so read `viewport` again for the latest frame.
+ * the map is presented at a nonzero size. The map publishes a new immutable instance when it
+ * applies a new camera or size, and draws that transform in its next frame, so the screen can lag
+ * the newest instance by a frame. Every property and method of one instance answers for the
+ * transform it describes, even after the camera has moved on, so read `viewport` again for the
+ * latest one.
  */
 @Immutable
 public data class Viewport
 internal constructor(
-  /** The camera this viewport was rendered with. */
+  /** The camera of this transform. */
   public val cameraPosition: CameraPosition,
 
-  /** The size of the map composable this viewport was rendered at. */
+  /** The size of the map composable in this transform. */
   public val size: DpSize,
 
   /**
@@ -43,7 +45,7 @@ internal constructor(
   public val metersPerDpAtCenter: Double,
 ) {
   // Outside the constructor, so equality, copy, and componentN ignore it. A copy describes a
-  // different frame, so it starts without one.
+  // different transform, so it starts without one.
   internal var projection: ViewportProjection? = null
     private set
 
@@ -53,33 +55,33 @@ internal constructor(
 
   /**
    * Projects [position] into a logical-pixel offset from the top left of the map, as this
-   * viewport's frame drew it, even after the camera has moved on.
+   * viewport's transform places it, even after the camera has moved on.
    *
    * Longitudes equivalent modulo 360° project onto the world copy nearest the camera center.
-   * Returns null if the map did not draw this viewport's frame.
+   * Returns null for a viewport that did not come from the map.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? =
     projection?.screenLocationFromPosition(position)
 
   /**
    * Unprojects a logical-pixel [offset] from the top left of the map into a geographic position, as
-   * this viewport's frame drew it, even after the camera has moved on.
+   * this viewport's transform places it, even after the camera has moved on.
    *
-   * Longitude preserves the visible world copy and may extend past ±180°. Returns null if the map
-   * did not draw this viewport's frame.
+   * Longitude preserves the visible world copy and may extend past ±180°. Returns null for a
+   * viewport that did not come from the map.
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position? =
     projection?.positionFromScreenLocation(offset)
 
   /**
-   * The ground distance that one dp covers at [latitude] in this viewport's frame. Returns null if
-   * the map did not draw this viewport's frame.
+   * The ground distance that one dp covers at [latitude] in this viewport's transform. Returns null
+   * for a viewport that did not come from the map.
    */
   public fun metersPerDpAtLatitude(latitude: Double): Double? =
     projection?.metersPerDpAtLatitude(latitude)
 }
 
-/** The projection of one frame's transform, independent of later camera changes. */
+/** The projection of one transform, independent of later camera changes. */
 internal interface ViewportProjection {
   fun screenLocationFromPosition(position: Position): DpOffset
 

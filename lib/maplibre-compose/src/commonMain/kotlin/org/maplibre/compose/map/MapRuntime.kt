@@ -1029,8 +1029,9 @@ internal constructor(
   internal var inputAttachment: MapInputAttachment? by mutableStateOf(null)
 
   /**
-   * The current camera: the last one the map rendered, or the initial or requested camera before
-   * the map renders. Padding excludes the presentation's viewport insets.
+   * The current camera: the one in [viewport], which the map draws in its next frame. Before the
+   * map has a viewport, and after [setCameraPosition] until the map applies it, this is the
+   * requested camera. Padding excludes the presentation's viewport insets.
    */
   public val cameraPosition: CameraPosition
     get() = attachmentAuthority.cameraPosition
@@ -1039,8 +1040,9 @@ internal constructor(
     get() = attachmentAuthority.current
 
   /**
-   * The last rendered frame, or null until the map renders its first frame. Read its camera, size,
-   * and visible area, and convert between positions and screen offsets through it.
+   * The map's current transform, or null until the map is presented at a nonzero size. The map
+   * replaces it when it applies a new camera or size, and draws it in its next frame. Read its
+   * camera, size, and visible area, and convert between positions and screen offsets through it.
    */
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport

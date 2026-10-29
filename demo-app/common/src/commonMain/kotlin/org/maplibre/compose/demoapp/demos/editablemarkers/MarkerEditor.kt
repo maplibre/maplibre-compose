@@ -81,7 +81,7 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
     val editorWidth = (right - left).coerceIn(0f, 272f)
 
     for (marker in markers) key(marker.id) {
-      // The overlay tracks rendered frames; use the same projection to keep the editor on screen.
+      // Reproject whenever the viewport changes, so the editor stays beside its marker.
       val viewport = mapState.viewport
       val screen =
         remember(marker.position, viewport) {

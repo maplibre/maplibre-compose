@@ -451,7 +451,7 @@ private fun PointerPinDestinationOverlay(
   destination: DemoDestination,
   modifier: Modifier = Modifier,
 ) {
-  // Each viewport projects through its own frame, so a new frame recomputes the projection.
+  // Each viewport projects through its own transform, so a new viewport recomputes the projection.
   val viewport = mapState.viewport
   val projected =
     remember(destination, viewport) {
