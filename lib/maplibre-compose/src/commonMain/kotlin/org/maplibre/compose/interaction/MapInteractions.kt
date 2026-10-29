@@ -53,8 +53,11 @@ private constructor(
           callbacks.click?.let { "click" },
           callbacks.unhandledClick?.let { "unhandledClick" },
           callbacks.doubleClick?.let { "doubleClick" },
+          callbacks.unhandledDoubleClick?.let { "unhandledDoubleClick" },
           callbacks.longClick?.let { "longClick" },
+          callbacks.unhandledLongClick?.let { "unhandledLongClick" },
         ),
+      "featureRows" to callbacks.features.map { "${it.layerIds}@${it.interactions.hitPadding}" },
       "animationDuration" to animationDuration,
     )
 

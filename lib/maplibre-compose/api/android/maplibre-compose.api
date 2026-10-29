@@ -1348,6 +1348,7 @@ public final class org/maplibre/compose/interaction/ClickResult : java/lang/Enum
 public final class org/maplibre/compose/interaction/DoubleClickCallbackBuilder {
 	public static final field $stable I
 	public final fun onEvent (Lkotlin/jvm/functions/Function1;)V
+	public final fun onUnhandled (Lkotlin/jvm/functions/Function1;)V
 }
 
 public abstract interface class org/maplibre/compose/interaction/DragAction {
@@ -1400,6 +1401,46 @@ public final class org/maplibre/compose/interaction/DragRotatePitchBuilder {
 	public final fun setMouseStartSlop-0680j_4 (F)V
 	public final fun setPitchDegreesPerDp (D)V
 	public final fun setStartSlop-0680j_4 (F)V
+}
+
+public final class org/maplibre/compose/interaction/FeatureClickEvent {
+	public static final field $stable I
+	public final fun getButtons ()Ljava/util/Set;
+	public final fun getHits ()Ljava/util/List;
+	public final fun getModifierKeys ()Ljava/util/Set;
+	public final fun getPointerTypes ()Ljava/util/Set;
+	public final fun getPosition ()Lorg/maplibre/spatialk/geojson/Position;
+	public final fun getScreenOffset-RKDOV3M ()J
+	public final fun getUptimeMillis ()J
+}
+
+public abstract interface class org/maplibre/compose/interaction/FeatureClickHandler {
+	public abstract fun onClick (Lorg/maplibre/compose/interaction/FeatureClickEvent;)Lorg/maplibre/compose/interaction/ClickResult;
+}
+
+public final class org/maplibre/compose/interaction/FeatureHit {
+	public static final field $stable I
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lorg/maplibre/spatialk/geojson/Feature;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFeature ()Lorg/maplibre/spatialk/geojson/Feature;
+	public final fun getLayerId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/maplibre/compose/interaction/FeatureInteractionsBuilder {
+	public static final field $stable I
+	public final fun getHitPadding-D9Ej5fM ()F
+	public final fun onClick (Lorg/maplibre/compose/interaction/FeatureClickHandler;)V
+	public final fun onDoubleClick (Lorg/maplibre/compose/interaction/FeatureClickHandler;)V
+	public final fun onLongClick (Lorg/maplibre/compose/interaction/FeatureClickHandler;)V
+	public final fun setHitPadding-0680j_4 (F)V
+}
+
+public final class org/maplibre/compose/interaction/FeatureRowsBuilder {
+	public static final field $stable I
+	public final fun layers ([Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
 }
 
 public abstract interface class org/maplibre/compose/interaction/FocusAction {
@@ -1482,6 +1523,7 @@ public final class org/maplibre/compose/interaction/InteractionCallbacksBuilder 
 	public static final field $stable I
 	public final fun click (Lkotlin/jvm/functions/Function1;)V
 	public final fun doubleClick (Lkotlin/jvm/functions/Function1;)V
+	public final fun features (Lkotlin/jvm/functions/Function1;)V
 	public final fun longClick (Lkotlin/jvm/functions/Function1;)V
 }
 
@@ -1548,6 +1590,7 @@ public final class org/maplibre/compose/interaction/KeyModifier$Shift : org/mapl
 public final class org/maplibre/compose/interaction/LongClickCallbackBuilder {
 	public static final field $stable I
 	public final fun onEvent (Lkotlin/jvm/functions/Function1;)V
+	public final fun onUnhandled (Lkotlin/jvm/functions/Function1;)V
 }
 
 public final class org/maplibre/compose/interaction/MapInputKt {
@@ -1921,7 +1964,7 @@ public final class org/maplibre/compose/layers/BackgroundLayerKt {
 }
 
 public final class org/maplibre/compose/layers/CircleLayerKt {
-	public static final fun CircleLayer-n_XeyGY (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;IIIII)V
+	public static final fun CircleLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIII)V
 }
 
 public final class org/maplibre/compose/layers/ColorReliefLayerKt {
@@ -1929,15 +1972,15 @@ public final class org/maplibre/compose/layers/ColorReliefLayerKt {
 }
 
 public final class org/maplibre/compose/layers/FillExtrusionLayerKt {
-	public static final fun FillExtrusionLayer-ZMX7zOg (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;IIII)V
+	public static final fun FillExtrusionLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIII)V
 }
 
 public final class org/maplibre/compose/layers/FillLayerKt {
-	public static final fun FillLayer-ZMX7zOg (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;IIII)V
+	public static final fun FillLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIII)V
 }
 
 public final class org/maplibre/compose/layers/HeatmapLayerKt {
-	public static final fun HeatmapLayer-J_wp3Mo (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;III)V
+	public static final fun HeatmapLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;III)V
 }
 
 public final class org/maplibre/compose/layers/HillshadeLayerKt {
@@ -1979,7 +2022,7 @@ public abstract interface class org/maplibre/compose/layers/LayerHandle {
 }
 
 public final class org/maplibre/compose/layers/LayerKt {
-	public static final fun Layer-0vH8DBg (Ljava/lang/String;Ljava/lang/String;Lorg/maplibre/compose/sources/Source;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
+	public static final fun Layer (Ljava/lang/String;Ljava/lang/String;Lorg/maplibre/compose/sources/Source;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class org/maplibre/compose/layers/LayerProperties {
@@ -2012,7 +2055,7 @@ public final class org/maplibre/compose/layers/LayerSummary {
 }
 
 public final class org/maplibre/compose/layers/LineLayerKt {
-	public static final fun LineLayer-eqlZw5w (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;IIIIII)V
+	public static final fun LineLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIIIII)V
 }
 
 public final class org/maplibre/compose/layers/LocationIndicatorDefaults {
@@ -2024,8 +2067,8 @@ public final class org/maplibre/compose/layers/LocationIndicatorDefaults {
 }
 
 public final class org/maplibre/compose/layers/LocationIndicatorLayerComposableKt {
-	public static final fun LocationIndicatorLayer-Ni5awnM (Ljava/lang/String;Lorg/maplibre/compose/location/LocationState;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;FLandroidx/compose/runtime/Composer;IIII)V
-	public static final fun LocationIndicatorLayer-Y1F1E78 (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Rotation;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;FLandroidx/compose/runtime/Composer;IIII)V
+	public static final fun LocationIndicatorLayer-2IVBE3A (Ljava/lang/String;Lorg/maplibre/compose/location/LocationState;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIII)V
+	public static final fun LocationIndicatorLayer-qDuKV4Q (Ljava/lang/String;Lorg/maplibre/spatialk/geojson/Position;Lorg/maplibre/spatialk/units/Bearing;Lorg/maplibre/spatialk/units/Length;Lorg/maplibre/spatialk/units/Rotation;FFZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;JJLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;FFFFFLorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/style/TransitionOptions;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIII)V
 }
 
 public abstract interface class org/maplibre/compose/layers/MutableLayerHandle : org/maplibre/compose/layers/LayerHandle {
@@ -2041,7 +2084,7 @@ public final class org/maplibre/compose/layers/RasterLayerKt {
 }
 
 public final class org/maplibre/compose/layers/SymbolLayerKt {
-	public static final fun SymbolLayer-LxrUiZQ (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function2;FLandroidx/compose/runtime/Composer;IIIIIIIIIIII)V
+	public static final fun SymbolLayer (Ljava/lang/String;Lorg/maplibre/compose/sources/VectorSource;Ljava/lang/String;FFLorg/maplibre/compose/expressions/ast/Expression;ZLorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/expressions/ast/Expression;Lorg/maplibre/compose/style/TransitionOptions;Lorg/maplibre/compose/expressions/ast/Expression;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;IIIIIIIIIII)V
 }
 
 public final class org/maplibre/compose/location/BearingUpdate : java/lang/Enum {

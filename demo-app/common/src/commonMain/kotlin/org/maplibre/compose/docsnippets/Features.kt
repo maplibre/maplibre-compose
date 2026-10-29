@@ -128,15 +128,17 @@ fun SelectableStops() {
             condition(feature.state("selected").asBoolean(const(false)), const(Color.Red)),
             fallback = const(Color.Blue),
           ),
-        onClick = { features ->
-          val handle = mapState?.style?.sources?.get(source)
-          val id = features.first().id?.content
-          if (handle != null && id != null) {
-            selectedId?.let { handle.removeFeatureState(it, "selected") }
-            handle.setFeatureState(id, buildJsonObject { put("selected", true) })
-            selectedId = id
+        interactions = {
+          onClick { event ->
+            val handle = mapState?.style?.sources?.get(source)
+            val id = event.hits.first().feature.id?.content
+            if (handle != null && id != null) {
+              selectedId?.let { handle.removeFeatureState(it, "selected") }
+              handle.setFeatureState(id, buildJsonObject { put("selected", true) })
+              selectedId = id
+            }
+            ClickResult.Consume
           }
-          ClickResult.Consume
         },
       )
     }

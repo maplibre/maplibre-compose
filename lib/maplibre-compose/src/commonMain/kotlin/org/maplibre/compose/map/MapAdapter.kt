@@ -151,20 +151,21 @@ internal interface MapAdapter {
   ): List<Feature<Geometry, JsonObject?>>
 
   /**
-   * Queries each layer in [hitPadding] on its own around [offset]: a point for zero padding,
-   * otherwise a square of that radius. Returns each layer's features front first.
+   * Runs each of [queries] on its own around [offset]: a point for zero padding, otherwise a square
+   * of that radius. Returns each query's features front first.
    */
   suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
-    hitPadding: Map<String, Dp>,
-  ): Map<String, List<Feature<Geometry, JsonObject?>>> = hitPadding.mapValues { (id, padding) ->
-    if (padding == 0.dp) queryRenderedFeatures(offset, setOf(id))
-    else
-      queryRenderedFeatures(
-        DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding),
-        setOf(id),
-      )
-  }
+    queries: Set<FeatureQuery>,
+  ): Map<FeatureQuery, List<Feature<Geometry, JsonObject?>>> =
+    queries.associateWith { (id, padding) ->
+      if (padding == 0.dp) queryRenderedFeatures(offset, setOf(id))
+      else
+        queryRenderedFeatures(
+          DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding),
+          setOf(id),
+        )
+    }
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 
@@ -281,3 +282,6 @@ internal class MapStateCallbacks(
     owner.attachmentAuthority.synchronizeCamera(map)
   }
 }
+
+/** One layer's query; a batch can query the same layer with several paddings. */
+internal data class FeatureQuery(val layerId: String, val hitPadding: Dp)

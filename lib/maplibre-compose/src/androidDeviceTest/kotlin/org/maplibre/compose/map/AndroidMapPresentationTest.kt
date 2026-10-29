@@ -341,10 +341,12 @@ private class SurfaceMapFixture(val runtime: MapRuntime) {
           source = rememberGeoJsonSource(GeoJsonData.JsonString(Point)),
           color = const(Color.Green),
           radius = const(12.dp),
-          onClick = { features ->
-            clickOrder += "layer"
-            clickedFeatures += features.size
-            ClickResult.Consume
+          interactions = {
+            onClick { event ->
+              clickOrder += "layer"
+              clickedFeatures += event.hits.size
+              ClickResult.Consume
+            }
           },
         )
       }

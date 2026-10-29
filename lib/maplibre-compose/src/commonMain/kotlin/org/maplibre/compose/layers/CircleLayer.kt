@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,6 +15,7 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -73,10 +73,8 @@ import org.maplibre.compose.util.MaplibreComposable
  *   transition.
  * @param pitchScale Scaling behavior of circles when the map is pitched.
  * @param pitchAlignment Orientation of circles when the map is pitched.
- * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
- * @param onDoubleClick Called for a double tap or double click on this layer.
- * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param interactions Sets this layer's click handlers and hit padding. Handlers receive the
+ *   layer's features near the click; see [FeatureInteractionsBuilder].
  */
 @Composable
 @MaplibreComposable
@@ -108,10 +106,7 @@ public fun CircleLayer(
   strokeWidthTransition: TransitionOptions? = null,
   pitchScale: Expression<CirclePitchScale> = const(CirclePitchScale.Map),
   pitchAlignment: Expression<CirclePitchAlignment> = const(CirclePitchAlignment.Viewport),
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
 
   Layer(
@@ -119,10 +114,7 @@ public fun CircleLayer(
     source = source,
     type = "circle",
     filterUnsupportedProperties = true,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   ) {
     root("source-layer", JsonPrimitive(sourceLayer))
     root("minzoom", JsonPrimitive(minZoom))
