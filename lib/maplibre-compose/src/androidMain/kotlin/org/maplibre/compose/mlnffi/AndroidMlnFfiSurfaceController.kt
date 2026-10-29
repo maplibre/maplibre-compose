@@ -60,7 +60,7 @@ internal class AndroidMlnFfiSurfaceController(
 
   /**
    * Renders into map buffers instead of a surface. Calls [onUnsupported] on the render thread
-   * instead when the device cannot import map buffers for the backend.
+   * instead when the device cannot allocate or import map buffers for the backend.
    */
   @RequiresApi(33)
   fun buffersCreated(
@@ -70,15 +70,24 @@ internal class AndroidMlnFfiSurfaceController(
     onUnsupported: (Throwable) -> Unit,
   ) {
     renderHandler.post {
+      val extent = MapExtent.fromPhysical(width, height, scaleFactor)
       val buffers =
         try {
-          AndroidMapBuffers.create(backend)
+          // Allocating and importing the first ring here tells whether this device supports it.
+          AndroidMapBuffers.create(backend).apply {
+            try {
+              target(extent, 0)
+            } catch (error: Exception) {
+              close()
+              throw error
+            }
+          }
         } catch (error: Exception) {
           onUnsupported(error)
           return@post
         }
       var attached = false
-      attachSurface(MapExtent.fromPhysical(width, height, scaleFactor)) {
+      attachSurface(extent) {
         attached = true
         buffers
       }

@@ -303,11 +303,9 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     }
 
     val frameId = nextFrameId++
-    val target = renderTarget(currentSurface, currentExtent, generation)
-    val frame = MlnFfiMapFrame(target)
-
     val start = TimeSource.Monotonic.markNow()
     try {
+      val frame = MlnFfiMapFrame(renderTarget(currentSurface, currentExtent, generation))
       when (val result = renderer.render(this, frame, capturesProjection)) {
         is MlnFfiFrameResult.Rendered -> {
           pacer.rendered(start)
