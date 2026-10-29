@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.desktop.bridge.MacAngleLibraries
+import org.maplibre.compose.desktop.bridge.ensureVulkanFunctionProvider
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
@@ -48,7 +49,8 @@ internal actual fun replacePlatformTarget(
   }
 
 internal actual fun initializePlatformGraphics(backends: Set<MapRenderBackend>) {
-  if (System.getProperty("os.name").startsWith("Mac") && MapRenderBackend.OpenGl in backends) {
-    MacAngleLibraries.load()
+  if (System.getProperty("os.name").startsWith("Mac")) {
+    if (MapRenderBackend.OpenGl in backends) MacAngleLibraries.load()
+    if (MapRenderBackend.Vulkan in backends) ensureVulkanFunctionProvider()
   }
 }

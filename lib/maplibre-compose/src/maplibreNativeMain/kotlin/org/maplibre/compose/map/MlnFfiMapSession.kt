@@ -391,8 +391,8 @@ internal class MlnFfiMapSession(
       )
     try {
       check(owner.register(created, child)) { "The map runtime is closed" }
-      this@MlnFfiMapSession.map = created
       ready.await()
+      this@MlnFfiMapSession.map = created
     } catch (error: Throwable) {
       this@MlnFfiMapSession.map = null
       owner.unregister(created)

@@ -46,11 +46,11 @@ class NativeProcessExitTest {
     try {
       val exited = process.waitFor(30, TimeUnit.SECONDS)
       val log = Files.readString(output)
+      assertTrue(exited, "JVM hung during native shutdown:\n$log")
       assertTrue(
         log.lineSequence().any { it == ReadyToExit },
-        "Child did not finish cleanup:\n$log",
+        "Child exited with ${process.exitValue()} before finishing cleanup:\n$log",
       )
-      assertTrue(exited, "JVM hung during native shutdown:\n$log")
       assertEquals(0, process.exitValue(), log)
     } finally {
       if (process.isAlive) {
@@ -67,6 +67,7 @@ internal object NativeProcessExitProbe {
   fun main(args: Array<String>) {
     val received = CompletableDeferred<Unit>()
     MapLogging.logger = MapLogger { record ->
+      System.err.println(record)
       if (
         record.source == MapLogSource.NativeEngine &&
           record.category == "ParseStyle" &&
@@ -75,6 +76,7 @@ internal object NativeProcessExitProbe {
         received.complete(Unit)
       }
     }
+    System.err.println("Loading MapLibre Native")
     loadNativeLibrary()
     setLogAsyncSeverityMask(LogSeverityFlag.WARNING)
     runMapTest {
