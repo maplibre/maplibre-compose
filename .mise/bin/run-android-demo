@@ -10,8 +10,24 @@ adb="$("$repository_root/.mise/bin/android-sdk-root")/platform-tools/adb"
 # running this script outside of mise.
 requested="${1:-${usage_serial:-}}"
 
+export ANDROID_HOME
+ANDROID_HOME="$("$repository_root/.mise/bin/android-sdk-root")"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export ANDROID_SERIAL
-ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
+if [[ -n "$requested" || -n "${ANDROID_SERIAL:-}" ]]; then
+  ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
+else
+  args=("${usage_api_level:-36}")
+  [[ "${usage_headful:-false}" != true ]] || args+=(--headful)
+  case "${MAPLIBRE_DEMO_PROFILE:-phone}" in
+    wear) args+=(--wear) ;;
+    tv) args+=(--tv) ;;
+  esac
+  ANDROID_SERIAL="$("$repository_root/.mise/bin/boot-android-emulator" "${args[@]}")"
+fi
+
+mkdir -p "$repository_root/build/android-emulator"
+printf '%s\n' "$ANDROID_SERIAL" >"$repository_root/build/android-emulator/serial"
 
 # MAPLIBRE_DEMO_MODULE names the application module: android (default) or wearos.
 case "${MAPLIBRE_DEMO_MODULE:-android}" in
@@ -32,4 +48,4 @@ extras=()
 "$adb" -s "$ANDROID_SERIAL" shell am start \
   -a android.intent.action.MAIN \
   -c android.intent.category.LAUNCHER \
-  -n "$application_id/.MainActivity" "${extras[@]}"
+  -n "$application_id/.MainActivity" ${extras[@]+"${extras[@]}"}

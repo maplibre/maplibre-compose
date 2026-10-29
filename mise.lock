@@ -242,6 +242,36 @@ checksum = "sha256:adf29d4f9ff98b21492590d8887689093ea521792dbbbe80e032eb6ec3714
 url = "https://github.com/sargunv/jvl/releases/download/v2026.05.03/jvl-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/sargunv/jvl/releases/assets/411400578"
 
+[[tools.go]]
+version = "1.27.3"
+backend = "core:go"
+specifiers = ["1.27.3"]
+
+[tools.go."platforms.linux-arm64"]
+checksum = "sha256:a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49"
+url = "https://dl.google.com/go/go1.27.3.linux-arm64.tar.gz"
+
+[tools.go."platforms.linux-x64"]
+checksum = "sha256:65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+url = "https://dl.google.com/go/go1.27.3.linux-amd64.tar.gz"
+
+[tools.go."platforms.macos-arm64"]
+checksum = "sha256:dd3908cf20959d798c1e06ebe5b72213f0505ce01373b40ce3110975a6cd99c2"
+url = "https://dl.google.com/go/go1.27.3.darwin-arm64.tar.gz"
+
+[tools.go."platforms.windows-arm64"]
+checksum = "sha256:c507872ff21f8a7cd3c1c217b059c6f7271a4a9d8e692810ef9dd3e1f601197c"
+url = "https://dl.google.com/go/go1.27.3.windows-arm64.zip"
+
+[tools.go."platforms.windows-x64"]
+checksum = "sha256:f26081f438319757f8a1b46d7d0b2c5ec7583d4038e485e0aa725cfde7885fff"
+url = "https://dl.google.com/go/go1.27.3.windows-amd64.zip"
+
+[[tools."go:github.com/sargunv/devices-cli"]]
+version = "0.0.0-20261029030736-0ef6167bc524"
+backend = "go:github.com/sargunv/devices-cli"
+specifiers = ["v0.0.0-20261029030736-0ef6167bc524"]
+
 [[tools.java]]
 version = "zulu-25.36.205.0"
 backend = "core:java"

@@ -342,9 +342,10 @@ jobs:
           if-no-files-found: warn
           name: android-${{ matrix.api-level }}-diagnostics
           path: |
-            build/android-emulator/avd/**/*.ini
             build/android-emulator/diagnostics
-            build/android-emulator/emulator.log
+            ~/.local/state/devices-cli
+            build/android-emulator/device-tests.log
+            build/android-emulator/serial
             **/build/outputs/androidTest-results
             **/build/reports/androidTests
       - if: ${{ matrix.artifact_name != '' }}

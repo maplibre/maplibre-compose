@@ -50,6 +50,26 @@ zoom, pan, and window closure.
 
 The browser demo serves a Compose HTML ferry departure board at `/?ferries`.
 
+### Android and iOS devices
+
+Android tests and demos use
+[devices-cli](https://github.com/sargunv/devices-cli) to acquire devices owned
+by the current worktree. Emulators and simulators run headless by default; pass
+`--headful` to `demo:android`, `demo:wearos`, `demo:android-tv`, or `demo:ios`
+for an interactive window. Wear and TV tasks select their image and hardware
+profile; `--api-level` chooses the image version. Android SDK lookup keeps
+`local.properties` ahead of environment variables.
+
+Pass an Android serial (or set `ANDROID_SERIAL`) to use a connected device.
+`demo:ios --device [udid]` selects a connected iPhone; a positional UDID without
+`--device` selects an existing simulator. `--runtime` and `--device-type` select
+an owned simulator. Phone and TV demos accept `--route` and `--camera`;
+`demo:ios` accepts them too. `ios-simulator:install-runtime` installs older
+runtimes for the API floor tests. `devices-cli release` releases only the
+current worktree’s devices, including simulators; explicitly selected devices
+are left alone. Android failure diagnostics include the selected serial and CLI
+log.
+
 ### Android Auto
 
 `mise run demo:android-auto` needs the
@@ -67,8 +87,8 @@ day/night mode, window resizing, and reconnecting the host.
 
 ### CarPlay
 
-Run `mise run demo:ios`, choose **I/O > External Displays > CarPlay** in
-Simulator, and open **maplibre-compose-demo** in the car launcher. Check map
+Run `mise run demo:ios --headful`, choose **I/O > External Displays > CarPlay**
+in Simulator, and open **maplibre-compose-demo** in the car launcher. Check map
 rendering, pan/zoom, recentering, day/night mode, and reconnecting the CarPlay
 display while the phone app stays open.
 

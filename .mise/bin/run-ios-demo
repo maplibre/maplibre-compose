@@ -18,6 +18,7 @@ for arg in "$@"; do
   case "$arg" in
     --device) target="device" ;;
     --release) configuration="Release" ;;
+    --headful) export usage_headful=true ;;
     *) requested="$arg" ;;
   esac
 done
@@ -76,25 +77,6 @@ list_ready_ios_devices() {
     '
 }
 
-list_booted_iphone_simulators() {
-  xcrun simctl list devices available iOS |
-    awk -F '[()]' '
-      /^-- / {
-        runtime = $0
-        sub(/^-- /, "", runtime)
-        sub(/ --$/, "", runtime)
-        next
-      }
-      # Names can contain parentheses; the UDID and state are the last groups.
-      / iPhone / && $(NF - 1) == "Booted" {
-        id = $(NF - 3)
-        name = substr($0, 1, index($0, "(" id ")") - 1)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
-        printf "%s\t%s (%s) (%s)\n", id, name, runtime, id
-      }
-    '
-}
-
 pick_id() {
   local kind=$1
   local rows=$2
@@ -115,16 +97,15 @@ ensure_simulator_booted() {
   xcrun simctl bootstatus "$udid" -b >&2
 }
 
+launch=()
+[[ -z "${usage_route:-}" ]] || launch+=("--route=$usage_route")
+[[ -z "${usage_camera:-}" ]] || launch+=("--camera=$usage_camera")
+
 if [[ "$target" == "simulator" ]]; then
   if [[ -n "$requested" ]]; then
     udid="$requested"
   else
-    booted="$(list_booted_iphone_simulators)"
-    if [[ -n "$booted" ]]; then
-      udid="$(pick_id "iOS simulator" "$booted")"
-    else
-      udid="$("$repository_root/.mise/bin/boot-ios-simulator")"
-    fi
+    udid="$("$repository_root/.mise/bin/boot-ios-simulator" "${usage_runtime:-}")"
   fi
   ensure_simulator_booted "$udid"
 
@@ -138,8 +119,10 @@ if [[ "$target" == "simulator" ]]; then
   }
 
   xcrun simctl install "$udid" "$app"
-  xcrun simctl launch "$udid" "$(bundle_identifier "$app")"
-  open -a Simulator
+  xcrun simctl launch "$udid" "$(bundle_identifier "$app")" ${launch[@]+"${launch[@]}"}
+  if [[ "${usage_headful:-false}" == true ]]; then
+    open -a Simulator --args -CurrentDeviceUDID "$udid"
+  fi
   exit 0
 fi
 
@@ -165,4 +148,4 @@ app="$(app_bundle "$configuration"-iphoneos)"
 }
 
 xcrun devicectl device install app --device "$udid" "$app"
-xcrun devicectl device process launch --device "$udid" "$(bundle_identifier "$app")"
+xcrun devicectl device process launch --device "$udid" "$(bundle_identifier "$app")" ${launch[@]+"${launch[@]}"}
