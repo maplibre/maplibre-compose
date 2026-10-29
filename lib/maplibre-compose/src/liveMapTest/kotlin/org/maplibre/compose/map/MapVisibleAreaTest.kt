@@ -133,6 +133,7 @@ class MapVisibleAreaTest {
 
       assertNear(screenCenter, viewport.screenLocationFromPosition(center), "the kept center")
       assertNear(origin, viewport.screenLocationFromPosition(corner), "the kept pitched corner")
+      assertNear(corner, viewport.positionFromScreenLocation(origin), "the kept pitched corner")
       assertEquals(null, viewport.copy().positionFromScreenLocation(screenCenter))
     }
   }
@@ -167,6 +168,15 @@ class MapVisibleAreaTest {
           abs(actual.x.value - expected.x.value) <= 1f &&
           abs(actual.y.value - expected.y.value) <= 1f,
         "$what should project to $expected ± 1 dp, was $actual",
+      )
+    }
+
+    fun assertNear(expected: Position, actual: Position?, what: String) {
+      assertTrue(
+        actual != null &&
+          abs(actual.longitude - expected.longitude) <= Tolerance &&
+          abs(actual.latitude - expected.latitude) <= Tolerance,
+        "$what should unproject to $expected, was $actual",
       )
     }
 
