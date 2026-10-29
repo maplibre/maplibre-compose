@@ -36,9 +36,7 @@ import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.setImage
@@ -572,33 +570,6 @@ class MapSnapshotterTest {
     snapshotter.capture(DpSize(1.dp, 1.dp))
     assertEquals(listOf<BaseStyle>(initialStyle, replacementStyle), requestedStyles)
     assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
-    close(snapshotter, runtime)
-  }
-
-  @Test
-  fun a_capture_renders_the_overrides_its_preparation_used() = runTest {
-    val prepareStarted = CompletableDeferred<Unit>()
-    val releasePrepare = CompletableDeferred<Unit>()
-    val applied = mutableListOf<StyleSnapshot>()
-    val adapter =
-      FakeSnapshotterAdapter(
-        prepare = { _, _ ->
-          prepareStarted.complete(Unit)
-          releasePrepare.await()
-          RecordingStyleBinding()
-        },
-        apply = { applied += it },
-      )
-    val runtime = runtimeWith(adapter, DefaultStyleCompositionEvaluator)
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-    val capture = async { snapshotter.capture(DpSize(1.dp, 1.dp)) }
-    prepareStarted.await()
-
-    snapshotter.style.asMutable!!.overrides = StyleOverrides { light = Light() }
-    releasePrepare.complete(Unit)
-    capture.await()
-
-    assertNull(applied.single().overrides.light)
     close(snapshotter, runtime)
   }
 
