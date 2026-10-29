@@ -28,7 +28,9 @@ class EncodedStyleValueTest {
       Json.parseToJsonElement("""{"__proto__":{"polluted":true},"constructor":"value"}""")
         .jsonObject
     val value = StyleValue.Json(json).encoded.toJsValue<dynamic>()
-    assertEquals(null, js("Object.getPrototypeOf(value)"))
+    assertTrue(js("Object.getPrototypeOf(value) === Object.prototype") as Boolean)
+    assertTrue(js("Object.prototype.hasOwnProperty.call(value, '__proto__')") as Boolean)
+    assertEquals(null, js("({}).polluted"))
     assertEquals(true, value["__proto__"].polluted as Boolean)
     assertEquals("value", value["constructor"] as String)
     assertEquals(json, StyleValue.Json(json).encoded.toJsonElement())

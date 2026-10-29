@@ -45,8 +45,14 @@ private class JsStyleValueWriter : StyleValueWriter {
     if (containers.isEmpty()) result = value
     else {
       val parent = containers.last()
+      val name = propertyName
       if (js("Array.isArray(parent)") as Boolean) parent.push(value)
-      else parent[propertyName] = value
+      // Assigning `__proto__` would set the prototype; JSON.parse makes it an own property.
+      else if (name == "__proto__")
+        js(
+          "Object.defineProperty(parent, name, {value: value, enumerable: true, writable: true, configurable: true})",
+        )
+      else parent[name] = value
     }
   }
 
@@ -74,7 +80,8 @@ private class JsStyleValueWriter : StyleValueWriter {
   }
 
   override fun beginObject() {
-    val value: dynamic = js("Object.create(null)")
+    // GL JS's worker serializer reads each object's constructor, so the prototype must be Object.
+    val value: dynamic = js("({})")
     add(value)
     containers.add(value)
   }
