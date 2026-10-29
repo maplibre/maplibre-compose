@@ -42,6 +42,25 @@ JS that Gradle builds automatically; see the
 [patch workflow](patches/maplibre-gl-js/README.md) to change it. The
 [benchmark guide](benchmarks/README.md) covers performance measurements.
 
+## Debug on a Linux CI runner
+
+[Blacksmith Testbox](https://github.com/useblacksmith/begin-testbox) runs local
+changes on a Linux x64 runner with the desktop CI toolchain and software Vulkan
+and OpenGL drivers. Install the [Blacksmith CLI](https://docs.blacksmith.sh/),
+and use an account with access to the MapLibre organization:
+
+```bash
+blacksmith auth login
+blacksmith testbox warmup .github/workflows/blacksmith-testbox.yml --job linux --ref <branch>
+blacksmith testbox run --id <id> "mise run test:desktop:all"
+blacksmith testbox stop --id <id>
+```
+
+Warm up a pushed branch, then run commands from the repository root: Testbox
+syncs the current directory to the runner with `rsync --delete`, including local
+changes. To test one backend, use `mise run test:desktop --backend vulkan` or
+`mise run test:desktop --backend opengl` instead.
+
 ## Check changes by hand
 
 CI tests the AWT desktop host. For desktop bridge changes, also run
