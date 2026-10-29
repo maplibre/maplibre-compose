@@ -343,6 +343,7 @@ jobs:
           name: android-${{ matrix.api-level }}-diagnostics
           path: |
             build/android-emulator/diagnostics
+            ~/.local/state/devices-cli
             build/android-emulator/device-tests.log
             build/android-emulator/serial
             **/build/outputs/androidTest-results
