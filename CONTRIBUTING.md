@@ -88,13 +88,6 @@ uses the `0.0.0` placeholders from `gradle.properties`.
 Releases are tagged `vMAJOR.MINOR.PATCH`. Any other commit builds as a snapshot
 of the next patch; `mise run version` prints what this checkout builds as.
 
-To prepare release notes, follow the
-[release skill](.agents/skills/release/SKILL.md). The maintainer reviews the
-draft before it goes into a signed, annotated tag: `MapLibre Compose <version>`,
-a blank line, then the approved notes, ending with a newline. After Maven
-publication succeeds, release CI publishes the tag body to GitHub without the
-title or signature. Lightweight and title-only tags use a short fallback line.
-
 ## Make CI happy
 
 `mise run check` reports problems and `mise run fix` rewrites what it can; the
