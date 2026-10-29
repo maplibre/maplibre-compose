@@ -54,7 +54,7 @@ internal constructor(
    * viewport's frame drew it, even after the camera has moved on.
    *
    * Longitudes equivalent modulo 360° project onto the world copy nearest the camera center.
-   * Returns null for a viewport made with `copy`, which describes a frame the map did not draw.
+   * Returns null if the map did not draw this viewport's frame.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? =
     projection?.screenLocationFromPosition(position)
@@ -63,8 +63,8 @@ internal constructor(
    * Unprojects a logical-pixel [offset] from the top left of the map into a geographic position, as
    * this viewport's frame drew it, even after the camera has moved on.
    *
-   * Longitude preserves the visible world copy and may extend past ±180°. Returns null for a
-   * viewport made with `copy`, which describes a frame the map did not draw.
+   * Longitude preserves the visible world copy and may extend past ±180°. Returns null if the map
+   * did not draw this viewport's frame.
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position? =
     projection?.positionFromScreenLocation(offset)
