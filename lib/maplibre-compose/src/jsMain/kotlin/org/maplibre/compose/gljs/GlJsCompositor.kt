@@ -70,11 +70,15 @@ internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : Gl
       return GlJsFrameTarget.UnsupportedSize
     }
     val frameTarget = GlJsFrameTarget.Composited(mapTarget)
-    return if (
-      target.render {
-        renderMap(frameTarget)
-      }
-    ) {
+    var matchesExtent = false
+    val rendered = target.render {
+      // Layout can publish a new extent before composition applies the target's requested size.
+      // GL JS permanently clamps its pixel ratio if it sees that smaller drawing buffer.
+      matchesExtent =
+        target.size.width == extent.physicalWidth && target.size.height == extent.physicalHeight
+      if (matchesExtent) renderMap(frameTarget)
+    }
+    return if (rendered && matchesExtent) {
       frameTarget
     } else {
       GlJsFrameTarget.NotReady
