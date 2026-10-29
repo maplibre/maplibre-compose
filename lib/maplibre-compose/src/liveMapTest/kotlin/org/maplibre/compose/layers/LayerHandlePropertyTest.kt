@@ -113,9 +113,11 @@ class LayerHandlePropertyTest {
   }
 
   private companion object {
+    // The circle layer is hidden so no frame loads a tile from the empty tileset; MapLibre Native
+    // reports that load as a render error, which would reach the captured warnings.
     val Style =
       BaseStyle.Json(
-        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":[]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer"}]}""",
+        """{"version":8,"sources":{"points-source":{"type":"vector","tiles":[]}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source","source-layer":"points-layer","layout":{"visibility":"none"}}]}""",
       )
   }
 }
