@@ -1,0 +1,54 @@
+name: Blacksmith Testbox
+
+on:
+  workflow_dispatch:
+    inputs:
+      testbox_id:
+        description: Blacksmith Testbox session ID
+        required: true
+        type: string
+
+# begin-testbox authenticates with the VM metadata service's sticky disk token.
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 120
+    steps:
+      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+        with:
+          persist-credentials: false
+          fetch-tags: true
+      - uses: useblacksmith/begin-testbox@22ff2ea5697369864347140857d218e42815b33c # v2
+        with:
+          testbox_id: ${{ inputs.testbox_id }}
+      # Matches desktop / linux-x64 in CI, including software Vulkan and OpenGL.
+      - uses: ./.github/actions/setup-ci-deps
+      - uses: ./.github/actions/setup-desktop-vulkan
+      - name: Preserve the environment for Testbox SSH commands
+        shell: bash
+        run: |
+          # SSH shells read .bashrc before Ubuntu's non-interactive early return.
+          # Keep toolchain/setup exports, excluding credentials and step-local state.
+          umask 077
+          (
+            temp_prefix=$RUNNER_TEMP
+            path=()
+            IFS=: read -ra entries <<< "$PATH"
+            for entry in "${entries[@]}"; do
+              [[ "$entry" == "$RUNNER_TEMP"* ]] || path+=("$entry")
+            done
+            PATH="$(IFS=:; echo "${path[*]}")"
+            for name in $(compgen -e); do
+              case "$name" in
+                ACTIONS_*|INPUT_*|RUNNER_*|GITHUB_TOKEN|GITHUB_ENV|GITHUB_PATH|GITHUB_OUTPUT|GITHUB_STATE|GITHUB_STEP_SUMMARY|GITHUB_ACTION*|SSH_*|BASH_ENV|ENV|PWD|OLDPWD|SHLVL|*_TOKEN*|*_SECRET*|*_PASSWORD*|*_KEY*|*_CREDENTIAL*)
+                  unset "$name" ;;
+                *) [[ "${!name}" != *"${temp_prefix:?}"* ]] || unset "$name" ;;
+              esac
+            done
+            export -p
+          ) > ~/.testbox-env
+          sed -i '1i [ -f ~/.testbox-env ] && . ~/.testbox-env' ~/.bashrc
+      - uses: useblacksmith/run-testbox@9b976c32aa3bcbffb348889673585a5deee1b2f3 # v2
