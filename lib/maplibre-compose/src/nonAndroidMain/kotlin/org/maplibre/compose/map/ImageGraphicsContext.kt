@@ -16,6 +16,6 @@ internal actual suspend fun <T> withImageGraphicsContext(block: suspend (Graphic
     try {
       block(context)
     } finally {
-      context.dispose()
+      context.close()
     }
   }

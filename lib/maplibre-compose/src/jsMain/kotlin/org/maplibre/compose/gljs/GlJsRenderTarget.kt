@@ -13,6 +13,7 @@ internal interface GlJsRenderTarget {
   /** Clears state that Compose uses but MapLibre GL JS does not track. */
   fun prepareMapRender()
 
+  /** Invalidates the shared renderer's state cache after MapLibre issues GL commands. */
   fun resetSkiaState() {}
 }
 

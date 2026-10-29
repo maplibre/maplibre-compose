@@ -5,19 +5,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.ComposeMapSurface
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapSurface
 
-/** Uses the same frame scheduler and preparation boundary as native Compose texture surfaces. */
+/** Prepares WebGL frames before layout, then presents their geometry with the Compose painter. */
 @Composable
 internal fun GlJsMapSurface(
   renderer: GlJsMapRenderer,
@@ -50,6 +50,8 @@ private class GlJsSurfaceController(
   override val maximumFps: Int?
     get() = renderer.maximumFps
 
+  override val preparesOnFrame: Boolean = true
+
   override fun setPresentFrames(value: Boolean) {
     if (presentFrames == value) return
     presentFrames = value
@@ -77,9 +79,10 @@ private class GlJsSurfaceController(
     if (failed || closed || extent.isEmpty) return false
     return try {
       var rendered = false
-      val acquired = compositor.render(extent) { target ->
-        rendered = renderer.render(target, extent)
-      }
+      val acquired =
+        compositor.render(extent) { target ->
+          rendered = renderer.render(target, extent)
+        }
       when (acquired) {
         GlJsFrameTarget.NotReady -> requestFrame()
         GlJsFrameTarget.OwnCanvas,

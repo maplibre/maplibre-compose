@@ -28,7 +28,7 @@ internal sealed interface GlJsFrameTarget {
 internal interface GlJsCompositor : AutoCloseable {
   val painter: Painter?
 
-  /** Runs [render] in the WebGL period that this compositor provides. */
+  /** Runs [renderMap] in the WebGL period that this compositor provides. */
   fun render(extent: MapExtent, renderMap: (GlJsFrameTarget) -> Unit): GlJsFrameTarget
 }
 
@@ -60,6 +60,15 @@ internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : Gl
     renderMap: (GlJsFrameTarget) -> Unit,
   ): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
+    val gl = mapTarget.gl
+    val limit =
+      minOf(
+        gl.getParameter(gl.MAX_TEXTURE_SIZE).unsafeCast<Int>(),
+        gl.getParameter(gl.MAX_RENDERBUFFER_SIZE).unsafeCast<Int>(),
+      )
+    if (extent.physicalWidth > limit || extent.physicalHeight > limit) {
+      return GlJsFrameTarget.UnsupportedSize
+    }
     val frameTarget = GlJsFrameTarget.Composited(mapTarget)
     return if (
       target.render {

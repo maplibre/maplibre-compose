@@ -201,7 +201,6 @@ class BrowserCompositingTest {
   fun a_different_webgl_context_recreates_the_engine_and_replays_the_style() = gpuTest { gpu ->
     browserRenderTarget(gpu, Full, Full).use { first ->
       CompositedMap(SplitStyle).use { map ->
-        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
         map.drawTheWholeStyle(first)
         val firstEngine = assertNotNull(map.session.engineMapForTest())
         withNewWebGlContext { next ->
@@ -224,7 +223,6 @@ class BrowserCompositingTest {
   fun a_webgl_context_swap_applies_the_viewport_insets_to_the_new_engine() = gpuTest { gpu ->
     browserRenderTarget(gpu, Full, Full).use { first ->
       CompositedMap(BaseStyle.Empty).use { map ->
-        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
         map.drawUntil(first, "the initial style") { map.loadedBinding?.isLoaded == true }
         map.session.setViewportInsets(PaddingValues(top = 40.dp))
         assertEquals(40.0, assertNotNull(map.session.engineMapForTest()).getPadding().top)
@@ -248,7 +246,6 @@ class BrowserCompositingTest {
   fun a_webgl_context_swap_replays_the_camera_and_options() = gpuTest { gpu ->
     browserRenderTarget(gpu, Full, Full).use { first ->
       CompositedMap(BaseStyle.Empty).use { map ->
-        val extent = MapExtent.fromPhysical(Full, Full, 1.0)
         map.drawUntil(first, "the initial style") { map.loadedBinding?.isLoaded == true }
         val camera =
           CameraPosition(

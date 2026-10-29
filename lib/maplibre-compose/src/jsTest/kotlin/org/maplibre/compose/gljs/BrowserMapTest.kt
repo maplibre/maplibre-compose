@@ -37,7 +37,7 @@ internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise
 internal fun ComposeUiTest.setBrowserMapContent(size: Int = 256, content: @Composable () -> Unit) {
   setContent {
     CompositionLocalProvider(
-      LocalGlJsCompositor provides { remember { DetachedGlJsCompositor() } }
+      LocalGlJsCompositor provides { remember { DetachedGlJsCompositor() } },
     ) {
       Box(Modifier.size(size.dp)) { content() }
     }

@@ -220,8 +220,9 @@ internal data class SkikoDirect3DDevice(val ptr: Long)
  *
  * Offsets were read off Skiko's `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and Skia's
  * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` at [VerifiedSkikoVersion]: `DirectXDevice` is
- * non-virtual, `HWND hWnd` at 0, `GrD3DBackendContext` at 8 (`fAdapter`, `fDevice`, `fQueue`,
- * `fMemoryAllocator`, `fProtectedContext`, one pointer each), `device` at 48.
+ * non-virtual, `HWND hWnd` at 0, and `GrD3DBackendContext` at 8. The context contains four
+ * pointer-sized holders followed by the one-byte `GrProtected` enum and tail padding, so its
+ * `fDevice` is at 16 in `DirectXDevice` and the following `device` field is at 48.
  *
  * Skiko assigns both copies of the device from the same local, so reading both and requiring
  * agreement detects a layout change. The first read also compares the classpath Skiko version to

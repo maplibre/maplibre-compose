@@ -37,7 +37,7 @@ internal fun createGpu(): BrowserGpu {
   canvas.width = GpuCanvasSize
   canvas.height = GpuCanvasSize
 
-  installMaplibreCompose(workerUrl = LocalWorkerUrl)
+  installMaplibreCompose()
   val gl =
     checkNotNull(canvas.asDynamic().getContext("webgl2")).unsafeCast<WebGL2RenderingContext>()
   return BrowserGpu(canvas, gl)

@@ -156,5 +156,4 @@ internal class AwtComposeMapPresentationHost(private val window: Window) {
       surfaceHelpers.staticInvoke("unlockLinuxDrawingSurface", drawingSurface)
     }
   }
-
 }
