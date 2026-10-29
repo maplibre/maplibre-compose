@@ -21,16 +21,15 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.LogSeverityMask
+import org.maplibre.nativeffi.LogSeverityFlag
+import org.maplibre.nativeffi.loadNativeLibrary
+import org.maplibre.nativeffi.setLogAsyncSeverityMask
 
 /** Native static destruction runs after JVM shutdown, so only a child process tests its exit. */
 class NativeProcessExitTest {
   @Test
   fun exits_after_native_logging_and_compose_runtime_cleanup() {
-    skipUnlessSnapshotsAvailable()
+
     val output = Files.createTempFile("maplibre-compose-exit-", ".log")
     val java = if (System.getProperty("os.name").startsWith("Windows")) "java.exe" else "java"
     val process =
@@ -47,11 +46,11 @@ class NativeProcessExitTest {
     try {
       val exited = process.waitFor(30, TimeUnit.SECONDS)
       val log = Files.readString(output)
+      assertTrue(exited, "JVM hung during native shutdown:\n$log")
       assertTrue(
         log.lineSequence().any { it == ReadyToExit },
-        "Child did not finish cleanup:\n$log",
+        "Child exited with ${process.exitValue()} before finishing cleanup:\n$log",
       )
-      assertTrue(exited, "JVM hung during native shutdown:\n$log")
       assertEquals(0, process.exitValue(), log)
     } finally {
       if (process.isAlive) {
@@ -68,6 +67,7 @@ internal object NativeProcessExitProbe {
   fun main(args: Array<String>) {
     val received = CompletableDeferred<Unit>()
     MapLogging.logger = MapLogger { record ->
+      System.err.println(record)
       if (
         record.source == MapLogSource.NativeEngine &&
           record.category == "ParseStyle" &&
@@ -76,8 +76,9 @@ internal object NativeProcessExitProbe {
         received.complete(Unit)
       }
     }
-    Maplibre.loadNativeLibrary()
-    GeneratedApi.logSetAsyncSeverityMask(LogSeverityMask.WARNING)
+    System.err.println("Loading MapLibre Native")
+    loadNativeLibrary()
+    setLogAsyncSeverityMask(LogSeverityFlag.WARNING)
     runMapTest {
       val cache = FfiTestPlatform.createCacheFile()
       val runtime = createNativeMapRuntime(MlnFfiRuntimeOptions(cacheFile = cache))

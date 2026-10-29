@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
-import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.NetworkStatus
 
 class NativeNetworkMonitorTest {
   @Test

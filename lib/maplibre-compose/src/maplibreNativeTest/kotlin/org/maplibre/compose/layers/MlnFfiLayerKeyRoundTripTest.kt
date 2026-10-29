@@ -19,7 +19,7 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.toJsonElement
-import org.maplibre.nativeffi.generated.StyleLayerVisibility
+import org.maplibre.nativeffi.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 

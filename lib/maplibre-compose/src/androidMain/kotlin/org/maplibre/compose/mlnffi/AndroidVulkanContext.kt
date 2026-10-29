@@ -43,32 +43,6 @@ internal class AndroidVulkanContext private constructor(private var handle: Long
   }
 }
 
-/** A Vulkan device and graphics queue that require no presentation surface. */
-internal class AndroidVulkanOffscreenContext private constructor(private var handle: Long) :
-  AutoCloseable {
-
-  val handles: VulkanContextHandles
-    get() = handle.toVulkanContextHandles()
-
-  override fun close() {
-    if (handle == 0L) return
-    AndroidVulkanNativeBridge.destroy(handle)
-    handle = 0L
-  }
-
-  companion object {
-    fun create(): AndroidVulkanOffscreenContext =
-      try {
-        AndroidVulkanOffscreenContext(AndroidVulkanNativeBridge.createOffscreen())
-      } catch (error: UnsatisfiedLinkError) {
-        throw IllegalStateException(
-          "Vulkan snapshots require the maplibre-compose-runtime-vulkan-android runtime",
-          error,
-        )
-      }
-  }
-}
-
 private fun Long.toVulkanContextHandles() =
   VulkanContextHandles(
     instance = NativeHandle(AndroidVulkanNativeBridge.instance(this)),
@@ -88,9 +62,6 @@ private object AndroidVulkanNativeBridge {
 
   /** Builds the context for [surface], or throws with the Vulkan failure. */
   external fun create(surface: Surface): Long
-
-  /** Builds a graphics context that requires no presentation surface. */
-  external fun createOffscreen(): Long
 
   external fun destroy(handle: Long)
 

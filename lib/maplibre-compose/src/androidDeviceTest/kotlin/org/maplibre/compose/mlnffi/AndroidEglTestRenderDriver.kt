@@ -12,8 +12,8 @@ import java.nio.ByteOrder
 import kotlin.coroutines.EmptyCoroutineContext
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.testing.RgbaPixel
-import org.maplibre.nativeffi.generated.OpenglClientApi
-import org.maplibre.nativeffi.generated.OpenglContextOwnership
+import org.maplibre.nativeffi.OpenGlClientApi
+import org.maplibre.nativeffi.OpenGlContextOwnership
 
 /** Deterministic offscreen GLES host for the shared real-map test corpus. */
 internal class AndroidEglTestRenderDriver
@@ -71,8 +71,8 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
                 config = NativeHandle(config.nativeHandle),
                 shareContext = NativeHandle(0L),
                 getProcAddress = NativeHandle(0L),
-                ownership = OpenglContextOwnership.DEDICATED,
-                clientApi = OpenglClientApi.GLES,
+                ownership = OpenGlContextOwnership.DEDICATED,
+                clientApi = OpenGlClientApi.GLES,
               ),
             surface = NativeHandle(surface.nativeHandle),
             extent = extent,

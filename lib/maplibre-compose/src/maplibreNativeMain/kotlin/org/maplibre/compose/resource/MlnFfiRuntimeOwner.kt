@@ -10,11 +10,10 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLogBridge
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.compose.mlnffi.reportFailure
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.ResourceProvider
-import org.maplibre.nativeffi.generated.RuntimeEventHandler
-import org.maplibre.nativeffi.generated.RuntimeHandle
-import org.maplibre.nativeffi.generated.setResourceProvider
+import org.maplibre.nativeffi.ResourceProvider
+import org.maplibre.nativeffi.RuntimeEventHandler
+import org.maplibre.nativeffi.RuntimeHandle
+import org.maplibre.nativeffi.RuntimeOptions
 
 /**
  * A MapLibre runtime together with its resource provider. Provider-owned request handles remain
@@ -63,8 +62,8 @@ private constructor(
 
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
-        GeneratedApi.runtimeCreate(
-          GeneratedApi.runtimeOptionsDefault().copy(cachePath = cacheFile.toString()),
+        RuntimeHandle.create(
+          RuntimeOptions(cachePath = cacheFile.toString()),
         )
       try {
         eventHandler?.let { runtime.setEventHandler(it).await() }
@@ -92,7 +91,7 @@ private constructor(
         // Installed with the runtime rather than with the map. Runtime work runs in submission
         // order, so nothing can request a resource before the provider that serves it exists.
         runtime
-          .setResourceProvider(ResourceProvider(provider::handle))
+          .setResourceProvider(ResourceProvider(callback = provider::handle))
           .reportFailure(getLogger(), "install the resource provider")
         runtime.installRequestInterceptor(resourceConfig)
         getLogger()?.i { "Created the $what" }

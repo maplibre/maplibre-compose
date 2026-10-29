@@ -10,7 +10,7 @@ import java.lang.foreign.ValueLayout
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.outputStream
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.getPluginRegisterFunctionV1
 
 /**
  * MapLibre Native's sample n-gon layer plugin, built by `mise run deps:ngon-plugin` and packaged as
@@ -52,7 +52,7 @@ internal object NgonPlugin {
           )
       Arena.ofConfined().use { arena ->
         val error = arena.allocate(ErrorCapacity)
-        val hostRegister = MemorySegment.ofAddress(Maplibre.pluginRegisterFunctionV1().address)
+        val hostRegister = MemorySegment.ofAddress(getPluginRegisterFunctionV1().address)
         val status = register.invokeExact(hostRegister, error, ErrorCapacity) as Int
         // OK, or already registered by an earlier map in this process.
         val registered = status == 0 || status == 1

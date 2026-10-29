@@ -10,7 +10,7 @@ import kotlinx.coroutines.async
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.nativeffi.generated.CameraOptions
+import org.maplibre.nativeffi.CameraOptions
 
 class MlnFfiCameraFitTest {
   @Test

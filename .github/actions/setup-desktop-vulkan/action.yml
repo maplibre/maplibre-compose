@@ -105,16 +105,15 @@ runs:
 
         $openGl = Join-Path $openGlRoot "opengl32.dll"
         if (-not (Test-Path $openGl)) { throw "Missing Mesa WGL driver in $openGlArchiveName" }
-        $testJavaHome = (& mise where java).Trim()
-        if ($LASTEXITCODE -ne 0) { throw "Could not locate the pinned test JVM" }
-        $javaBin = Join-Path $testJavaHome "bin"
-        if (-not (Test-Path (Join-Path $javaBin "java.exe"))) {
-          throw "No java.exe in $javaBin"
-        }
-        # The FFI imports opengl32.dll, while LWJGL loads it dynamically. Placing Mesa beside
-        # java.exe makes both resolve the same WGL driver, including child-JVM shutdown tests.
-        # setup-ci-deps saves the toolchain cache before this job-local modification.
-        Copy-Item $openGl (Join-Path $javaBin "opengl32.dll")
+        # Register Mesa as an ICD so system GDI pixel-format calls and both FFI and LWJGL
+        # WGL calls reach the same driver, including in a fresh snapshot-only process.
+        Copy-Item $openGl (Join-Path $env:WINDIR "System32\mesadrv.dll") -Force
+        $openGlDriverKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\OpenGLDrivers\MSOGL"
+        New-Item -Path $openGlDriverKey -Force | Out-Null
+        New-ItemProperty -Path $openGlDriverKey -Name DLL -PropertyType String -Value "mesadrv.dll" -Force | Out-Null
+        New-ItemProperty -Path $openGlDriverKey -Name DriverVersion -PropertyType DWord -Value 1 -Force | Out-Null
+        New-ItemProperty -Path $openGlDriverKey -Name Flags -PropertyType DWord -Value 1 -Force | Out-Null
+        New-ItemProperty -Path $openGlDriverKey -Name Version -PropertyType DWord -Value 2 -Force | Out-Null
         # LIBGL_ALWAYS_SOFTWARE makes the d3d12 driver use WARP, but Mesa's WGL front end also
         # drops d3d12 from its driver list under that variable, and this build has no llvmpipe.
         # Naming the driver keeps it selected.

@@ -2,8 +2,8 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
 import kotlin.math.PI
-import org.maplibre.nativeffi.generated.MapTileOptions as TileOptions
-import org.maplibre.nativeffi.generated.TileLodMode as FfiTileLodMode
+import org.maplibre.nativeffi.MapTileOptions as TileOptions
+import org.maplibre.nativeffi.TileLodMode as FfiTileLodMode
 
 /** A MapLibre Native tile-detail algorithm and its tuning parameters. */
 @Immutable

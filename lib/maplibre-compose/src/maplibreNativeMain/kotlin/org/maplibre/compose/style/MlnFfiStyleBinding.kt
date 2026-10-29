@@ -28,8 +28,6 @@ import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.LayerSummary
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
-import org.maplibre.compose.mlnffi.failed
-import org.maplibre.compose.mlnffi.failureMessage
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -42,7 +40,7 @@ import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.putClusterProperties
 import org.maplibre.compose.sources.reconstructedSource
-import org.maplibre.compose.sources.toInlineUtf8
+import org.maplibre.compose.sources.toInlineJson
 import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
@@ -52,29 +50,28 @@ import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
-import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.generated.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
-import org.maplibre.nativeffi.generated.CustomMvtVectorSourceOptions
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.GeojsonSourceDataHandle
-import org.maplibre.nativeffi.generated.GeojsonSourceOptions
-import org.maplibre.nativeffi.generated.ImageContent
-import org.maplibre.nativeffi.generated.ImageStretch as FfiImageStretch
-import org.maplibre.nativeffi.generated.MapDiscarding
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.RenderSessionHandle
-import org.maplibre.nativeffi.generated.SourceFeatureQueryOptions
-import org.maplibre.nativeffi.generated.Status
-import org.maplibre.nativeffi.generated.StyleImageOptions
-import org.maplibre.nativeffi.generated.StyleSourceInfo
-import org.maplibre.nativeffi.generated.StyleSourceTileInfo
-import org.maplibre.nativeffi.generated.StyleSourceType
-import org.maplibre.nativeffi.generated.StyleTileScheme
-import org.maplibre.nativeffi.runtime.CommandCompletion
+import org.maplibre.nativeffi.CommandCompletion
+import org.maplibre.nativeffi.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
+import org.maplibre.nativeffi.CustomVectorSourceOptions
+import org.maplibre.nativeffi.GeoJsonSourceDataHandle
+import org.maplibre.nativeffi.GeoJsonSourceOptions
+import org.maplibre.nativeffi.ImageContent
+import org.maplibre.nativeffi.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.MapDiscarding
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.RenderSessionHandle
+import org.maplibre.nativeffi.SourceFeatureQueryOptions
+import org.maplibre.nativeffi.Status
+import org.maplibre.nativeffi.StyleImageOptions
+import org.maplibre.nativeffi.StyleSourceInfo
+import org.maplibre.nativeffi.StyleSourceTileInfo
+import org.maplibre.nativeffi.StyleSourceType
+import org.maplibre.nativeffi.StyleTileScheme
+import org.maplibre.nativeffi.StyleVectorTileEncoding
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -105,7 +102,15 @@ internal class LoadedStyleContents(
       val sources = map.listStyleSources()
       val document = map.getLoadedStyleJson()
       return LoadedStyleContents(
-        layers = layers.await().map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) },
+        layers =
+          layers.await().map {
+            LayerSummary(
+              it.id,
+              it.type,
+              it.sourceId.takeIf(String::isNotEmpty),
+              it.sourceLayer.takeIf(String::isNotEmpty),
+            )
+          },
         sources = sources.await(),
         document = runCatching { document.await().toJsonElement() as? JsonObject }.getOrNull(),
       )
@@ -140,7 +145,7 @@ internal open class MlnFfiStyleBinding(
     get() = map
 
   private val geoJsonCoordinators =
-    mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle>>()
+    mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle>>()
 
   /** The tile coordinators serving this loaded style's custom sources, by source id. */
   private val tileCoordinators = mutableMapOf<String, MlnFfiTileRequestCoordinator<*>>()
@@ -198,10 +203,6 @@ internal open class MlnFfiStyleBinding(
       when {
         error is CancellationException -> outcome.cancel(error)
         error != null -> outcome.completeExceptionally(StyleMutationException(error.message, error))
-        ordered.getCompleted().failed ->
-          outcome.completeExceptionally(
-            StyleMutationException(ordered.getCompleted().failureMessage(), null),
-          )
         else -> outcome.complete(Unit)
       }
     }
@@ -296,11 +297,18 @@ internal open class MlnFfiStyleBinding(
   override suspend fun layerSummaries(): List<LayerSummary> = query {
     it.listStyleLayers()
   }
-    .map { LayerSummary(it.id, it.type, it.sourceId, it.sourceLayer) }
+    .map {
+      LayerSummary(
+        it.id,
+        it.type,
+        it.sourceId.takeIf(String::isNotEmpty),
+        it.sourceLayer.takeIf(String::isNotEmpty),
+      )
+    }
 
   private fun sourceDefinition(info: StyleSourceInfo): JsonObject = buildJsonObject {
     info.type.toStyleSpecType()?.let { put("type", it) }
-    val attribution = info.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(info.id)
+    val attribution = info.attribution.takeIf { it.isNotEmpty() } ?: declaredAttribution(info.id)
     attribution?.let { put("attribution", it) }
     info.tileSize?.takeIf { it > 0u }?.let { put("tileSize", it.toInt()) }
     if (info.isVolatile) put("volatile", true)
@@ -308,8 +316,8 @@ internal open class MlnFfiStyleBinding(
       info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
     if (info.type == StyleSourceType.RASTER_DEM)
       info.rasterEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
-    val url = info.url?.takeIf { it.isNotEmpty() }
-    if (url != null) put("url", url) else info.tilejson?.let { putTileJson(it, info) }
+    val url = info.url.takeIf { it.isNotEmpty() }
+    if (url != null) put("url", url) else info.tileJson?.let { putTileJson(it, info) }
   }
 
   private fun JsonObjectBuilder.putTileJson(tileJson: StyleSourceTileInfo, info: StyleSourceInfo) {
@@ -366,7 +374,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun addSource(sourceId: String, source: JsonObject): StyleCommand =
     addSourceWith { map ->
-      map.addStyleSourceJson(sourceId, source.toJsonBytes())
+      map.addStyleSourceJson(sourceId, source.toString())
     }
 
   /**
@@ -400,7 +408,7 @@ internal open class MlnFfiStyleBinding(
       MlnFfiTileRequestCoordinator(
         name = "maplibre-custom-geometry-$sourceId",
         binding = this,
-        load = { tile -> provider.loadTile(tile).toJson().encodeToByteArray() },
+        load = { tile -> provider.loadTile(tile).toJson() },
         deliver = { map, tile, data ->
           map.discarding.setCustomGeometrySourceTileData(sourceId, tile, data)
         },
@@ -409,7 +417,11 @@ internal open class MlnFfiStyleBinding(
             "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
           }
           customTileFailed(error)
-          map.discarding.setCustomGeometrySourceTileData(sourceId, tile, EmptyFeatureCollection)
+          map.discarding.setCustomGeometrySourceTileError(
+            sourceId,
+            tile,
+            error.message ?: "Tile loading failed",
+          )
         },
       )
     return installCoordinator(sourceId, coordinator) { map ->
@@ -462,11 +474,16 @@ internal open class MlnFfiStyleBinding(
           }
         },
         deliver = { map, tile, data ->
-          map.discarding.setCustomMvtVectorSourceTileData(sourceId, tile, data)
+          map.discarding.setCustomVectorSourceTileData(
+            sourceId,
+            tile,
+            StyleVectorTileEncoding.MVT,
+            data,
+          )
         },
         fail = { map, tile, error ->
           customTileFailed(error)
-          map.discarding.setCustomMvtVectorSourceTileError(
+          map.discarding.setCustomVectorSourceTileError(
             sourceId,
             tile,
             error.message ?: "Tile loading failed",
@@ -474,9 +491,9 @@ internal open class MlnFfiStyleBinding(
         },
       )
     return installCoordinator(sourceId, coordinator) { map ->
-      map.addCustomMvtVectorSource(
+      map.addCustomVectorSource(
         sourceId,
-        CustomMvtVectorSourceOptions(
+        CustomVectorSourceOptions(
           fetchTile = coordinator::fetch,
           cancelTile = coordinator::cancel,
           minZoom = options.minZoom.toDouble(),
@@ -487,7 +504,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
-    write { it.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
+    write { it.invalidateCustomVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
 
   /**
@@ -561,11 +578,11 @@ internal open class MlnFfiStyleBinding(
     val ffiOptions = options.toFfiOptions()
     val added = addSourceWith { map ->
       if (data is GeoJsonData.Uri) {
-        map.addGeojsonSourceUrl(sourceId, data.uri, ffiOptions)
+        map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
       } else {
         // Native leases the data at submission, so the handle closes as soon as this returns.
-        GeneratedApi.geojsonSourceDataCreate(EmptyFeatureCollection, ffiOptions).use { empty ->
-          map.addGeojsonSourceData(sourceId, empty)
+        GeoJsonSourceDataHandle.create(EmptyFeatureCollection, ffiOptions).use { empty ->
+          map.addGeoJsonSourceData(sourceId, empty)
         }
       }
     }
@@ -592,7 +609,7 @@ internal open class MlnFfiStyleBinding(
           )
           .also { geoJsonCoordinators[sourceId] = it }
     try {
-      coordinator.submit(data) { url -> write { it.setGeojsonSourceUrl(sourceId, url) } }
+      coordinator.submit(data) { url -> write { it.setGeoJsonSourceUrl(sourceId, url) } }
     } catch (error: StyleMutationException) {
       sourceDataFailed(identity, sourceId, error)
       throw error
@@ -601,10 +618,10 @@ internal open class MlnFfiStyleBinding(
 
   private fun prepareGeoJson(
     data: GeoJsonData,
-    options: GeojsonSourceOptions,
-  ): GeojsonSourceDataHandle =
+    options: GeoJsonSourceOptions,
+  ): GeoJsonSourceDataHandle =
     try {
-      GeneratedApi.geojsonSourceDataCreate(checkNotNull(data.toInlineUtf8()), options)
+      GeoJsonSourceDataHandle.create(checkNotNull(data.toInlineJson()), options)
     } catch (error: Throwable) {
       if (error is CancellationException) throw error
       rethrowIfFatal(error)
@@ -614,8 +631,8 @@ internal open class MlnFfiStyleBinding(
   /** Each source installation gets a new coordinator with fixed options. */
   private fun geoJsonCoordinator(
     sourceId: String,
-    options: GeojsonSourceOptions,
-  ): MlnFfiGeoJsonCoordinator<GeojsonSourceDataHandle> {
+    options: GeoJsonSourceOptions,
+  ): MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle> {
     val coordinator =
       MlnFfiGeoJsonCoordinator(
         prepare = { data -> prepareGeoJson(data, options) },
@@ -623,8 +640,7 @@ internal open class MlnFfiStyleBinding(
         install = install@{ prepared, isCurrent ->
             withContext(owner.mainDispatcher) {
               if (!isLoaded || !isCurrent()) return@withContext
-              val completion = map.setGeojsonSourceData(sourceId, prepared).await()
-              if (completion.failed) throw StyleMutationException(completion.failureMessage(), null)
+              map.setGeoJsonSourceData(sourceId, prepared).await()
             }
           },
         reportFailure = { error, isCurrent ->
@@ -646,13 +662,13 @@ internal open class MlnFfiStyleBinding(
     requireCurrent()
   }
 
-  private fun loadedGeoJsonOptions(sourceId: String): GeojsonSourceOptions? {
+  private fun loadedGeoJsonOptions(sourceId: String): GeoJsonSourceOptions? {
     val source = declaredSources[sourceId] as? JsonObject ?: return null
     if ((source["type"] as? JsonPrimitive)?.content != "geojson") return null
     val defaults = GeoJsonOptions.Standard
     val minZoom = (source["minzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.minZoom.toDouble()
     val maxZoom = (source["maxzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.maxZoom.toDouble()
-    return GeojsonSourceOptions(
+    return GeoJsonSourceOptions(
       minZoom = minZoom,
       maxZoom = maxZoom,
       tolerance =
@@ -668,7 +684,7 @@ internal open class MlnFfiStyleBinding(
       lineMetrics =
         (source["lineMetrics"] as? JsonPrimitive)?.booleanOrNull ?: defaults.lineMetrics,
       synchronousTiling = defaults.synchronousTiling,
-      clusterProperties = (source["clusterProperties"] as? JsonObject)?.toJsonBytes(),
+      clusterProperties = (source["clusterProperties"] as? JsonObject)?.toString().orEmpty(),
     )
   }
 
@@ -677,7 +693,7 @@ internal open class MlnFfiStyleBinding(
     feature: Feature<*, JsonObject?>,
   ): Double? {
     val result = queryClusterExtension(sourceId, feature, ExpansionZoomField) ?: return null
-    val zoom = result.decodeToString().toDoubleOrNull()
+    val zoom = result.toDoubleOrNull()
     if (zoom == null) reportClusterMiss(sourceId, ExpansionZoomField, result)
     // A source that does not cluster answers 0. A cluster always expands at zoom 1 or higher.
     return zoom?.takeIf { it > 0.0 }
@@ -711,7 +727,7 @@ internal open class MlnFfiStyleBinding(
           put("limit", limit)
           put("offset", offset)
         }
-          .toJsonBytes(),
+          .toString(),
       ) ?: return null
     // A source that does not cluster also answers an empty page; only a cluster has children.
     if (leaves.features.isEmpty() && clusterChildren(sourceId, feature) == null) return null
@@ -736,13 +752,19 @@ internal open class MlnFfiStyleBinding(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     field: String,
-    arguments: ByteArray? = null,
-  ): ByteArray? {
+    arguments: String = "",
+  ): String? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
     val session = readySession() ?: return null
     return try {
       session
-        .queryFeatureExtensions(sourceId, ffiFeature, SuperclusterExtension, field, arguments)
+        .queryFeatureExtensions(
+          sourceId,
+          ffiFeature,
+          SuperclusterExtension,
+          field,
+          arguments,
+        )
         .await()
     } catch (error: MaplibreException) {
       // Supercluster's missing-cluster error reaches the C API only as this diagnostic text.
@@ -763,22 +785,22 @@ internal open class MlnFfiStyleBinding(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     field: String,
-    arguments: ByteArray?,
+    arguments: String?,
   ): FeatureCollection<Geometry, JsonObject?>? {
-    val result = queryClusterExtension(sourceId, feature, field, arguments) ?: return null
+    val result = queryClusterExtension(sourceId, feature, field, arguments.orEmpty()) ?: return null
     val collection =
       withContext(Dispatchers.Default) {
-        FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(result.decodeToString())
+        FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(result)
       }
     if (collection == null) reportClusterMiss(sourceId, field, result)
     return collection
   }
 
   /** Reports a cluster query whose result does not contain the requested value. */
-  private fun reportClusterMiss(sourceId: String, field: String, result: ByteArray) {
+  private fun reportClusterMiss(sourceId: String, field: String, result: String) {
     logger?.w {
       "Cluster '$field' query in source '$sourceId' returned no result. MapLibre answered with " +
-        "${result.decodeToString()}."
+        "${result}."
     }
   }
 
@@ -788,9 +810,9 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     state: JsonObject,
   ): () -> Unit {
-    val bytes = state.toJsonBytes()
+    val json = state.toString()
     val selector = featureStateSelector(sourceId, sourceLayerId, featureId)
-    return { write { it.setFeatureState(selector, bytes) } }
+    return { write { it.setFeatureState(selector, json) } }
   }
 
   override suspend fun featureState(
@@ -799,8 +821,7 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
   ): JsonObject =
     Json.parseToJsonElement(
-        query { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) }
-          .decodeToString(),
+        query { it.getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId)) },
       )
       .jsonObject
 
@@ -829,7 +850,7 @@ internal open class MlnFfiStyleBinding(
     val options =
       SourceFeatureQueryOptions(
         sourceLayerIds = sourceLayerIds.toList(),
-        filter = filter?.toJsonBytes(),
+        filter = filter?.toString().orEmpty(),
       )
     val session = readySession() ?: return emptyList()
     val result =
@@ -846,7 +867,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): StyleCommand = command {
-    it.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId.ifEmpty { null })
+    it.addStyleLayerJson(layer.toString(), beforeLayerId)
   }
 
   override fun removeLayer(layerId: String): StyleCommand = command {
@@ -854,7 +875,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String): StyleCommand = command {
-    it.moveStyleLayer(layerId, beforeLayerId.ifEmpty { null })
+    it.moveStyleLayer(layerId, beforeLayerId)
   }
 
   override fun setLayerProperty(
@@ -864,7 +885,7 @@ internal open class MlnFfiStyleBinding(
     kind: LayerPropertyKind,
   ) {
     write("Layer '$layerId' property '$name'", value) {
-      it.setStyleLayerProperty(layerId, name, value.toJsonBytes())
+      it.setStyleLayerProperty(layerId, name, value.toString())
     }
   }
 
@@ -895,7 +916,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   private var transitionOptions =
-    org.maplibre.nativeffi.generated.StyleTransitionOptions(
+    org.maplibre.nativeffi.StyleTransitionOptions(
       durationMs =
         ((contents.document?.get("transition") as? JsonObject)?.get("duration") as? JsonPrimitive)
           ?.doubleOrNull,
@@ -927,11 +948,11 @@ internal open class MlnFfiStyleBinding(
   }
 
   override suspend fun globalState(): JsonObject? =
-    Json.parseToJsonElement(query { it.getGlobalState() }.decodeToString()).jsonObject
+    Json.parseToJsonElement(query { it.getGlobalState() }).jsonObject
 
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
-    val bytes = value.toJsonBytes()
-    write("Global state '$name'", value) { it.setGlobalStateProperty(name, bytes) }
+    val json = value.toString()
+    write("Global state '$name'", value) { it.setGlobalStateProperty(name, json) }
   }
 
   override suspend fun lightProperty(name: String): JsonElement? = query {
@@ -940,8 +961,8 @@ internal open class MlnFfiStyleBinding(
     ?.toJsonElement()
 
   override fun setLight(light: JsonObject) {
-    val bytes = light.toJsonBytes()
-    write("The light", light) { it.setStyleLightJson(bytes) }
+    val json = light.toString()
+    write("The light", light) { it.setStyleLightJson(json) }
   }
 
   override val supportsSky: Boolean = false
@@ -979,9 +1000,8 @@ internal open class MlnFfiStyleBinding(
     /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */
     private const val SuperclusterExtension = "supercluster"
 
-    /** Delivered for a tile whose provider failed, so the map's load can finish. */
-    private val EmptyFeatureCollection =
-      """{"type":"FeatureCollection","features":[]}""".encodeToByteArray()
+    /** Initial data before the first GeoJSON update. */
+    private val EmptyFeatureCollection = """{"type":"FeatureCollection","features":[]}"""
 
     private const val ExpansionZoomField = "expansion-zoom"
     private const val ChildrenField = "children"
@@ -1011,8 +1031,8 @@ internal open class MlnFfiStyleBinding(
 }
 
 /** The same options that the definition writes into source JSON, as the typed adder takes them. */
-private fun GeoJsonOptions.toFfiOptions(): GeojsonSourceOptions =
-  GeojsonSourceOptions(
+private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
+  GeoJsonSourceOptions(
     minZoom = minZoom.toDouble(),
     maxZoom = maxZoom.toDouble(),
     tolerance = tolerance.toDouble(),
@@ -1024,10 +1044,10 @@ private fun GeoJsonOptions.toFfiOptions(): GeojsonSourceOptions =
     lineMetrics = lineMetrics,
     // Viewport tiles are sliced during the next render when true, or on a worker when false.
     synchronousTiling = synchronousTiling,
-    clusterProperties = clusterPropertiesBytes(),
+    clusterProperties = clusterPropertiesJson(),
   )
 
-private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
-  if (clusterProperties.isEmpty()) return null
-  return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
+private fun GeoJsonOptions.clusterPropertiesJson(): String {
+  if (clusterProperties.isEmpty()) return ""
+  return buildJsonObject { putClusterProperties(clusterProperties) }.toString()
 }

@@ -1,6 +1,6 @@
 package org.maplibre.compose.mlnffi
 
-import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.NetworkStatus
 import platform.Network.nw_path_get_status
 import platform.Network.nw_path_monitor_cancel
 import platform.Network.nw_path_monitor_create

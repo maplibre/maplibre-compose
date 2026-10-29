@@ -4,11 +4,11 @@ import java.io.File
 import java.nio.file.Files
 import kotlinx.io.files.Path
 import org.junit.Assume.assumeTrue
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.loadNativeLibrary
 
 internal actual object FfiTestPlatform {
   actual fun initialize() {
-    Maplibre.loadNativeLibrary()
+    loadNativeLibrary()
   }
 
   actual fun createCacheFile(): Path {

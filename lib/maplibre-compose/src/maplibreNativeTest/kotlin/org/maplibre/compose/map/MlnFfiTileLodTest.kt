@@ -10,8 +10,8 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.generated.MapTileOptions
-import org.maplibre.nativeffi.generated.TileLodMode as FfiTileLodMode
+import org.maplibre.nativeffi.MapTileOptions
+import org.maplibre.nativeffi.TileLodMode as FfiTileLodMode
 
 class MlnFfiTileLodTest {
 

@@ -23,14 +23,13 @@ import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
-import org.maplibre.nativeffi.generated.CameraOptions
-import org.maplibre.nativeffi.generated.CameraUpdate
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MapProjectionHandle
-import org.maplibre.nativeffi.generated.MapSnapshot
-import org.maplibre.nativeffi.generated.MapView
+import org.maplibre.nativeffi.CameraOptions
+import org.maplibre.nativeffi.CameraUpdate
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapProjectionHandle
+import org.maplibre.nativeffi.MapSnapshot
+import org.maplibre.nativeffi.MapView
 import org.maplibre.spatialk.geojson.Position
 
 /** Main-thread snapshot cache, with a separate projection borrow for presented frames. */
@@ -50,7 +49,7 @@ internal class NativeViewport {
   private val projection: MapProjectionHandle?
     get() =
       cachedProjection
-        ?: snapshot?.view?.let(GeneratedApi::mapProjectionCreate)?.also { cachedProjection = it }
+        ?: snapshot?.view?.let(MapProjectionHandle::create)?.also { cachedProjection = it }
 
   private var extents: MapViewportExtents? = null
   private var cachedViewport: Viewport? = null
@@ -115,7 +114,7 @@ internal class NativeViewport {
   fun captureFrameProjection(
     view: MapView,
     extent: MapExtent,
-  ): MlnFfiMapFrameProjection = FrameProjection(extent, GeneratedApi.mapProjectionCreate(view))
+  ): MlnFfiMapFrameProjection = FrameProjection(extent, MapProjectionHandle.create(view))
 
   fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
     val padding = renderedCameraPadding

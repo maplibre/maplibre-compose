@@ -12,7 +12,7 @@ import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 import java.util.concurrent.CountDownLatch
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.nativeffi.generated.NetworkStatus
+import org.maplibre.nativeffi.NetworkStatus
 
 /** Network.framework's path monitor, using the same C API as the Kotlin/Native Apple targets. */
 internal class MacosNetworkMonitor(private val onStatus: (NetworkStatus) -> Unit) : AutoCloseable {

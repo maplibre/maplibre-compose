@@ -78,7 +78,7 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.loadNativeLibrary
 
 /**
  * Owns an EGL pbuffer and share context. Displays are shared with other maps and host libraries.
@@ -471,13 +471,13 @@ private constructor(
 }
 
 /** Loads one ANGLE instance from the Compose runtime artifact for EGL and GLES. */
-private object MacAngleLibraries {
+internal object MacAngleLibraries {
   private var loaded = false
 
   @Synchronized
   fun load() {
     if (loaded) return
-    Maplibre.loadNativeLibrary()
+    loadNativeLibrary()
     val root = Files.createTempDirectory("maplibre-compose-angle-")
     root.toFile().deleteOnExit()
     for (name in listOf("libGLESv2.dylib", "libEGL.dylib")) {

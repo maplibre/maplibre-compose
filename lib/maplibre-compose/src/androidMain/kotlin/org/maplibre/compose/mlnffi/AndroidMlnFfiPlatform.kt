@@ -1,7 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import android.content.Context
-import org.maplibre.nativeffi.MaplibreAndroid
+import org.maplibre.nativeffi.initAndroid
 
 /** Process-wide Android services required by the FFI runtime and packaged resource reader. */
 internal object AndroidMlnFfiPlatform {
@@ -16,7 +16,7 @@ internal object AndroidMlnFfiPlatform {
     if (initialized) return
     synchronized(this) {
       if (initialized) return
-      MaplibreAndroid.initialize(applicationContext)
+      initAndroid(applicationContext)
       initialized = true
     }
   }

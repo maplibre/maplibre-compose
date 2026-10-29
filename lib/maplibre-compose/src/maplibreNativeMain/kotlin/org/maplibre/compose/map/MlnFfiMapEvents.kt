@@ -1,12 +1,12 @@
 package org.maplibre.compose.map
 
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.nativeffi.generated.CameraChangeMode
-import org.maplibre.nativeffi.generated.RenderMode
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventPayload
-import org.maplibre.nativeffi.generated.RuntimeEventRenderFrame
-import org.maplibre.nativeffi.generated.RuntimeEventType
+import org.maplibre.nativeffi.CameraChangeMode
+import org.maplibre.nativeffi.RenderMode
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventPayload
+import org.maplibre.nativeffi.RuntimeEventRenderFrame
+import org.maplibre.nativeffi.RuntimeEventType
 
 /** Null for an event type that has no counterpart in the common catalog. */
 internal fun RuntimeEvent.toMapEvent(): MapEvent? =
@@ -28,7 +28,7 @@ internal fun RuntimeEvent.styleLoadFailureReason(): String = message.ifBlank {
 }
 
 private fun RuntimeEvent.isAnimatedChange(): Boolean =
-  CameraChangeMode(code.toUInt()) == CameraChangeMode.ANIMATED
+  CameraChangeMode(code) == CameraChangeMode.ANIMATED
 
 private fun RuntimeEventRenderFrame.toRenderStats(): RenderStats =
   RenderStats(

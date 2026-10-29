@@ -24,11 +24,11 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.compose.util.throwCleanupFailures
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventHandler
-import org.maplibre.nativeffi.generated.RuntimeEventSourceType
-import org.maplibre.nativeffi.generated.RuntimeHandle
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventHandler
+import org.maplibre.nativeffi.RuntimeEventSourceType
+import org.maplibre.nativeffi.RuntimeHandle
 
 /** One native runtime whose events and map callbacks run on main. */
 internal class MlnFfiRuntime(
@@ -116,7 +116,7 @@ internal class MlnFfiRuntime(
               resourceConfig,
               eventHandler =
                 RuntimeEventHandler { batch ->
-                  postToMain { batch.events.forEach(::dispatch) }
+                  postToMain { batch.forEach(::dispatch) }
                 },
             )
           } catch (error: Throwable) {

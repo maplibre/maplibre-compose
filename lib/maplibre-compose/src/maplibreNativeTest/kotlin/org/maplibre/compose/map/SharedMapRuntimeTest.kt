@@ -33,7 +33,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.spatialk.geojson.BoundingBox
 
 class SharedMapRuntimeTest {
@@ -41,7 +40,7 @@ class SharedMapRuntimeTest {
   fun live_maps_animate_alongside_snapshots_and_offline_downloads_and_close_independently():
     MapTestResult = runMapTest {
     FfiTestPlatform.initialize()
-    skipUnlessSnapshotsAvailable()
+
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       createNativeMapRuntime(

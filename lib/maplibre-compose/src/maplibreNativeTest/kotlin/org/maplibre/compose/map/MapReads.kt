@@ -6,25 +6,25 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.maplibre.nativeffi.generated.BoundOptions
-import org.maplibre.nativeffi.generated.CameraOptions
-import org.maplibre.nativeffi.generated.ImageStretch
-import org.maplibre.nativeffi.generated.LatLng
-import org.maplibre.nativeffi.generated.LogicalExtent
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MapSnapshot
-import org.maplibre.nativeffi.generated.MapTileOptions
-import org.maplibre.nativeffi.generated.ProjectionMode
-import org.maplibre.nativeffi.generated.StyleImageInfo
-import org.maplibre.nativeffi.generated.StyleLayerInfo
-import org.maplibre.nativeffi.generated.StyleLayerVisibility
-import org.maplibre.nativeffi.generated.StyleSourceInfo
+import org.maplibre.nativeffi.BoundOptions
+import org.maplibre.nativeffi.Camera
+import org.maplibre.nativeffi.ImageStretch
+import org.maplibre.nativeffi.LatLng
+import org.maplibre.nativeffi.LogicalExtent
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapSnapshot
+import org.maplibre.nativeffi.MapTileOptions
+import org.maplibre.nativeffi.ProjectionMode
+import org.maplibre.nativeffi.StyleImageInfo
+import org.maplibre.nativeffi.StyleLayerInfo
+import org.maplibre.nativeffi.StyleLayerVisibility
+import org.maplibre.nativeffi.StyleSourceInfo
 
 // Reads of a map's state for tests. An ordered query observes every command submitted before it;
 // a snapshot field shows the state published by the latest command that ran.
 
 /** The camera after every command submitted before this read. */
-internal suspend fun MapHandle.camera(): CameraOptions = getCamera().await().camera
+internal suspend fun MapHandle.camera(): Camera = getCamera().await().camera
 
 /** The snapshot published once every command submitted before this read has run. */
 internal suspend fun MapHandle.snapshotAfterCommands(): MapSnapshot {
@@ -55,10 +55,10 @@ internal suspend fun MapHandle.styleLayer(layerId: String): StyleLayerInfo? =
 internal suspend fun MapHandle.styleLayerExists(layerId: String): Boolean =
   styleLayer(layerId) != null
 
-internal suspend fun MapHandle.layerProperty(layerId: String, name: String): ByteArray? =
+internal suspend fun MapHandle.layerProperty(layerId: String, name: String): String? =
   getStyleLayerProperty(layerId, name).await()
 
-internal suspend fun MapHandle.layerFilter(layerId: String): ByteArray? =
+internal suspend fun MapHandle.layerFilter(layerId: String): String? =
   getStyleLayerProperty(layerId, "filter").await()
 
 internal suspend fun MapHandle.layerMinZoom(layerId: String): Double =
@@ -93,7 +93,7 @@ internal suspend fun MapHandle.styleImageStretches(
 internal suspend fun MapHandle.imageSourceCoordinates(sourceId: String): List<LatLng> =
   getImageSourceCoordinates(sourceId).await()
 
-internal suspend fun MapHandle.loadedStyleJson(): ByteArray = getLoadedStyleJson().await()
+internal suspend fun MapHandle.loadedStyleJson(): String = getLoadedStyleJson().await()
 
 /**
  * Runs [action] with this session's map, or returns null when the map does not exist. Tests only;

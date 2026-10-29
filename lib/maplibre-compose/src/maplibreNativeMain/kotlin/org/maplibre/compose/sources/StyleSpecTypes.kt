@@ -1,8 +1,8 @@
 package org.maplibre.compose.sources
 
-import org.maplibre.nativeffi.generated.StyleRasterDemEncoding as FfiRasterDemEncoding
-import org.maplibre.nativeffi.generated.StyleSourceType as SourceType
-import org.maplibre.nativeffi.generated.StyleVectorTileEncoding as VectorTileEncoding
+import org.maplibre.nativeffi.StyleRasterDemEncoding as FfiRasterDemEncoding
+import org.maplibre.nativeffi.StyleSourceType as SourceType
+import org.maplibre.nativeffi.StyleVectorTileEncoding as VectorTileEncoding
 
 /**
  * The style spec name, or null for custom-vector or unknown source types. [SourceType.toString]
@@ -14,7 +14,7 @@ internal fun SourceType.toStyleSpecType(): String? =
     SourceType.VECTOR -> "vector"
     SourceType.RASTER -> "raster"
     SourceType.RASTER_DEM -> "raster-dem"
-    SourceType.GEOJSON -> "geojson"
+    SourceType.GEO_JSON -> "geojson"
     SourceType.IMAGE -> "image"
     SourceType.VIDEO -> "video"
     else -> null

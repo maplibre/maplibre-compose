@@ -10,9 +10,9 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.RenderBackendFlag
+import org.maplibre.nativeffi.RenderBackendFlag
+import org.maplibre.nativeffi.loadNativeLibrary
+import org.maplibre.nativeffi.supportedRenderBackendMask
 
 /** Test tag for the color shown until the first style has loaded. */
 internal const val MapLoadPlaceholderTag = "maplibre-map-load-placeholder"
@@ -77,15 +77,16 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
 /** The backends of the packaged MapLibre Native FFI runtime, or the error that loading it threw. */
 internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
   try {
-    Maplibre.loadNativeLibrary()
-    val supported = GeneratedApi.supportedRenderBackendMask()
+    loadNativeLibrary()
+    val supported = supportedRenderBackendMask()
     Result.success(
       buildSet {
-        if (RenderBackendFlag.METAL in supported) add(MapRenderBackend.Metal)
-        if (RenderBackendFlag.VULKAN in supported) add(MapRenderBackend.Vulkan)
-        if (RenderBackendFlag.OPENGL in supported) add(MapRenderBackend.OpenGl)
-        // WebGPU is currently supported only by the browser FFI runtime, which no host here uses.
-      },
+          if (RenderBackendFlag.METAL in supported) add(MapRenderBackend.Metal)
+          if (RenderBackendFlag.VULKAN in supported) add(MapRenderBackend.Vulkan)
+          if (RenderBackendFlag.OPEN_GL in supported) add(MapRenderBackend.OpenGl)
+          // WebGPU is currently supported only by the browser FFI runtime, which no host here uses.
+        }
+        .also(::initializePlatformGraphics),
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)

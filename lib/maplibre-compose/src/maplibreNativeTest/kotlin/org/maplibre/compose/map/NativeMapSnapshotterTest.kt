@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -28,7 +27,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.compose.testing.skipUnlessSnapshotsAvailable
 import org.maplibre.compose.testing.withTestMapRuntime
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
@@ -39,11 +37,6 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class NativeMapSnapshotterTest {
-  @BeforeTest
-  fun requireSnapshots() {
-    skipUnlessSnapshotsAvailable()
-  }
-
   @Test
   fun snapshotter_rejects_a_runtime_without_an_offscreen_backend() {
     assertFailsWith<MapSnapshotException> {

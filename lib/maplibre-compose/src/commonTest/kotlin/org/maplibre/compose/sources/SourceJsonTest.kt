@@ -96,12 +96,12 @@ class SourceJsonTest {
   @Test
   fun inline_utf8_keeps_a_json_string_verbatim() {
     val json = """{"type":"Point","coordinates":[1,2]}"""
-    assertEquals(json, GeoJsonData.JsonString(json).toInlineUtf8()!!.decodeToString())
+    assertEquals(json, GeoJsonData.JsonString(json).toInlineJson())
   }
 
   @Test
   fun a_uri_has_no_inline_utf8() {
-    assertNull(GeoJsonData.Uri("https://example.invalid/data.geojson").toInlineUtf8())
+    assertNull(GeoJsonData.Uri("https://example.invalid/data.geojson").toInlineJson())
   }
 
   @Test

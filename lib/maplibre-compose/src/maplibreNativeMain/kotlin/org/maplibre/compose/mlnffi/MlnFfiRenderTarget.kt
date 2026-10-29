@@ -3,8 +3,8 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.nativeffi.generated.OpenglClientApi
-import org.maplibre.nativeffi.generated.OpenglContextOwnership
+import org.maplibre.nativeffi.OpenGlClientApi
+import org.maplibre.nativeffi.OpenGlContextOwnership
 
 /**
  * A borrowed pointer address or 64-bit Vulkan handle. The host owns the resource; MapLibre Compose
@@ -146,7 +146,7 @@ internal data class EglContextHandles(
   val config: NativeHandle,
   /**
    * `EGLContext` whose share group the session joins. Unused when [ownership] is
-   * [OpenglContextOwnership.DEDICATED], where the session creates a context of its own.
+   * [OpenGlContextOwnership.DEDICATED], where the session creates a context of its own.
    */
   val shareContext: NativeHandle,
   /** `eglGetProcAddress`. */
@@ -155,12 +155,12 @@ internal data class EglContextHandles(
    * Whether the session shares this thread with host graphics work. A dedicated session owns the
    * thread's context, which is the mode an Android surface host uses.
    */
-  val ownership: OpenglContextOwnership = OpenglContextOwnership.SHARED,
+  val ownership: OpenGlContextOwnership = OpenGlContextOwnership.SHARED,
   /**
    * Client API a dedicated session creates its context for. Ignored under shared ownership, where
    * the session reads it from [shareContext].
    */
-  val clientApi: OpenglClientApi = OpenglClientApi.UNSPECIFIED,
+  val clientApi: OpenGlClientApi = OpenGlClientApi.UNSPECIFIED,
 ) : OpenGlContextHandles
 
 /** WGL context handles, used by WGL hosts. */
@@ -172,7 +172,7 @@ internal data class WglContextHandles(
   val shareContext: NativeHandle,
   /** `wglGetProcAddress`. */
   val getProcAddress: NativeHandle,
-  val ownership: OpenglContextOwnership = OpenglContextOwnership.SHARED,
+  val ownership: OpenGlContextOwnership = OpenGlContextOwnership.SHARED,
 ) : OpenGlContextHandles
 
 /**

@@ -7,10 +7,10 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toPosition
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.MapProjectionHandle
-import org.maplibre.nativeffi.generated.MapSnapshot
-import org.maplibre.nativeffi.generated.ScreenPoint
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.MapProjectionHandle
+import org.maplibre.nativeffi.MapSnapshot
+import org.maplibre.nativeffi.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
 /** The applied camera and the size it renders at, read from one map transform. */
@@ -24,7 +24,7 @@ internal data class MapViewportGeometry(
 internal fun MapSnapshot.viewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry =
   MapViewportGeometry(
     camera = view.camera.toCameraPosition(viewportInsets),
-    padding = view.camera.padding ?: EdgeInsets(),
+    padding = view.camera.padding,
     size = DpSize(view.extent.width.toInt().dp, view.extent.height.toInt().dp),
   )
 

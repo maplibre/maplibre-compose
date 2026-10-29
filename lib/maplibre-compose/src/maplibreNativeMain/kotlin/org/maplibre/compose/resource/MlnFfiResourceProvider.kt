@@ -18,17 +18,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
-import org.maplibre.nativeffi.generated.ResourceErrorReason
-import org.maplibre.nativeffi.generated.ResourceLoadingMethod
-import org.maplibre.nativeffi.generated.ResourcePriority
-import org.maplibre.nativeffi.generated.ResourceProviderDecision
-import org.maplibre.nativeffi.generated.ResourceRequestCancelHandler
-import org.maplibre.nativeffi.generated.ResourceRequestHandle
-import org.maplibre.nativeffi.generated.ResourceRequestInfo
-import org.maplibre.nativeffi.generated.ResourceResponse
-import org.maplibre.nativeffi.generated.ResourceResponseStatus
-import org.maplibre.nativeffi.generated.ResourceStoragePolicy
-import org.maplibre.nativeffi.generated.ResourceUsage
+import org.maplibre.nativeffi.ResourceErrorReason
+import org.maplibre.nativeffi.ResourceLoadingMethod
+import org.maplibre.nativeffi.ResourcePriority
+import org.maplibre.nativeffi.ResourceRequestCancelHandler
+import org.maplibre.nativeffi.ResourceRequestHandle
+import org.maplibre.nativeffi.ResourceRequestInfo
+import org.maplibre.nativeffi.ResourceResponse
+import org.maplibre.nativeffi.ResourceResponseStatus
+import org.maplibre.nativeffi.ResourceStoragePolicy
+import org.maplibre.nativeffi.ResourceUsage
 
 /**
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
@@ -86,16 +85,14 @@ internal class MlnFfiResourceProvider(
   fun handle(
     request: ResourceRequestInfo,
     handle: ResourceRequestHandle,
-  ): ResourceProviderDecision {
-    return when (val route = config.nativeRoute(request)) {
+  ) {
+    when (val route = config.nativeRoute(request)) {
       is NativeResourceRoute.Load -> {
         takeUser(FfiResourceRequest(handle), route.request, route.provider)
-        ResourceProviderDecision.HANDLE
       }
-      NativeResourceRoute.Fetch -> ResourceProviderDecision.PASS_THROUGH
+      NativeResourceRoute.Fetch -> handle.passThrough()
       is NativeResourceRoute.Read -> {
-        take(FfiResourceRequest(handle), route.url, request.requestedUrl ?: route.url)
-        ResourceProviderDecision.HANDLE
+        take(FfiResourceRequest(handle), route.url, request.requestedUrl.ifEmpty { route.url })
       }
     }
   }
@@ -374,13 +371,13 @@ internal fun ResourceRequestInfo.toLoadRequest(
   MapResourceLoadRequest(
     url = url,
     kind = kind.toCommon(),
-    requestedUrl = requestedUrl ?: url,
+    requestedUrl = requestedUrl.ifEmpty { url },
     loadingMethod = loadingMethod.toCommon(),
     priority = priority.toCommon(),
     usage = usage.toCommon(),
     storagePolicy = storagePolicy.toCommon(),
     range = range?.let { it.start.toLong()..it.end.toLong() },
-    priorEtag = priorEtag,
+    priorEtag = priorEtag.takeIf { it.isNotEmpty() },
     priorModified = priorModifiedUnixMs?.let(Instant::fromEpochMilliseconds),
     priorExpires = priorExpiresUnixMs?.let(Instant::fromEpochMilliseconds),
     priorData = priorData.takeIf { it.isNotEmpty() },
@@ -394,7 +391,7 @@ internal fun MapResourceLoad.toResourceResponse(): ResourceResponse {
         ResourceResponse(
           ResourceResponseStatus.OK,
           bytes = bytes,
-          etag = etag,
+          etag = etag.orEmpty(),
           mustRevalidate = mustRevalidate,
         )
       is MapResourceLoad.NoContent -> ResourceResponse(ResourceResponseStatus.NO_CONTENT)

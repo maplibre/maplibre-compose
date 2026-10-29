@@ -3,12 +3,11 @@ package org.maplibre.compose.offline
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toLatLngBounds
-import org.maplibre.nativeffi.generated.OfflineGeometryRegionDefinition
-import org.maplibre.nativeffi.generated.OfflineRegionDefinition as FfiRegionDefinition
-import org.maplibre.nativeffi.generated.OfflineRegionDefinitionData
-import org.maplibre.nativeffi.generated.OfflineRegionDownloadState
-import org.maplibre.nativeffi.generated.OfflineRegionStatus
-import org.maplibre.nativeffi.generated.OfflineTilePyramidRegionDefinition
+import org.maplibre.nativeffi.OfflineGeometryRegionDefinition
+import org.maplibre.nativeffi.OfflineRegionDefinition as FfiRegionDefinition
+import org.maplibre.nativeffi.OfflineRegionDownloadState
+import org.maplibre.nativeffi.OfflineRegionStatus
+import org.maplibre.nativeffi.OfflineTilePyramidRegionDefinition
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.toJson
@@ -25,29 +24,25 @@ private const val IncludeIdeographs = true
 internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition =
   when (this) {
     is OfflinePackDefinition.TilePyramid ->
-      FfiRegionDefinition(
-        OfflineRegionDefinitionData.TilePyramid(
-          OfflineTilePyramidRegionDefinition(
-            styleUrl = styleUrl,
-            bounds = bounds.toLatLngBounds(),
-            minZoom = minZoom,
-            maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-            pixelRatio = pixelRatio,
-            includeIdeographs = IncludeIdeographs,
-          ),
+      FfiRegionDefinition.TilePyramid(
+        OfflineTilePyramidRegionDefinition(
+          styleUrl = styleUrl,
+          bounds = bounds.toLatLngBounds(),
+          minZoom = minZoom,
+          maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
+          pixelRatio = pixelRatio,
+          includeIdeographs = IncludeIdeographs,
         ),
       )
     is OfflinePackDefinition.Shape ->
-      FfiRegionDefinition(
-        OfflineRegionDefinitionData.Geometry(
-          OfflineGeometryRegionDefinition(
-            styleUrl = styleUrl,
-            geometry = shape.toJson().encodeToByteArray(),
-            minZoom = minZoom,
-            maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
-            pixelRatio = pixelRatio,
-            includeIdeographs = IncludeIdeographs,
-          ),
+      FfiRegionDefinition.Geometry(
+        OfflineGeometryRegionDefinition(
+          styleUrl = styleUrl,
+          geometry = shape.toJson(),
+          minZoom = minZoom,
+          maxZoom = maxZoom ?: Double.POSITIVE_INFINITY,
+          pixelRatio = pixelRatio,
+          includeIdeographs = IncludeIdeographs,
         ),
       )
     is UnspecifiedOfflinePackDefinition ->
@@ -60,8 +55,8 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
  * [OfflinePackDefinition].
  */
 internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): OfflinePackDefinition? =
-  when (val definition = data) {
-    is OfflineRegionDefinitionData.TilePyramid ->
+  when (val definition = this) {
+    is FfiRegionDefinition.TilePyramid ->
       with(definition.value) {
         OfflinePackDefinition.TilePyramid(
           styleUrl = styleUrl,
@@ -72,7 +67,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): Offli
           maxZoom = maxZoom.takeIf { it.isFinite() },
         )
       }
-    is OfflineRegionDefinitionData.Geometry ->
+    is FfiRegionDefinition.Geometry ->
       with(definition.value) {
         OfflinePackDefinition.Shape(
           styleUrl = styleUrl,
@@ -107,8 +102,8 @@ internal fun OfflineRegionStatus.toDownloadProgress(): DownloadProgress =
     requiredResourceCount = requiredResourceCount.toLong(),
   )
 
-private fun ByteArray.toGeoJsonGeometry(logger: MapLog?): Geometry = runCatching {
-  Geometry.fromJson(decodeToString())
+private fun String.toGeoJsonGeometry(logger: MapLog?): Geometry = runCatching {
+  Geometry.fromJson(this)
 }
   .getOrElse {
     // An unreadable shape has no GeoJSON spelling; an empty collection keeps the pack listed and

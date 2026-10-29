@@ -12,8 +12,9 @@ import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.ClusterIdProperty
-import org.maplibre.nativeffi.generated.QueriedFeature
-import org.maplibre.nativeffi.generated.RenderedFeatureQueryOptions
+import org.maplibre.nativeffi.RenderedFeature
+import org.maplibre.nativeffi.RenderedFeatureQueryOptions
+import org.maplibre.nativeffi.SourceFeature
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry as GeoJsonGeometry
 
@@ -24,12 +25,12 @@ internal fun renderedQueryOptions(
   if (layerIds == null && predicate == null) return null
   return RenderedFeatureQueryOptions(
     layerIds = layerIds?.toList(),
-    filter = predicate?.toStyleJson()?.toJsonBytes(),
+    filter = predicate?.toStyleJson()?.toString().orEmpty(),
   )
 }
 
-/** Decodes each hit's GeoJSON Feature. Source ids and feature state stay on [QueriedFeature]. */
-internal suspend fun List<QueriedFeature>.toGeoJsonFeatures():
+/** Decodes each hit's GeoJSON Feature. Source ids and feature state stay on [RenderedFeature]. */
+internal suspend fun List<RenderedFeature>.toGeoJsonFeatures():
   List<Feature<GeoJsonGeometry, JsonObject?>> {
   val context = currentCoroutineContext()
   return mapNotNull {
@@ -38,8 +39,19 @@ internal suspend fun List<QueriedFeature>.toGeoJsonFeatures():
   }
 }
 
-internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?>? =
-  Feature.fromJsonOrNull<GeoJsonGeometry, JsonObject?>(feature.decodeToString())
+internal fun RenderedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?>? =
+  Feature.fromJsonOrNull<GeoJsonGeometry, JsonObject?>(feature)
+
+/** Decodes source-query hits independently of rendered-layer metadata. */
+@kotlin.jvm.JvmName("sourceFeaturesToGeoJson")
+internal suspend fun List<SourceFeature>.toGeoJsonFeatures():
+  List<Feature<GeoJsonGeometry, JsonObject?>> {
+  val context = currentCoroutineContext()
+  return mapNotNull {
+    context.ensureActive()
+    Feature.fromJsonOrNull<GeoJsonGeometry, JsonObject?>(it.feature)
+  }
+}
 
 /**
  * Converts a queried cluster feature back into the GeoJSON `queryFeatureExtension` takes, keeping
@@ -49,7 +61,7 @@ internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObj
  *
  * Returns null when there is no usable cluster id.
  */
-internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
+internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): String? {
   val clusterId = (properties?.get(ClusterIdProperty) as? JsonPrimitive)?.toUnsignedOrNull()
   if (clusterId == null) return null
 
@@ -67,7 +79,7 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
       }
     }
   }
-  return feature.toJsonBytes()
+  return feature.toString()
 }
 
 /**

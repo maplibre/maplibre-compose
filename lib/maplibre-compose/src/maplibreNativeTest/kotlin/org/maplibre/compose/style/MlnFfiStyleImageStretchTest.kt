@@ -11,8 +11,8 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.PreparedImage
-import org.maplibre.nativeffi.generated.ImageContent
-import org.maplibre.nativeffi.generated.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.ImageContent
+import org.maplibre.nativeffi.ImageStretch as FfiImageStretch
 
 /** Stretch metadata survives the trip into MapLibre as intervals in image pixels. */
 class MlnFfiStyleImageStretchTest {

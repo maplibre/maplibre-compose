@@ -6,9 +6,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
-import org.maplibre.nativeffi.generated.AnimationOptions
-import org.maplibre.nativeffi.generated.CameraTransitionHandler
-import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.AnimationOptions
+import org.maplibre.nativeffi.CameraTransitionHandler
+import org.maplibre.nativeffi.MapHandle
 
 /**
  * Starts camera transitions that resume their caller when native reports their end, and keeps the

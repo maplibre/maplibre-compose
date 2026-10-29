@@ -6,14 +6,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.mlnffi.CommandFailedException
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
-import org.maplibre.compose.mlnffi.failed
 import org.maplibre.compose.mlnffi.use
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
@@ -25,27 +21,26 @@ import org.maplibre.compose.style.UnspecifiedBaseStyle
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.unpremultiplyChannel
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.generated.CameraUpdate
-import org.maplibre.nativeffi.generated.EdgeInsets
-import org.maplibre.nativeffi.generated.FrameDemand
-import org.maplibre.nativeffi.generated.FrameDemandFlag
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.LogicalExtent
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MapMode
-import org.maplibre.nativeffi.generated.RenderDriverKind
-import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
-import org.maplibre.nativeffi.generated.RenderSessionAttachment
-import org.maplibre.nativeffi.generated.RenderSessionHandle
-import org.maplibre.nativeffi.generated.RuntimeEvent
-import org.maplibre.nativeffi.generated.RuntimeEventMask
-import org.maplibre.nativeffi.generated.RuntimeEventType
-import org.maplibre.nativeffi.generated.TextureReadbackResult
-import org.maplibre.nativeffi.generated.Wake
+import org.maplibre.nativeffi.CameraUpdate
+import org.maplibre.nativeffi.EdgeInsets
+import org.maplibre.nativeffi.GraphicsDeviceHandle
+import org.maplibre.nativeffi.GraphicsDeviceTextureDescriptor
+import org.maplibre.nativeffi.LogicalExtent
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapMode
+import org.maplibre.nativeffi.MapOptions
+import org.maplibre.nativeffi.MapProjectionHandle
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.RenderDriverKind
+import org.maplibre.nativeffi.RenderSessionAttachOptions
+import org.maplibre.nativeffi.RenderSessionHandle
+import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventFlag
+import org.maplibre.nativeffi.RuntimeEventType
+import org.maplibre.nativeffi.TextureReadbackResult
 
 private val SnapshotEvents =
-  RuntimeEventMask.MAP_STYLE_LOADED or RuntimeEventMask.MAP_LOADING_FAILED
+  RuntimeEventFlag.MAP_STYLE_LOADED or RuntimeEventFlag.MAP_LOADING_FAILED
 
 internal fun createNativeSnapshotterAdapter(owner: MlnFfiRuntime): SnapshotterAdapter =
   createNativeSnapshotterAdapter(owner, tryLoadRuntimeBackends())
@@ -57,13 +52,9 @@ internal fun createNativeSnapshotterAdapter(
   val available = backends.getOrElse { error ->
     throw MapSnapshotException("Could not load the MapLibre Native FFI runtime", error)
   }
-  val targetPlan =
-    NativeSnapshotRenderTarget.select(available)
-      ?: throw MapSnapshotException(
-        "No compatible offscreen snapshot backend is available from " +
-          available.joinToString().ifEmpty { "none" },
-      )
-  return NativeSnapshotterAdapter(owner, targetPlan)
+  if (available.isEmpty())
+    throw MapSnapshotException("No MapLibre Native render backend is available")
+  return NativeSnapshotterAdapter(owner)
 }
 
 /**
@@ -72,7 +63,6 @@ internal fun createNativeSnapshotterAdapter(
  */
 private class NativeSnapshotterAdapter(
   private val owner: MlnFfiRuntime,
-  private val targetPlan: NativeSnapshotRenderTargetPlan,
 ) : SnapshotterAdapter {
   @Volatile private var open = true
   @Volatile private var engine: NativeSnapshotEngine? = null
@@ -127,14 +117,10 @@ private class NativeSnapshotterAdapter(
     val current = checkNotNull(engine) { "The snapshotter engine map is closed" }
     configureRequest(current, request)
     try {
-      renderStillImage(current)
-      // End the waiting demand and queue readback after it on the same session.
-      val barrier = current.session.barrier()
-      val readback = current.session.readTexture()
-      barrier.await()
-      current.session.drainFrameResults()?.use { it.get() }
+      current.map.requestStillImage().await()
+      current.session.drainFrameResults()
       providerFailure?.let { throw it }
-      val pixels = readback.await()
+      val pixels = current.session.readTexture().await()
       // Conversion visits every pixel, so it stays off main.
       return withContext(Dispatchers.Default) { readImage(pixels, request) }
     } catch (error: Throwable) {
@@ -148,10 +134,7 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  /**
-   * A cancelled capture leaves its still image pending with nobody demanding frames, so the engine
-   * is released rather than drained.
-   */
+  /** A cancelled capture leaves a still image pending, so release its private map. */
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
     val current = engine ?: return SnapshotterEngineDisposition.Retained
     if (!current.replace) return SnapshotterEngineDisposition.Retained
@@ -194,7 +177,7 @@ private class NativeSnapshotterAdapter(
       releaseEngine(failures)
       failures.cleanupResult("Native snapshotter").getOrThrow()
     }
-    return NativeSnapshotEngine.create(owner, targetPlan, extent).also { engine = it }
+    return NativeSnapshotEngine.create(owner, extent).also { engine = it }
   }
 
   /** Applies the request's size, then its camera, and waits until the map has both. */
@@ -211,11 +194,9 @@ private class NativeSnapshotterAdapter(
       current.extent = extent
       current.session.discarding.resize(extent.toFfiExtent())
     }
-    val moved =
-      current.map
-        .updateCamera(CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets())))
-        .await()
-    if (moved.failed) throw CommandFailedException(moved)
+    current.map
+      .updateCamera(CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets())))
+      .await()
   }
 
   private suspend fun loadStyle(current: NativeSnapshotEngine, baseStyle: BaseStyle) {
@@ -227,52 +208,22 @@ private class NativeSnapshotterAdapter(
       try {
         when (baseStyle) {
           is BaseStyle.Uri -> current.map.setStyleUrl(baseStyle.uri)
-          is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json.encodeToByteArray())
+          is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json)
           UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
         }
       } catch (error: MaplibreException) {
         current.endStyleLoad(load)
         throw IllegalStateException(error.message ?: "MapLibre snapshot capture failed", error)
       }
-    val completion = submitted.await()
-    if (completion.failed) {
+    try {
+      submitted.await()
+    } catch (error: Throwable) {
       current.endStyleLoad(load)
-      throw IllegalStateException(
-        completion.diagnostic.ifBlank { "MapLibre could not load the style" },
-      )
+      throw error
     }
     load.result.await().getOrThrow()
     styleBinding?.invalidate()
     styleBinding = createStyleBinding(current)
-  }
-
-  /**
-   * Renders one still image: native completes the request with the first fully loaded frame of its
-   * update, and the session renders a frame for each update while a demand waits for one.
-   */
-  private suspend fun renderStillImage(current: NativeSnapshotEngine) {
-    val image = current.map.requestStillImage()
-    var token = 0uL
-    while (!image.isCompleted) {
-      val demand = ++token
-      try {
-        current.session.requestFrame(
-          FrameDemand(
-            flags = FrameDemandFlag.IF_NEEDED or FrameDemandFlag.WAIT_FOR_UPDATE,
-            token = demand,
-          ),
-        )
-      } catch (error: MaplibreException) {
-        if (image.isCompleted) break
-        throw error
-      }
-      select {
-        image.onAwait {}
-        current.frameResults.onReceive {}
-      }
-      current.session.drainFrameResults()?.use { it.get() }
-    }
-    image.await()
   }
 
   private suspend fun readViewport(
@@ -283,7 +234,7 @@ private class NativeSnapshotterAdapter(
     // A snapshot is read once and never republished, so its extents are read with its camera.
     val geometry = current.map.getSnapshot().viewportGeometry(EdgeInsets())
     val (extents, metersPerDpAtCenter) =
-      GeneratedApi.mapProjectionCreate(current.map.getSnapshot().view).use { projection ->
+      MapProjectionHandle.create(current.map.getSnapshot().view).use { projection ->
         MapViewportExtents(unprojectedCorners(projection, geometry.size)) to
           projection.metersPerPixelAtLatitude(geometry.camera.center.latitude.coerceIn(-90.0, 90.0))
       }
@@ -373,16 +324,12 @@ private class NativeSnapshotEngine
 private constructor(
   private val owner: MlnFfiRuntime,
   val map: MapHandle,
-  private val target: NativeSnapshotRenderTarget,
   val scaleFactor: Double,
   /** The extent the session last sized its target to. */
   @Volatile var extent: MapExtent,
 ) : MlnFfiRuntime.MapChild {
   lateinit var session: RenderSessionHandle
     private set
-
-  /** Signalled by the session's frame wake. */
-  val frameResults = Channel<Unit>(Channel.CONFLATED)
 
   @Volatile private var styleLoad: StyleLoad? = null
   @Volatile
@@ -434,73 +381,39 @@ private constructor(
       val failures = mutableListOf<Throwable>()
       styleLoad?.result?.complete(Result.failure(snapshotterClosedCancellation()))
       if (::session.isInitialized) {
-        runCatching {
-            try {
-              session.detach().await()
-            } catch (error: Throwable) {
-              session.abandon()
-              throw error
-            } finally {
-              session.close()
-            }
-          }
-          .exceptionOrNull()
-          ?.let(failures::add)
+        runCatching { session.release().await() }.exceptionOrNull()?.let(failures::add)
       }
       owner.unregister(map)
       runCatching { map.release().await() }.exceptionOrNull()?.let(failures::add)
-      runCatching { target.close() }.exceptionOrNull()?.let(failures::add)
       failures.cleanupResult("Native snapshotter").getOrThrow()
     }
 
   companion object {
     suspend fun create(
       owner: MlnFfiRuntime,
-      plan: NativeSnapshotRenderTargetPlan,
       extent: MapExtent,
     ): NativeSnapshotEngine {
       val runtime = owner.awaitRuntime()
-      val creating =
+      val (map, ready) =
         runtime.createMap(
-          GeneratedApi.mapOptionsDefault()
-            .copy(
-              initialExtent = extent.toFfiExtent(),
-              mapMode = MapMode.STATIC,
-              eventMask = SnapshotEvents,
-            ),
+          MapOptions(
+            initialExtent = extent.toFfiExtent(),
+            mapMode = MapMode.STATIC,
+            eventMask = SnapshotEvents,
+          ),
         )
-      val map =
-        try {
-          creating.await()
-        } catch (error: CancellationException) {
-          // Native still creates the map. Release it before the capture ends, so the next one
-          // starts after this one's cleanup.
-          withContext(NonCancellable) {
-            runCatching { creating.await().release().await() }
-              .exceptionOrNull()
-              ?.let(error::addSuppressed)
-          }
-          throw error
-        }
-      val target =
-        try {
-          plan.create()
-        } catch (error: Throwable) {
-          runCatching { map.release().await() }.exceptionOrNull()?.let(error::addSuppressed)
-          throw error
-        }
-      val engine = NativeSnapshotEngine(owner, map, target, extent.scaleFactor, extent)
+      val engine = NativeSnapshotEngine(owner, map, extent.scaleFactor, extent)
       try {
         check(owner.register(map, engine)) { "The map runtime is closed" }
-        val attachment: RenderSessionAttachment =
-          target.attach(
-            map,
-            extent,
-            RenderSessionAttachOptions(
-              driver = RenderDriverKind.CORE_WORKER,
-              frameWake = Wake { engine.frameResults.trySend(Unit) },
-            ),
-          )
+        ready.await()
+        val attachment =
+          GraphicsDeviceHandle.create().use { device ->
+            map.attachGraphicsDeviceTexture(
+              device,
+              GraphicsDeviceTextureDescriptor(extent.toFfiExtent()),
+              RenderSessionAttachOptions(driver = RenderDriverKind.CORE_WORKER),
+            )
+          }
         engine.session = attachment.session
         attachment.ready.await()
         return engine
@@ -519,25 +432,3 @@ internal fun MapExtent.toFfiExtent() =
     height = height.coerceAtLeast(1).toUInt(),
     scaleFactor = scaleFactor,
   )
-
-internal fun interface NativeSnapshotRenderTargetPlan {
-  fun create(): NativeSnapshotRenderTarget
-}
-
-/**
- * An offscreen texture that a snapshot's render session owns. Each platform supplies the graphics
- * context the session needs; the session renders and reads back on its own core worker.
- */
-internal expect class NativeSnapshotRenderTarget : AutoCloseable {
-  fun attach(
-    map: MapHandle,
-    extent: MapExtent,
-    options: RenderSessionAttachOptions,
-  ): RenderSessionAttachment
-
-  override fun close()
-
-  companion object {
-    fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan?
-  }
-}

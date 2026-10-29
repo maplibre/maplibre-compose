@@ -24,44 +24,35 @@ import org.maplibre.compose.mlnffi.OpenGlContextHandles
 import org.maplibre.compose.mlnffi.OpenGlSurfaceTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
-import org.maplibre.compose.mlnffi.VulkanImageTarget
-import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
-import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.generated.EglContextDescriptor
-import org.maplibre.nativeffi.generated.FrameDemand
-import org.maplibre.nativeffi.generated.FrameDemandFlag
-import org.maplibre.nativeffi.generated.GpuSyncKind
-import org.maplibre.nativeffi.generated.LogicalExtent
-import org.maplibre.nativeffi.generated.MapHandle
-import org.maplibre.nativeffi.generated.MetalBorrowedTexture
-import org.maplibre.nativeffi.generated.MetalBorrowedTextureDescriptor
-import org.maplibre.nativeffi.generated.MetalContextDescriptor
-import org.maplibre.nativeffi.generated.MetalSurfaceDescriptor
-import org.maplibre.nativeffi.generated.OpenglBorrowedTexture
-import org.maplibre.nativeffi.generated.OpenglBorrowedTextureDescriptor
-import org.maplibre.nativeffi.generated.OpenglClientApi
-import org.maplibre.nativeffi.generated.OpenglContextDescriptor
-import org.maplibre.nativeffi.generated.OpenglContextDescriptorData
-import org.maplibre.nativeffi.generated.OpenglContextOwnership
-import org.maplibre.nativeffi.generated.OpenglSurfaceDescriptor
-import org.maplibre.nativeffi.generated.RenderDriverKind
-import org.maplibre.nativeffi.generated.RenderResult
-import org.maplibre.nativeffi.generated.RenderSessionAttachOptions
-import org.maplibre.nativeffi.generated.RenderSessionAttachment
-import org.maplibre.nativeffi.generated.RenderSessionCapabilityFlag
-import org.maplibre.nativeffi.generated.RenderSessionHandle
-import org.maplibre.nativeffi.generated.RenderSessionState
-import org.maplibre.nativeffi.generated.Status
-import org.maplibre.nativeffi.generated.VulkanBorrowedTexture
-import org.maplibre.nativeffi.generated.VulkanBorrowedTextureDescriptor
-import org.maplibre.nativeffi.generated.VulkanContextDescriptor
-import org.maplibre.nativeffi.generated.VulkanSurfaceDescriptor
-import org.maplibre.nativeffi.generated.Wake
-import org.maplibre.nativeffi.generated.WglContextDescriptor
-import org.maplibre.nativeffi.render.NativePointer
+import org.maplibre.nativeffi.EglContextDescriptor
+import org.maplibre.nativeffi.FrameDemand
+import org.maplibre.nativeffi.FrameDemandFlag
+import org.maplibre.nativeffi.GpuSyncKind
+import org.maplibre.nativeffi.LogicalExtent
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.NativePointer
+import org.maplibre.nativeffi.NewRenderSession
+import org.maplibre.nativeffi.OpenGlBorrowedTexture
+import org.maplibre.nativeffi.OpenGlBorrowedTextureDescriptor
+import org.maplibre.nativeffi.OpenGlClientApi
+import org.maplibre.nativeffi.OpenGlContextDescriptor
+import org.maplibre.nativeffi.OpenGlContextDescriptorData
+import org.maplibre.nativeffi.OpenGlContextOwnership
+import org.maplibre.nativeffi.OpenGlSurfaceDescriptor
+import org.maplibre.nativeffi.RenderDriverKind
+import org.maplibre.nativeffi.RenderResult
+import org.maplibre.nativeffi.RenderSessionAttachOptions
+import org.maplibre.nativeffi.RenderSessionCapabilityFlag
+import org.maplibre.nativeffi.RenderSessionHandle
+import org.maplibre.nativeffi.RenderSessionState
+import org.maplibre.nativeffi.Status
+import org.maplibre.nativeffi.VulkanContextDescriptor
+import org.maplibre.nativeffi.Wake
+import org.maplibre.nativeffi.WglContextDescriptor
 
 /**
  * One host attachment owns its render session and every borrow of its GPU target.
@@ -77,13 +68,11 @@ internal class NativePresentation(
   private val getLogger: () -> MapLog?,
   private val viewport: NativeViewport,
   private val onAttached: () -> Unit,
-  private val postToMain: (() -> Unit) -> Unit,
 ) {
   private val logger
     get() = getLogger()
 
   private val stateLock = MlnFfiLock()
-  private val pendingCloses = mutableListOf<Deferred<Result<Unit>>>()
 
   /** A host and every native borrow of its targets retire together on its renderer thread. */
   private inner class RendererAttachment(val host: MlnFfiMapHostSession) {
@@ -161,7 +150,7 @@ internal class NativePresentation(
     fun <T> await(session: RenderSessionHandle, work: Deferred<T>): T {
       work.invokeOnCompletion { this.work.signal() }
       while (!work.isCompleted) {
-        if (callerDriven) {
+        if (callerDriven && !session.isClosed) {
           (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
           session.serviceDriverWork()
         }
@@ -172,47 +161,28 @@ internal class NativePresentation(
       return work.getCompleted()
     }
 
-    /**
-     * Renderer thread. Detaches the session and destroys it. A detach that fails abandons the
-     * session instead, which releases what it can without this thread's graphics context.
-     */
+    /** Renderer thread. Finishes driver work before releasing the host's graphics objects. */
     fun closeSession() {
       val closing = session ?: return
       session = null
       ready = false
-      target = null
       demandPending = false
-      var failure: Throwable? = null
-      val retired =
-        try {
-          if (closing.getSnapshot().state != RenderSessionState.ABANDONED)
+      try {
+        if (closing.getSnapshot().state != RenderSessionState.ABANDONED) {
+          try {
             await(closing, closing.detach())
-          true
-        } catch (error: Throwable) {
-          // A frame that loses the target while the detach waits ends the detach with TARGET_LOST.
-          val targetLost =
-            error is MaplibreException &&
-              (error.status == Status.TARGET_LOST ||
-                error.status == Status.INVALID_STATE &&
-                  closing.getSnapshot().state == RenderSessionState.TARGET_LOST)
-          if (!targetLost) failure = error
-          runCatching { closing.abandon() }
-            .onFailure { abandoned ->
-              failure?.addSuppressed(abandoned) ?: run { failure = abandoned }
-            }
-            .isSuccess
+          } catch (error: MaplibreException) {
+            if (error.status != Status.TARGET_LOST && error.status != Status.INVALID_STATE)
+              throw error
+          }
         }
-      if (!retired) {
-        // Neither detach nor abandon took, so native retires the session once it can.
-        runCatching { closing.dispose() }.exceptionOrNull()?.let { failure?.addSuppressed(it) }
-        failure?.let { throw it }
-        return
+      } finally {
+        try {
+          await(closing, closing.release())
+        } finally {
+          target = null
+        }
       }
-      val closed = CompletableDeferred<Result<Unit>>()
-      stateLock.withLock { pendingCloses.add(closed) }
-      // Queries submit on main too, so destruction cannot race a handle borrowed by a query.
-      postToMain { closed.complete(runCatching { closing.close() }) }
-      failure?.let { throw it }
     }
 
     fun release(): Result<Unit> {
@@ -234,13 +204,7 @@ internal class NativePresentation(
 
     suspend fun releaseAndAwait() {
       requestRelease()
-      var failure = released.await().exceptionOrNull()
-      runCatching { awaitPendingCloses() }
-        .exceptionOrNull()
-        ?.let { error ->
-          failure?.addSuppressed(error) ?: run { failure = error }
-        }
-      failure?.let { throw it }
+      released.await().getOrThrow()
     }
 
     /** Host handoff runs on the incoming host's renderer thread, never on the outgoing one. */
@@ -326,26 +290,12 @@ internal class NativePresentation(
 
   suspend fun release(keepHost: Boolean = true) {
     val attachment = rendererAttachment
-    if (attachment == null) {
-      awaitPendingCloses()
-      return
-    }
+    if (attachment == null) return
     attachment.releaseAndAwait()
     if (!keepHost)
       stateLock.withLock {
         if (rendererAttachment === attachment) rendererAttachment = null
       }
-  }
-
-  private suspend fun awaitPendingCloses() {
-    val closing = stateLock.withLock { pendingCloses.toList().also { pendingCloses.clear() } }
-    var failure: Throwable? = null
-    for (work in closing) {
-      work.await().exceptionOrNull()?.let { error ->
-        failure?.addSuppressed(error) ?: run { failure = error }
-      }
-    }
-    failure?.let { throw it }
   }
 
   /** Host and extent changes schedule work on either kind of target. */
@@ -381,7 +331,7 @@ internal class NativePresentation(
     if (host.servicesDriverWorkOnFrame) attachment.service()
     val result =
       try {
-        val completed = session.drainFrameResults()?.use { it.get().results.lastOrNull() }
+        val completed = session.drainFrameResults().lastOrNull()
         if (completed != null) attachment.demandPending = false
         // A display-paced driver drains and re-arms in one pass, using one callback per demand.
         // Other hosts re-arm on their next pass, after any consumer has released its frame.
@@ -389,10 +339,7 @@ internal class NativePresentation(
           attachment.demandPending = true
           session.requestFrame(
             FrameDemand(
-              flags =
-                FrameDemandFlag.IF_NEEDED or
-                  FrameDemandFlag.WAIT_FOR_UPDATE or
-                  FrameDemandFlag.PRESENT,
+              flags = FrameDemandFlag.WAIT_FOR_UPDATE or FrameDemandFlag.PRESENT,
             ),
           )
         }
@@ -427,7 +374,7 @@ internal class NativePresentation(
             }
           }
         } catch (error: Throwable) {
-          acquired.release()
+          acquired.release(null)
           throw error
         }
         frame.releaseAfterReads = { consumerCompleted ->
@@ -435,7 +382,7 @@ internal class NativePresentation(
             attachment.host.withRendererAccess {
               if (attachment.session === session) session.abandon()
             }
-          acquired.release()
+          acquired.release(null)
         }
         attachment.host.requestFrame()
       }
@@ -520,19 +467,14 @@ internal class NativePresentation(
     val driver = driverFor(target)
     attachment.target = target
     val options = attachment.attachOptions(driver)
-    val started: RenderSessionAttachment =
+    val started: NewRenderSession =
       when (target) {
-        is VulkanImageTarget ->
-          map.attachVulkanBorrowedTexture(target.toDescriptor(extent), options)
-        is VulkanSurfaceTarget -> map.attachVulkanSurface(target.toDescriptor(extent), options)
-        is MetalTextureTarget ->
-          map.attachMetalBorrowedTexture(target.toDescriptor(extent), options)
-        is MetalSurfaceTarget -> map.attachMetalSurface(target.toDescriptor(extent), options)
         is OpenGlTextureTarget -> {
           target.makeContextCurrent()
-          map.attachOpenglBorrowedTexture(target.toDescriptor(extent), options)
+          map.attachOpenGlBorrowedTexture(target.toDescriptor(extent), options)
         }
-        is OpenGlSurfaceTarget -> map.attachOpenglSurface(target.toDescriptor(extent), options)
+        is OpenGlSurfaceTarget -> map.attachOpenGlSurface(target.toDescriptor(extent), options)
+        else -> attachPlatformTarget(map, target, extent, options)
       }
     attachment.session = started.session
     attachment.driver = driver
@@ -558,17 +500,12 @@ internal class NativePresentation(
     try {
       val replacement: Deferred<*> =
         when (target) {
-          is VulkanImageTarget ->
-            session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
-          is VulkanSurfaceTarget -> session.resize(extent.toFfiExtent())
-          is MetalTextureTarget ->
-            session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
-          is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))
           is OpenGlTextureTarget -> {
             target.makeContextCurrent()
-            session.setOpenglBorrowedTextureTarget(target.toDescriptor(extent))
+            session.setOpenGlBorrowedTextureTarget(target.toDescriptor(extent))
           }
-          is OpenGlSurfaceTarget -> session.setOpenglSurfaceTarget(target.toDescriptor(extent))
+          is OpenGlSurfaceTarget -> session.setOpenGlSurfaceTarget(target.toDescriptor(extent))
+          else -> replacePlatformTarget(session, target, extent)
         }
       attachment.await(session, replacement)
     } catch (error: MaplibreException) {
@@ -594,58 +531,18 @@ internal class NativePresentation(
       scaleFactor = scaleFactor,
     )
 
-  private fun VulkanImageTarget.toDescriptor(extent: MapExtent) =
-    VulkanBorrowedTextureDescriptor(
-      extent = extent.toFfiExtent(),
-      physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
-      physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
-      context = context.toFfi(),
-      textures =
-        listOf(
-          VulkanBorrowedTexture(
-            image = image.address.toULong(),
-            imageView = imageView.address.toULong(),
-          ),
-        ),
-      format = format.toUInt(),
-      initialLayout = initialLayout.toUInt(),
-      finalLayout = finalLayout.toUInt(),
-    )
-
-  private fun VulkanSurfaceTarget.toDescriptor(extent: MapExtent) =
-    VulkanSurfaceDescriptor(
-      extent = extent.toFfiExtent(),
-      context = context.toFfi(),
-      surface = surface.address.toULong(),
-    )
-
-  private fun MetalTextureTarget.toDescriptor(extent: MapExtent) =
-    MetalBorrowedTextureDescriptor(
-      extent = extent.toFfiExtent(),
-      physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
-      physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
-      textures = listOf(MetalBorrowedTexture(NativePointer.ofAddress(texture.address))),
-    )
-
-  private fun MetalSurfaceTarget.toDescriptor(extent: MapExtent) =
-    MetalSurfaceDescriptor(
-      extent = extent.toFfiExtent(),
-      context = MetalContextDescriptor(device = NativePointer.ofAddress(device.address)),
-      layer = NativePointer.ofAddress(layer.address),
-    )
-
   private fun OpenGlTextureTarget.toDescriptor(extent: MapExtent) =
-    OpenglBorrowedTextureDescriptor(
+    OpenGlBorrowedTextureDescriptor(
       extent = extent.toFfiExtent(),
       physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
       physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
       context = context.toFfi(),
-      textures = listOf(OpenglBorrowedTexture(textureName.toUInt())),
+      textures = listOf(OpenGlBorrowedTexture(textureName.toUInt())),
       target = textureTarget.toUInt(),
     )
 
   private fun OpenGlSurfaceTarget.toDescriptor(extent: MapExtent) =
-    OpenglSurfaceDescriptor(
+    OpenGlSurfaceDescriptor(
       extent = extent.toFfiExtent(),
       context = context.toFfi(),
       surface = NativePointer.ofAddress(surface.address),
@@ -663,18 +560,18 @@ internal fun VulkanContextHandles.toFfi() =
     getDeviceProcAddr = NativePointer.ofAddress(getDeviceProcAddr.address),
   )
 
-internal fun OpenGlContextHandles.toFfi(): OpenglContextDescriptor =
+internal fun OpenGlContextHandles.toFfi(): OpenGlContextDescriptor =
   when (this) {
     is EglContextHandles -> toFfi()
     is WglContextHandles -> toFfi()
   }
 
-internal fun EglContextHandles.toFfi(): OpenglContextDescriptor {
-  val dedicated = ownership == OpenglContextOwnership.DEDICATED
-  return OpenglContextDescriptor(
+internal fun EglContextHandles.toFfi(): OpenGlContextDescriptor {
+  val dedicated = ownership == OpenGlContextOwnership.DEDICATED
+  return OpenGlContextDescriptor(
     ownership = ownership,
     data =
-      OpenglContextDescriptorData.Egl(
+      OpenGlContextDescriptorData.Egl(
         EglContextDescriptor(
           display = NativePointer.ofAddress(display.address),
           config = NativePointer.ofAddress(config.address),
@@ -682,7 +579,7 @@ internal fun EglContextHandles.toFfi(): OpenglContextDescriptor {
             if (dedicated) NativePointer.NULL_POINTER
             else NativePointer.ofAddress(shareContext.address),
           clientApi =
-            if (dedicated && clientApi == OpenglClientApi.UNSPECIFIED) OpenglClientApi.GLES
+            if (dedicated && clientApi == OpenGlClientApi.UNSPECIFIED) OpenGlClientApi.GLES
             else clientApi,
           getProcAddress = NativePointer.ofAddress(getProcAddress.address),
         ),
@@ -690,15 +587,15 @@ internal fun EglContextHandles.toFfi(): OpenglContextDescriptor {
   )
 }
 
-internal fun WglContextHandles.toFfi(): OpenglContextDescriptor =
-  OpenglContextDescriptor(
+internal fun WglContextHandles.toFfi(): OpenGlContextDescriptor =
+  OpenGlContextDescriptor(
     ownership = ownership,
     data =
-      OpenglContextDescriptorData.Wgl(
+      OpenGlContextDescriptorData.Wgl(
         WglContextDescriptor(
           deviceContext = NativePointer.ofAddress(deviceContext.address),
           shareContext =
-            if (ownership == OpenglContextOwnership.DEDICATED) NativePointer.NULL_POINTER
+            if (ownership == OpenGlContextOwnership.DEDICATED) NativePointer.NULL_POINTER
             else NativePointer.ofAddress(shareContext.address),
           getProcAddress = NativePointer.ofAddress(getProcAddress.address),
         ),

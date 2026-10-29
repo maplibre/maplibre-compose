@@ -24,9 +24,10 @@ import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.generated.CanonicalTileId
-import org.maplibre.nativeffi.generated.GeneratedApi
-import org.maplibre.nativeffi.generated.MapHandle
+import org.maplibre.nativeffi.CanonicalTileId
+import org.maplibre.nativeffi.LogicalExtent
+import org.maplibre.nativeffi.MapHandle
+import org.maplibre.nativeffi.MapOptions
 
 class MlnFfiTileRequestCoordinatorTest {
 
@@ -197,11 +198,12 @@ class MlnFfiTileRequestCoordinatorTest {
         it.start()
       }
     try {
-      val map =
+      val (map, ready) =
         withTimeout(5.seconds) {
-          owner.awaitRuntime().createMap(GeneratedApi.mapOptionsDefault()).await()
+          owner.awaitRuntime().createMap(MapOptions(LogicalExtent(1u, 1u, 1.0)))
         }
       try {
+        ready.await()
         action(DroppingBinding(map, owner))
       } finally {
         map.release().await()

@@ -13,10 +13,8 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapStateCallbacks
-import org.maplibre.compose.map.NativeSnapshotRenderTarget
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.createNativeMapRuntime
-import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -152,12 +150,3 @@ internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTes
 
 internal actual fun skipMapTest(reason: String): Nothing =
   org.maplibre.compose.mlnffi.FfiTestPlatform.skip(reason)
-
-// TODO: drop once https://github.com/maplibre/maplibre-native-ffi/issues/971 lets Windows render
-// OpenGL snapshots.
-internal actual fun skipUnlessSnapshotsAvailable() {
-  val backends = tryLoadRuntimeBackends().getOrThrow()
-  if (NativeSnapshotRenderTarget.select(backends) == null) {
-    skipMapTest("No offscreen snapshot backend is available from ${backends.joinToString()}")
-  }
-}
