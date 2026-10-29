@@ -132,8 +132,10 @@ internal class FakeMlnFfiMapHost(
                 getInstanceProcAddr = NativeHandle(5),
                 getDeviceProcAddr = NativeHandle(6),
               ),
-            image = NativeHandle(100 + generation),
-            imageView = NativeHandle(200 + generation),
+            images =
+              listOf(
+                VulkanRingImage(NativeHandle(100 + generation), NativeHandle(200 + generation)),
+              ),
             format = 37,
             initialLayout = 0,
             finalLayout = 1,

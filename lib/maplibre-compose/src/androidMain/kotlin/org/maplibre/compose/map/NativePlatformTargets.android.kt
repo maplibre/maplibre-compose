@@ -5,6 +5,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
+import org.maplibre.nativeffi.AcquiredFrameHandle
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.NewRenderSession
 import org.maplibre.nativeffi.RenderSessionAttachOptions
@@ -12,6 +13,7 @@ import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.attachVulkanBorrowedTexture
 import org.maplibre.nativeffi.attachVulkanSurface
 import org.maplibre.nativeffi.setVulkanBorrowedTextureTarget
+import org.maplibre.nativeffi.withVulkanTexture
 
 internal actual fun attachPlatformTarget(
   map: MapHandle,
@@ -33,6 +35,15 @@ internal actual fun replacePlatformTarget(
   when (target) {
     is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
     is VulkanSurfaceTarget -> session.resize(extent.toFfiExtent())
+    else -> error("Unsupported platform target: $target")
+  }
+
+internal actual fun acquiredPlatformSlot(
+  frame: AcquiredFrameHandle,
+  target: MlnFfiRenderTarget,
+): Int =
+  when (target) {
+    is VulkanImageTarget -> frame.withVulkanTexture { it.slot.toInt() }
     else -> error("Unsupported platform target: $target")
   }
 

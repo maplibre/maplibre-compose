@@ -315,7 +315,7 @@ private constructor(
     OpenGlTextureTarget(
       context =
         EglContextHandles(NativeHandle(0), NativeHandle(0), NativeHandle(0), NativeHandle(0)),
-      textureName = textureName,
+      textureNames = listOf(textureName),
       textureTarget = GL_TEXTURE_2D,
       format = GL_RGBA8,
       origin = origin,

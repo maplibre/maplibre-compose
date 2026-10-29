@@ -73,6 +73,16 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   /** Frees the platform resources of [surface] after the renderer let go of it. May throw. */
   protected open fun releaseSurface(surface: S) {}
 
+  /** Whether each rendered frame carries its projection to [frameRendered]. */
+  protected open val capturesProjection: Boolean
+    get() = false
+
+  /**
+   * Takes over a rendered [frame], including a native frame it acquired and the [projection] that
+   * [capturesProjection] requests. Surfaces that MapLibre presents into acquire neither.
+   */
+  protected open fun frameRendered(frame: MlnFfiMapFrame, projection: MlnFfiMapFrameProjection?) {}
+
   /**
    * Reports a terminal failure. The surface is already released, unless [releaseFailure] says why
    * it could not be.
@@ -298,9 +308,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
 
     val start = TimeSource.Monotonic.markNow()
     try {
-      when (renderer.render(this, frame)) {
+      when (val result = renderer.render(this, frame, capturesProjection)) {
         is MlnFfiFrameResult.Rendered -> {
           pacer.rendered(start)
+          frameRendered(frame, result.projection)
           requestFrameOnRenderThread()
         }
         MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()

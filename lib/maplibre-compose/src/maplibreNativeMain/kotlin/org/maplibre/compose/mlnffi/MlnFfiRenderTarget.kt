@@ -63,20 +63,27 @@ internal data class VulkanContextHandles(
   val getDeviceProcAddr: NativeHandle,
 )
 
-/** A `VkImage` MapLibre renders into. */
+/** A `VkImage` and its view, one slot of a [VulkanImageTarget]. */
 @Immutable
-internal data class VulkanImageTarget(
-  /** The Vulkan context owning [image]. */
-  val context: VulkanContextHandles,
+internal data class VulkanRingImage(
   /** `VkImage`. */
   val image: NativeHandle,
   /** `VkImageView` over [image]. */
   val imageView: NativeHandle,
-  /** `VkFormat` of [image]. */
+)
+
+/** A ring of `VkImage`s MapLibre renders into, one per slot. */
+@Immutable
+internal data class VulkanImageTarget(
+  /** The Vulkan context owning [images]. */
+  val context: VulkanContextHandles,
+  /** The ring's images, in slot order. */
+  val images: List<VulkanRingImage>,
+  /** `VkFormat` of every image. */
   val format: Int,
-  /** `VkImageLayout` the host leaves [image] in before MapLibre renders. */
+  /** `VkImageLayout` the host leaves an image in before MapLibre renders into it. */
   val initialLayout: Int,
-  /** `VkImageLayout` MapLibre must leave [image] in for the host to consume it. */
+  /** `VkImageLayout` MapLibre must leave an image in for the host to consume it. */
   val finalLayout: Int,
   override val extent: MapExtent,
   override val generation: Long,
@@ -176,20 +183,21 @@ internal data class WglContextHandles(
 ) : OpenGlContextHandles
 
 /**
- * An OpenGL texture MapLibre renders into. OpenGL work is bound to whichever context is current on
- * the calling thread, so the target carries [makeContextCurrent] as well as its context handles.
+ * A ring of OpenGL textures MapLibre renders into, one per slot. OpenGL work is bound to whichever
+ * context is current on the calling thread, so the target carries [makeContextCurrent] as well as
+ * its context handles.
  */
 @Immutable
 internal data class OpenGlTextureTarget(
-  /** Platform context handles for the context [textureName] belongs to. */
+  /** Platform context handles for the context [textureNames] belong to. */
   val context: OpenGlContextHandles,
-  /** GL texture name. */
-  val textureName: Int,
+  /** GL texture names, in slot order. */
+  val textureNames: List<Int>,
   /** GL texture target, such as `GL_TEXTURE_2D`. */
   val textureTarget: Int,
-  /** GL sized internal format of the texture. */
+  /** GL sized internal format of the textures. */
   val format: Int,
-  /** Row order of the texture. */
+  /** Row order of the textures. */
   val origin: TextureOrigin,
   /**
    * Makes the context owning this texture current on the calling thread.
