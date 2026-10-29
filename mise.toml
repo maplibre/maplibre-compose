@@ -5,6 +5,8 @@ min_version = "2026.10.18"
 
 [settings]
 lockfile = true
+# Update installed tools' entries without re-resolving unrelated platforms.
+lockfile_mode = "merge"
 lockfile_platforms = [
   "linux-x64",
   "linux-arm64",
