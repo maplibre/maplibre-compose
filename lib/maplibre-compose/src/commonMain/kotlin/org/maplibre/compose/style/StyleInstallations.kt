@@ -4,12 +4,12 @@ package org.maplibre.compose.style
 
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.VectorTileProvider
+import org.maplibre.compose.style.internal.StyleValue
 
 /** A source installed in exactly one loaded-style generation. */
 internal class SourceInstallation(
@@ -123,7 +123,7 @@ internal class LayerInstallation(
 
   init {
     style.requireCurrent()
-    added = style.addLayer(current, beforeLayerId)
+    added = style.addLayer(StyleValue.Object(current), beforeLayerId)
     reportUnsupported(definition)
   }
 
@@ -145,13 +145,13 @@ internal class LayerInstallation(
     }
     val writes = buildList {
       collectProperties(
-        current["layout"] as? JsonObject,
-        next["layout"] as? JsonObject,
+        current["layout"]?.objectValues,
+        next["layout"]?.objectValues,
         LayerPropertyKind.Layout,
       )
       collectProperties(
-        current["paint"] as? JsonObject,
-        next["paint"] as? JsonObject,
+        current["paint"]?.objectValues,
+        next["paint"]?.objectValues,
         LayerPropertyKind.Paint,
       )
       RootPropertyNames.forEach { name ->
@@ -193,8 +193,8 @@ internal class LayerInstallation(
       (definition.sourceId?.let { " over source '$it'" } ?: "")
 
   private fun MutableList<LayerPropertyWrite>.collectProperties(
-    previous: JsonObject?,
-    next: JsonObject?,
+    previous: Map<String, StyleValue>?,
+    next: Map<String, StyleValue>?,
     kind: LayerPropertyKind,
   ) {
     // A transition goes before the value it times, so an engine that updates between the two
@@ -226,9 +226,9 @@ internal class LayerInstallation(
     }
     if (!definition.filterUnsupportedProperties) return
     listOf("layout", "paint").forEach { section ->
-      (definition.value[section] as? JsonObject)?.forEach { (name, value) ->
+      definition.properties[section]?.objectValues?.forEach { (name, value) ->
         val reason = style.unsupportedLayerPropertyReason(definition.type, name)
-        if (reason != null && value !is JsonNull && reportedUnsupported.add(name)) {
+        if (reason != null && !value.isNull && reportedUnsupported.add(name)) {
           style.logger?.w {
             "Layer '$id' of type '${definition.type}' cannot set '$name': $reason"
           }
@@ -246,35 +246,41 @@ internal class LayerInstallation(
  * The value that removes [name]. MapLibre Native rejects a null transition and keeps the previous
  * one, so a transition that goes away is cleared with an empty object.
  */
-private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
-  when {
-    kind == LayerPropertyKind.Paint && name.endsWith(TransitionSuffix) -> ClearedTransition
-    kind == LayerPropertyKind.Root && name == "minzoom" -> JsonPrimitive(0)
-    kind == LayerPropertyKind.Root && name == "maxzoom" -> JsonPrimitive(24)
-    else -> JsonNull
-  }
+private fun clearingValue(kind: LayerPropertyKind, name: String): StyleValue =
+  StyleValue.Json(
+    when {
+      kind == LayerPropertyKind.Paint && name.endsWith(TransitionSuffix) -> ClearedTransition
+      kind == LayerPropertyKind.Root && name == "minzoom" -> JsonPrimitive(0)
+      kind == LayerPropertyKind.Root && name == "maxzoom" -> JsonPrimitive(24)
+      else -> JsonNull
+    },
+  )
 
 /** Applies compatibility filtering and the system animation-duration scale. */
 private fun LayerDefinition.resolveFor(
   style: StyleBinding,
   animatorDurationScale: Float,
-): JsonObject {
-  fun JsonObject.withoutUnsupported(): JsonObject =
-    if (filterUnsupportedProperties)
-      JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
-    else this
-
-  val resolved = value.toMutableMap()
-  (resolved["layout"] as? JsonObject)?.withoutUnsupported()?.let {
-    if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("layout")
-    else resolved["layout"] = it
+): Map<String, StyleValue> {
+  requireScale(animatorDurationScale)
+  val resolved = properties.toMutableMap()
+  listOf("layout", "paint").forEach { section ->
+    val values = resolved[section]?.objectValues ?: return@forEach
+    val filtered =
+      if (filterUnsupportedProperties)
+        values.filterKeys {
+          style.unsupportedLayerPropertyReason(type, it) == null
+        }
+      else values
+    val scaled =
+      if (section == "paint" && animatorDurationScale != 1f) {
+        filtered.mapValues { (name, value) ->
+          if (name.endsWith(TransitionSuffix) && value.json is JsonObject) {
+            StyleValue.Json((value.json as JsonObject).scaledTransition(animatorDurationScale))
+          } else value
+        }
+      } else filtered
+    if (scaled.isEmpty() && filterUnsupportedProperties) resolved.remove(section)
+    else resolved[section] = StyleValue.Object(scaled)
   }
-  (resolved["paint"] as? JsonObject)
-    ?.withoutUnsupported()
-    ?.withScaledTransitions(animatorDurationScale)
-    ?.let {
-      if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("paint")
-      else resolved["paint"] = it
-    }
-  return JsonObject(resolved)
+  return resolved
 }

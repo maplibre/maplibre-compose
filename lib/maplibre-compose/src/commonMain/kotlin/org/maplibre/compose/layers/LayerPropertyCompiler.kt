@@ -15,7 +15,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.StyleImageRequest
-import org.maplibre.compose.util.toStyleJson
+import org.maplibre.compose.style.internal.StyleValue
 
 internal class LayerPropertyCompiler(
   private val density: Density,
@@ -40,11 +40,11 @@ internal class LayerPropertyCompiler(
         graphicsContext,
       )
     return if (images.requests.isEmpty()) {
-      val value = expression.compile(context(images, emptyMap(), units)).toStyleJson()
+      val value = StyleValue.Expression(expression.compile(context(images, emptyMap(), units)))
       LayerProperty { value }
     } else {
       LayerProperty(images.requests) { resolved ->
-        expression.compile(context(images, resolved, units)).toStyleJson()
+        StyleValue.Expression(expression.compile(context(images, resolved, units)))
       }
     }
   }

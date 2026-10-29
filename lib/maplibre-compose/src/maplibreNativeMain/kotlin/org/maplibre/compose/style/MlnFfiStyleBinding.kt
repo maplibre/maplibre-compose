@@ -45,6 +45,7 @@ import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.style.internal.StyleValue
 import org.maplibre.compose.util.PreparedImage
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toBoundingBox
@@ -211,7 +212,7 @@ internal open class MlnFfiStyleBinding(
 
   private inline fun write(
     target: String = "The style",
-    value: JsonElement? = null,
+    value: Any? = null,
     start: (MapDiscarding) -> Unit,
   ) {
     if (!isLoaded) return
@@ -870,6 +871,10 @@ internal open class MlnFfiStyleBinding(
     it.addStyleLayerJson(layer.toString(), beforeLayerId)
   }
 
+  override fun addLayer(layer: StyleValue, beforeLayerId: String): StyleCommand = command {
+    it.addStyleLayerJson(layer.encoded.toJson(), beforeLayerId)
+  }
+
   override fun removeLayer(layerId: String): StyleCommand = command {
     it.removeStyleLayer(layerId)
   }
@@ -883,9 +888,16 @@ internal open class MlnFfiStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
+  ) = setLayerProperty(layerId, name, StyleValue.Json(value), kind)
+
+  override fun setLayerProperty(
+    layerId: String,
+    name: String,
+    value: StyleValue,
+    kind: LayerPropertyKind,
   ) {
     write("Layer '$layerId' property '$name'", value) {
-      it.setStyleLayerProperty(layerId, name, value.toString())
+      it.setStyleLayerProperty(layerId, name, value.encoded.toJson())
     }
   }
 
@@ -896,6 +908,10 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
+    setLayerProperty(layerId, "filter", filter, LayerPropertyKind.Root)
+  }
+
+  override fun setLayerFilter(layerId: String, filter: StyleValue) {
     setLayerProperty(layerId, "filter", filter, LayerPropertyKind.Root)
   }
 
