@@ -340,12 +340,8 @@ internal class MapSnapshotterImplementation(
   private val runtime: MapRuntime,
   baseStyle: BaseStyle,
   styleOverrides: StyleOverrides,
-  content: @Composable @MaplibreComposable () -> Unit,
+  private val content: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
-  private val styleContent: @Composable @MaplibreComposable () -> Unit = {
-    StyleOverridesContent(style.overrides)
-    content()
-  }
   private val mutex = Mutex()
   private val captures = SupervisorJob(runtime.physicalScope.coroutineContext[Job])
   private val captureScope =
@@ -452,13 +448,18 @@ internal class MapSnapshotterImplementation(
     val claim = claimStyle()
     var binding: StyleBinding? = null
     try {
-      val prepared = platform.prepare(claim.baseStyle, claim.revision, style.overrides, request)
+      // Preparation and content read one value, so the viewport matches the rendered projection.
+      val overrides = style.overrides
+      val prepared = platform.prepare(claim.baseStyle, claim.revision, overrides, request)
       val currentBinding = prepared.binding
       binding = currentBinding
       markReloaded(currentBinding)
       val revision =
         runtime.styleEvaluator.evaluate(
-          styleContent,
+          {
+            StyleOverridesContent(overrides)
+            content()
+          },
           currentBinding,
           prepared.viewport,
           request.density,
