@@ -35,6 +35,7 @@ shell = "bash -e -c"
 android_cmdline_tools_version = "23.0"
 android_api_level = "36"
 dprint_version = "0.64.3"
+go_version = "1.27.3"
 hk_version = "2.8.1"
 jactionlint_version = "2.3.0"
 java_version = "zulu-25.36.205.0"
@@ -58,6 +59,12 @@ zig_version = "0.17.0"
 "github:jdx/jactionlint" = "{{vars.jactionlint_version}}" # GH Actions linter
 "aqua:koalaman/shellcheck" = "{{vars.shellcheck_version}}" # Shell linter, also used by jactionlint
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
+
+"core:go" = { version = "{{vars.go_version}}", os = ["linux", "macos"] }
+"go:github.com/sargunv/devices-cli" = { version = "v0.0.0-20261029024719-339eeca1df3d", os = [
+  "linux",
+  "macos",
+] }
 
 "core:java" = "{{vars.java_version}}"
 # Compiles the demo's n-gon layer plugin; see .mise/bin/build-ngon-plugin.
@@ -166,7 +173,7 @@ rm -rf -- "$repository"
 [tasks."android-emulator:boot"]
 description = "Boot an Android emulator and wait until it is ready."
 usage = '''
-flag "--headless" help="Run the emulator without a window."
+flag "--headful" help="Open an emulator window. The default is headless."
 flag "--wear" help="Boot a Wear OS image on a small round watch profile. Wear API levels differ from handset ones, e.g. 36.1 for Wear OS 6.1."
 flag "--tv" help="Boot an Android TV image on a 1080p television profile."
 arg "[api_level]" default="{{vars.android_api_level}}"
@@ -174,8 +181,8 @@ arg "[api_level]" default="{{vars.android_api_level}}"
 tools = { "core:java" = "{{vars.java_version}}" }
 run = '''
 args=("$usage_api_level")
-if [[ "$usage_headless" == "true" ]]; then
-  args+=(--headless)
+if [[ "$usage_headful" == "true" ]]; then
+  args+=(--headful)
 fi
 if [[ "$usage_wear" == "true" ]]; then
   args+=(--wear)
@@ -187,7 +194,7 @@ fi
 '''
 
 [tasks."android-emulator:stop"]
-description = "Stop the Android emulator started by mise."
+description = "Release this worktree’s CLI-owned Android devices."
 run = ".mise/bin/stop-android-emulator"
 
 [tasks."android-emulator:diagnostics"]
@@ -197,18 +204,16 @@ run = ".mise/bin/capture-android-emulator-diagnostics"
 [tasks."test:android:device"]
 description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
-depends = [
-  { task = "android-emulator:boot", args = [
-    "{{usage.api_level}}",
-    "--headless",
-  ] },
-]
 # One task name per Android plugin; see test:android.
 run = '.mise/bin/run-android-device-tests "$usage_api_level"'
 
 [tasks."ios-simulator:boot"]
 description = "Boot an iPhone simulator and print its UDID."
-usage = 'arg "[ios_version]" help="iOS version of the simulator runtime, e.g. 15.5. Defaults to a booted iPhone, else the newest runtime."'
+usage = '''
+arg "[ios_version]" help="Runtime version, e.g. 15.5. Defaults to the newest installed runtime."
+flag "--device-type <name>" help="Simulator device type name or identifier."
+flag "--headful" help="Open Simulator. The default is headless."
+'''
 run = '.mise/bin/boot-ios-simulator ${usage_ios_version:+"$usage_ios_version"}'
 
 [tasks."ios-simulator:install-runtime"]
@@ -228,7 +233,7 @@ run = """
 
 [tasks."test:ios"]
 description = "Run the iOS simulator test suite."
-usage = 'arg "[ios_version]" help="iOS version of the simulator runtime, e.g. 15.5. Defaults to a booted iPhone, else the newest runtime."'
+usage = 'arg "[ios_version]" help="iOS version of the simulator runtime, e.g. 15.5. Defaults to this worktree’s iPhone on the newest installed runtime."'
 depends = ["deps:classic-ios"]
 run = '''
 udid="$(.mise/bin/boot-ios-simulator ${usage_ios_version:+"$usage_ios_version"})"
@@ -402,7 +407,9 @@ run = "./gradlew :demo-app:common:archiveBrowserDemo"
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
 usage = '''
-arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--headful" help="Open an emulator window. The default is headless."
+flag "--api-level <level>" default="36" help="Emulator system image API level."
+arg "[serial]" help="adb serial. Uses a worktree-owned emulator when omitted."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
 flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
@@ -424,10 +431,12 @@ run = ".mise/bin/run-android-auto-demo"
 [tasks."demo:wearos"]
 description = "Run the Wear OS demo app on a connected watch or Wear emulator."
 usage = '''
-arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--headful" help="Open an emulator window. The default is headless."
+flag "--api-level <level>" default="36.1" help="Emulator system image API level."
+arg "[serial]" help="adb serial. Uses a worktree-owned emulator when omitted."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
 '''
-env = { MAPLIBRE_DEMO_MODULE = "wearos" }
+env = { MAPLIBRE_DEMO_MODULE = "wearos", MAPLIBRE_DEMO_PROFILE = "wear" }
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
 run = ".mise/bin/run-android-demo"
@@ -435,9 +444,14 @@ run = ".mise/bin/run-android-demo"
 [tasks."demo:android-tv"]
 description = "Run the Android demo app on a connected TV or Android TV emulator."
 usage = '''
-arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--headful" help="Open an emulator window. The default is headless."
+flag "--api-level <level>" default="36" help="Emulator system image API level."
+flag "--route <route>" help="Demo route to open."
+flag "--camera <camera>" help="Initial zoom/latitude/longitude[/bearing[/pitch]]."
+arg "[serial]" help="adb serial. Uses a worktree-owned emulator when omitted."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
 '''
+env = { MAPLIBRE_DEMO_PROFILE = "tv" }
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
 run = ".mise/bin/run-android-demo"
@@ -484,9 +498,14 @@ run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
 [tasks."demo:ios"]
 description = "Run the demo app on an iOS simulator or a connected iPhone."
 usage = '''
+flag "--headful" help="Open Simulator. The default is headless."
+flag "--runtime <version>" help="Simulator runtime version; defaults to the newest installed."
+flag "--device-type <name>" help="Simulator device type name or identifier."
+flag "--route <route>" help="Demo route to open."
+flag "--camera <camera>" help="Initial zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--device" help="Run on a connected iPhone instead of a simulator."
 flag "--release" help="Build the Release configuration, with the optimized Kotlin/Native binary."
-arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
+arg "[udid]" help="Device or simulator UDID. Without one, uses an owned simulator or prompts for a physical iPhone."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true

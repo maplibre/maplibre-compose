@@ -2,7 +2,6 @@
 # Captures bounded diagnostics from the Android emulator after a device-test failure.
 set -u
 
-serial=emulator-5554
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 state_dir="$project_root/build/android-emulator"
 # Optional first argument names a subdirectory so a retry can keep the first hang.
@@ -15,6 +14,13 @@ sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
 adb="$sdk_root/platform-tools/adb"
 
 mkdir -p "$diagnostics_dir"
+serial=${ANDROID_SERIAL:-$(cat "$state_dir/serial" 2>/dev/null)}
+devices-cli ls --json >"$diagnostics_dir/devices.json" 2>&1 || true
+cli_logs="${XDG_STATE_HOME:-$HOME/.local/state}/devices-cli/logs"
+if [[ -n "$serial" && -f "$cli_logs/$serial.log" ]]; then
+  cp "$cli_logs/$serial.log" "$diagnostics_dir/emulator.log"
+fi
+[[ -n "$serial" ]] || { echo "No selected Android serial recorded." >"$diagnostics_dir/no-device.txt"; exit 0; }
 
 capture() {
   local name=$1

@@ -1,296 +1,65 @@
 #!/usr/bin/env bash
-# Boots an Android emulator and waits until it is ready. Idempotent.
+# Print this worktree's ready Android serial; progress goes to stderr.
 set -euo pipefail
 
-usage() {
-  echo "Usage: boot-android-emulator <api-level> [--headless] [--wear | --tv]" >&2
-  exit 2
-}
-
-api_level=
-headless=false
-wear=false
-tv=false
+api_level=${1:?usage: boot-android-emulator <api-level> [--headful] [--wear | --tv]}
+shift
+headful=false
+profile=
+variant=default
 for arg in "$@"; do
   case "$arg" in
-    --headless) headless=true ;;
-    --wear) wear=true ;;
-    --tv) tv=true ;;
-    -*) usage ;;
-    *)
-      [[ -z "$api_level" ]] || usage
-      api_level=$arg
+    --headful) headful=true ;;
+    --headless) headful=false ;;
+    --wear | --tv)
+      [[ -z "$profile" ]] || { echo "Choose only one of --wear and --tv." >&2; exit 2; }
+      if [[ "$arg" == --wear ]]; then
+        profile=wearos_small_round
+        variant=android-wear
+        if ((${api_level%%.*} >= 36)); then variant=android-wear-signed; fi
+      else
+        profile=tv_1080p
+        variant=android-tv
+      fi
       ;;
+    *) echo "Unknown emulator option: $arg" >&2; exit 2 ;;
   esac
 done
-[[ -n "$api_level" ]] || usage
-if [[ "$wear" == true && "$tv" == true ]]; then
-  echo "--wear and --tv are mutually exclusive." >&2
-  usage
-fi
-
-# An arm64 host needs an arm64 image to use its native accelerator.
-case "$(uname -m)" in
-  arm64 | aarch64) abi=arm64-v8a ;;
-  *) abi=x86_64 ;;
-esac
-if [[ "$wear" == true ]]; then
-  # Wear OS 6 (API 36) and later images carry the "signed" tag.
-  if ((${api_level%%[.-]*} >= 36)); then
-    tag=android-wear-signed
-  else
-    tag=android-wear
-  fi
-  device_profile=wearos_small_round
-  avd_name="maplibre-compose-wear-${api_level}-${abi}"
-elif [[ "$tv" == true ]]; then
-  tag=android-tv
-  device_profile=tv_1080p
-  avd_name="maplibre-compose-tv-${api_level}-${abi}"
-else
-  tag=default
-  device_profile=
-  # The ABI is in the name so a device built for another host is never reused.
-  avd_name="maplibre-compose-${api_level}-${abi}"
-fi
-image="system-images;android-${api_level};${tag};${abi}"
-serial=emulator-5554
-sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-state_dir="$project_root/build/android-emulator"
-pid_file="$state_dir/emulator.pid"
-log_file="$state_dir/emulator.log"
-launchd_label=org.maplibre.compose.android-emulator
-# In the build tree, not ~/.android: removing the tree removes the device.
-export ANDROID_AVD_HOME="$state_dir/avd"
+export ANDROID_HOME
+ANDROID_HOME="$("$project_root/.mise/bin/android-sdk-root")"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
-adb="$sdk_root/platform-tools/adb"
-
-# A device that is still coming up answers adb and then blocks in `shell`
-# forever, so every probe is bounded. `timeout` is absent on macOS.
-adb_probe() {
-  local seconds=$1
-  shift
-  local output status waited=0 pid
-  output="$(mktemp)"
-  "$adb" -s "$serial" "$@" >"$output" 2>/dev/null &
-  pid=$!
-  while ((waited < seconds)) && kill -0 "$pid" 2>/dev/null; do
-    sleep 1
-    waited=$((waited + 1))
-  done
-  if kill -0 "$pid" 2>/dev/null; then
-    kill -KILL "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
-    rm -f "$output"
-    return 1
-  fi
-  status=0
-  wait "$pid" || status=$?
-  if ((status == 0)); then
-    tr -d '\r' <"$output"
-  fi
-  rm -f "$output"
-  return "$status"
-}
-
-boot_completed() {
-  [[ -x "$adb" ]] || return 1
-  [[ "$(adb_probe 20 shell getprop sys.boot_completed || true)" == 1 ]]
-}
-
-booted_avd() {
-  boot_completed || return 1
-  adb_probe 20 emu avd name | head -n1
-}
-
-desired_mode=visible
-if [[ "$headless" == true ]]; then
-  desired_mode=headless
-fi
-gpu_mode=swiftshader_indirect
-if [[ "$headless" == false ]]; then
-  # Interactive emulators use the host GPU. Headless CI keeps the portable
-  # software renderer that this script originally used.
-  gpu_mode=host
+# A caller-selected device is never replaced or stopped by this helper.
+if [[ -n "${ANDROID_SERIAL:-}" ]]; then
+  exec "$project_root/.mise/bin/pick-android-device" "$ANDROID_SERIAL"
 fi
 
-running_avd="$(booted_avd || true)"
-running_mode=
-running_gpu_mode=
-if [[ -f "$pid_file" ]]; then
-  running_pid=$(<"$pid_file")
-  if [[ "$running_pid" =~ ^[0-9]+$ ]] &&
-    kill -0 "$running_pid" 2>/dev/null &&
-    ps -p "$running_pid" -o args= | grep -q "$avd_name"; then
-    if ps -p "$running_pid" -o args= | grep -q -- ' -no-window'; then
-      running_mode=headless
-    else
-      running_mode=visible
-    fi
-    if ps -p "$running_pid" -o args= | grep -q -- " -gpu $gpu_mode"; then
-      running_gpu_mode=$gpu_mode
-    fi
-  fi
-fi
-
-if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" &&
-  "$running_gpu_mode" == "$gpu_mode" ]]; then
-  echo "Android emulator for API $api_level ($abi) is ready at $serial."
-  exit 0
-fi
-if [[ -n "$running_avd" ]] ||
-  { [[ -x "$adb" ]] && adb_probe 20 devices | grep -q "^$serial"; }; then
-  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode using $gpu_mode graphics."
-  "$project_root/.mise/bin/stop-android-emulator"
-fi
-
-sdkmanager=
-avdmanager=
-for tools_dir in "$sdk_root"/cmdline-tools/latest/bin "$sdk_root"/cmdline-tools/*/bin; do
-  if [[ -x "$tools_dir/sdkmanager" ]]; then
-    sdkmanager="$tools_dir/sdkmanager"
-    avdmanager="$tools_dir/avdmanager"
-    break
-  fi
-done
-if [[ -z "$sdkmanager" ]]; then
-  echo "No sdkmanager under $sdk_root/cmdline-tools." >&2
-  echo "Install the Android SDK command-line tools there, or let mise pin an SDK" >&2
-  echo "of its own with \`mise -E android install\`." >&2
-  exit 1
-fi
-
-missing=()
-for entry in "platform-tools|platform-tools" "emulator|emulator" "$image|${image//;//}"; do
-  if [[ ! -d "$sdk_root/${entry#*|}" ]]; then
-    missing+=("${entry%%|*}")
-  fi
-done
-if ((${#missing[@]})); then
-  echo "Installing Android SDK packages: ${missing[*]}"
-  accepts="$(printf 'y\n%.0s' "${missing[@]}")"
-  "$sdkmanager" --sdk_root="$sdk_root" --install "${missing[@]}" <<<"$accepts"
-fi
-
-mkdir -p "$ANDROID_AVD_HOME" "$state_dir"
-if [[ ! -d "$ANDROID_AVD_HOME/$avd_name.avd" ]]; then
-  # Leave the device profile to avdmanager: a modern handset profile hangs the
-  # older API levels, which never reach their shell service. `no` declines the
-  # custom hardware prompt.
-  create=("$avdmanager" create avd --name "$avd_name" --package "$image")
-  if [[ -n "$device_profile" ]]; then
-    create+=(--device "$device_profile")
-  fi
-  "${create[@]}" <<<"no"
-fi
-
-if [[ -f "$pid_file" ]]; then
-  pid=$(<"$pid_file")
-  if [[ "$pid" =~ ^[0-9]+$ ]] &&
-    kill -0 "$pid" 2>/dev/null &&
-    ps -p "$pid" -o args= | grep -q "$avd_name"; then
-    echo "Waiting for Android emulator process $pid."
-  else
-    rm -f "$pid_file"
-  fi
-fi
-
-if [[ ! -f "$pid_file" ]]; then
-  # Do not add `-memory`: raising guest RAM above what the AVD specifies panics
-  # the older guest kernels in their goldfish driver probe seconds into boot.
-  launcher=(
-    "$sdk_root/emulator/emulator"
-    -avd "$avd_name"
-    # Fixed, so $serial always names this emulator rather than the next free port.
-    -port "${serial#emulator-}"
-    -no-audio
-    -no-boot-anim
-    -no-snapshot
-    -no-metrics
-    -gpu "$gpu_mode"
-    -camera-back none
-    -camera-front none
-  )
-  if [[ "$headless" == true ]]; then
-    launcher+=(-no-window)
-  fi
-  # No -accel: the default finds KVM here, Hypervisor.framework on macOS, and
-  # WHPX on Windows. Only a missing /dev/kvm is worth warning about.
-  if [[ "$(uname -s)" == "Linux" && ! (-r /dev/kvm && -w /dev/kvm) ]]; then
-    echo "KVM is inaccessible; falling back to software emulation." >&2
-  fi
-  if [[ "$(uname -s)" == Darwin && "$headless" == false ]]; then
-    # launchd keeps the macOS GUI process outside the invoking task's process
-    # group, which lets the window remain open after mise exits.
-    # `launchctl submit` implies keep-alive, reopening even a closed window.
-    launchd_plist="$state_dir/emulator.plist"
-    python3 - "$launchd_plist" "$launchd_label" "$log_file" "$ANDROID_AVD_HOME" "${launcher[@]}" <<'PY'
-import plistlib
-import sys
-
-path, label, log, avd_home, *command = sys.argv[1:]
-with open(path, "wb") as stream:
-    plistlib.dump(
-        {
-            "Label": label,
-            "ProgramArguments": command,
-            "EnvironmentVariables": {"ANDROID_AVD_HOME": avd_home},
-            "StandardOutPath": log,
-            "StandardErrorPath": log,
-            "RunAtLoad": True,
-            "KeepAlive": False,
-        },
-        stream,
-    )
-PY
-    launchctl remove "$launchd_label" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$launchd_plist"
-
-    pid=
-    for ((attempt = 0; attempt < 30; attempt++)); do
-      pid=$(launchctl print "gui/$(id -u)/$launchd_label" 2>/dev/null |
-        awk '/pid =/ { print $3; exit }')
-      if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-        break
+# Older gfxstream revisions can hang when a guest exits with live GLES objects
+# (b/561516389). This applies to the Native map tests on macOS and Linux alike.
+minimum_emulator_version=37.3.5
+revision=$(sed -n 's/^Pkg\.Revision=//p' "$ANDROID_HOME/emulator/source.properties" 2>/dev/null | tr -d '\r') || true
+if [[ "$(printf '%s\n' "$minimum_emulator_version" "$revision" | sort -V | head -n1)" != "$minimum_emulator_version" ]]; then
+  install=()
+  for tool in android sdkmanager; do
+    for candidate in "$ANDROID_HOME"/cmdline-tools/latest/bin/"$tool" "$ANDROID_HOME"/cmdline-tools/*/bin/"$tool"; do
+      [[ -x "$candidate" ]] || continue
+      if [[ "$tool" == android ]]; then
+        install=("$candidate" --sdk="$ANDROID_HOME" sdk install --canary emulator)
+      else
+        install=("$candidate" --sdk_root="$ANDROID_HOME" --channel=2 --install emulator)
       fi
-      sleep 1
+      break 2
     done
-    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
-      echo "Android emulator did not start under launchd." >&2
-      launchctl remove "$launchd_label" 2>/dev/null || true
-      tail -100 "$log_file" >&2
-      exit 1
-    fi
-  elif command -v setsid >/dev/null 2>&1; then
-    nohup setsid "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
-    pid=$!
-  else
-    nohup "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
-    pid=$!
-  fi
-  printf '%s\n' "$pid" >"$pid_file"
-  echo "Started Android emulator process $pid."
+  done
+  ((${#install[@]})) || { echo "Install Android emulator $minimum_emulator_version or later with SDK command-line tools." >&2; exit 1; }
+  "${install[@]}" <<<"y" >&2
 fi
-
-pid=$(<"$pid_file")
-timeout_seconds=900
-deadline=$((SECONDS + timeout_seconds))
-while ((SECONDS < deadline)); do
-  if ! kill -0 "$pid" 2>/dev/null; then
-    echo "Android emulator exited before it became ready." >&2
-    tail -100 "$log_file" >&2
-    rm -f "$pid_file"
-    exit 1
-  fi
-  if boot_completed; then
-    echo "Android emulator for API $api_level ($abi${device_profile:+, $device_profile}) is ready at $serial."
-    adb_probe 20 shell input keyevent 82 >/dev/null || true
-    exit 0
-  fi
-  sleep 1
-done
-
-echo "Android emulator did not become ready within $timeout_seconds seconds." >&2
-tail -100 "$log_file" >&2
-exit 1
+args=(get android --owner "$project_root" --api "$api_level" --variant "$variant")
+[[ -z "$profile" ]] || args+=(--device-profile "$profile")
+gpu=swiftshader
+if [[ "$headful" == true ]]; then args+=(--headful); gpu=host; fi
+serial=$(devices-cli "${args[@]}" -- -gpu "$gpu" -camera-back none -camera-front none)
+mkdir -p "$project_root/build/android-emulator"
+printf '%s\n' "$serial" >"$project_root/build/android-emulator/serial"
+printf '%s\n' "$serial"

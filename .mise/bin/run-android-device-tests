@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
-# Run connected Android tests against the mise-managed emulator.
+# Run connected Android tests against a selected or worktree-owned device.
 set -euo pipefail
 
 api_level=${1:?usage: run-android-device-tests <api-level>}
 
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+owned=true
+[[ -z "${ANDROID_SERIAL:-}" ]] || owned=false
+export ANDROID_HOME
+ANDROID_HOME="$("$project_root/.mise/bin/android-sdk-root")"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export ANDROID_SERIAL
+ANDROID_SERIAL="$("$project_root/.mise/bin/boot-android-emulator" "$api_level")"
+adb="$("$project_root/.mise/bin/android-sdk-root")/platform-tools/adb"
+actual_api=$("$adb" -s "$ANDROID_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')
+if [[ "$actual_api" != "$api_level" ]]; then
+  echo "Android device $ANDROID_SERIAL runs API $actual_api; tests requested API $api_level." >&2
+  exit 1
+fi
 mkdir -p "$project_root/build/android-emulator"
+printf '%s\n' "$ANDROID_SERIAL" >"$project_root/build/android-emulator/serial"
 log="$project_root/build/android-emulator/device-tests.log"
 
 run_gradle() {
@@ -33,9 +47,12 @@ fi
 
 echo "Android session install hung; capturing diagnostics before reboot."
 "$project_root/.mise/bin/capture-android-emulator-diagnostics" attempt-1
+[[ "$owned" == true ]] || exit "$status"
 echo "Rebooting the emulator and retrying once."
 "$project_root/.mise/bin/stop-android-emulator"
-"$project_root/.mise/bin/boot-android-emulator" "$api_level" --headless
+unset ANDROID_SERIAL
+export ANDROID_SERIAL
+ANDROID_SERIAL="$("$project_root/.mise/bin/boot-android-emulator" "$api_level")"
 
 set +e
 {
