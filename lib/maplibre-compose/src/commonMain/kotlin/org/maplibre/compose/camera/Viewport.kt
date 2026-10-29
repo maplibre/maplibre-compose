@@ -16,7 +16,9 @@ import org.maplibre.spatialk.geojson.Position
  * applies a new camera or size, and draws that transform in its next frame, so the screen can lag
  * the newest instance by a frame. Every property and method of one instance answers for the
  * transform it describes, even after the camera has moved on, so read `viewport` again for the
- * latest one.
+ * latest one. One exception: in the browser, on a map with terrain, the conversions between
+ * positions and screen offsets read the live elevation data, so their results can change as
+ * elevation tiles load.
  */
 @Immutable
 public data class Viewport
