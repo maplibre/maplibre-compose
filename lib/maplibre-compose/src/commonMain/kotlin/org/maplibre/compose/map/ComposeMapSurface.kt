@@ -160,7 +160,7 @@ private class MapSurfaceNode(
               framePermitted = true
             }
             invalidateMeasurement()
-            invalidateDraw()
+            if (surface.preparesOnFrame) invalidateDraw()
           }
         }
       }
@@ -208,6 +208,8 @@ private class MapSurfaceNode(
       } else requests.request()
     }
     Snapshot.withoutReadObservation { surface.present(next) }
+    // Placement readers must observe the projection published during this measurement.
+    Snapshot.sendApplyNotifications()
     if (resized || attempted) invalidateDraw()
     return layout(child.width, child.height) { child.place(0, 0) }
   }
