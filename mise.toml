@@ -61,7 +61,7 @@ zig_version = "0.17.0"
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
 
 "core:go" = { version = "{{vars.go_version}}", os = ["linux", "macos"] }
-"go:github.com/sargunv/devices-cli" = { version = "v0.0.0-20261029024719-339eeca1df3d", os = [
+"go:github.com/sargunv/devices-cli" = { version = "v0.0.0-20261029030736-0ef6167bc524", os = [
   "linux",
   "macos",
 ] }
