@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# [MISE] description="Validate every task definition and usage spec in the monorepo."
+# [MISE] shell="python"
+# [MISE] tools={ "aqua:jdx/usage" = "7.1.2" }
+
+"""Run `mise tasks validate` and `usage lint` over every task.
+
+`mise tasks validate` only sees the current config root's hierarchy, and only
+the environments that are loaded, so each config root is validated from its own
+directory once per `mise.<env>.toml` and once with none. `usage lint` reads one
+spec at a time, so each task's spec is linted on its own: an inline `usage`, or
+a file task's `USAGE` comment lines. A task an environment overrides is linted
+once per distinct spec.
+"""
+
+import concurrent.futures
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+
+ROOT = pathlib.Path(
+    os.environ.get("MISE_MONOREPO_ROOT") or pathlib.Path(__file__).resolve().parents[2]
+)
+USAGE_LINE = re.compile(r"^(?:#|//) ?\[?USAGE\]? ?(.*)$")
+
+
+def mise(env: str | None, root: str, *args: str) -> subprocess.CompletedProcess[str]:
+    command = ["mise", "-C", str(ROOT / root.removeprefix("//")), *args]
+    environ = {key: value for key, value in os.environ.items() if key != "MISE_ENV"}
+    if env:
+        environ["MISE_ENV"] = env
+    return subprocess.run(
+        command, check=False, capture_output=True, text=True, cwd=ROOT, env=environ
+    )
+
+
+def list_tasks(env: str | None) -> list[dict]:
+    result = mise(env, "//", "tasks", "ls", "--all", "--hidden", "--json")
+    if result.returncode != 0:
+        raise SystemExit(
+            f"mise tasks ls failed for env {env or '(none)'}:\n{result.stderr}"
+        )
+    return json.loads(result.stdout)
+
+
+def validate(env: str | None, root: str, names: list[str]) -> list[str]:
+    result = mise(env, root, "tasks", "validate", "--json", *names)
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return [f"{root} (env {env or '(none)'}): {result.stderr.strip()}"]
+    return [
+        f"{issue['severity']}: {issue['task']} (env {env or '(none)'}): {issue['message']}"
+        + (f"\n  {issue['details']}" if issue.get("details") else "")
+        for issue in report["issues"]
+    ]
+
+
+def usage_spec(task: dict) -> str:
+    if task["usage"] or not task["file"]:
+        return task["usage"]
+    lines = pathlib.Path(task["file"]).read_text(encoding="utf-8").splitlines()
+    return "\n".join(match[1] for line in lines if (match := USAGE_LINE.match(line)))
+
+
+def lint_usage(env: str | None, name: str, spec: str) -> list[str]:
+    result = subprocess.run(
+        ["usage", "lint", "--warnings-as-errors", "-"],
+        check=False,
+        input=spec,
+        capture_output=True,
+        text=True,
+    )
+    return (
+        []
+        if result.returncode == 0
+        else [f"usage: {name} (env {env or '(none)'}):\n{result.stdout}{result.stderr}"]
+    )
+
+
+def main() -> int:
+    envs = [None] + sorted(
+        path.name.split(".")[1]
+        for path in ROOT.glob("mise.*.toml")
+        if path.name.count(".") == 2 and path.name != "mise.local.toml"
+    )
+    jobs = []
+    tasks = set()
+    specs = {}
+    for env in envs:
+        by_root: dict[str, list[str]] = {}
+        for task in list_tasks(env):
+            by_root.setdefault(task["name"].split(":", 1)[0], []).append(task["name"])
+            tasks.add(task["name"])
+            if spec := usage_spec(task):
+                specs.setdefault((task["name"], spec), env)
+        jobs += [(env, root, names) for root, names in by_root.items()]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
+        problems = [
+            problem
+            for found in pool.map(lambda job: validate(*job), jobs)
+            for problem in found
+        ]
+        problems += [
+            problem
+            for found in pool.map(
+                lambda item: lint_usage(item[1], *item[0]), specs.items()
+            )
+            for problem in found
+        ]
+
+    for problem in problems:
+        print(problem, file=sys.stderr)
+    roots = {root for _, root, _ in jobs}
+    print(
+        f"Validated {len(tasks)} tasks in {len(roots)} config roots"
+        f" across {len(envs)} environments."
+    )
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

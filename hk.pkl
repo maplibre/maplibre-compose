@@ -27,6 +27,11 @@ steps {
     check = "ruff check {{files}}"
     fix = "ruff check --fix {{files}}"
   }
+  // A task can depend on another config root, and environments can override it.
+  ["mise-tasks"] {
+    glob = List("**/mise.toml", "mise.*.toml", "**/.mise/tasks/**")
+    check = "mise run //:check-tasks"
+  }
   // jactionlint covers the `run:` blocks in workflows and composite actions.
   ["shellcheck"] {
     glob = List("**/*.sh", ".mise/bin/*")
