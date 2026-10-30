@@ -90,7 +90,8 @@ internal fun StyleContent(
   rootNode: StyleNode,
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
-  val fontScale = LocalDensity.current.fontScale
+  // Compose declares this public property on restricted FontScalingLinear.
+  @Suppress("RestrictedApi") val fontScale = LocalDensity.current.fontScale
   val animatorDurationScale = rootNode.style.animatorDurationScale
   ComposeNode<StyleEnvironmentNode, MapNodeApplier>(
     factory = ::StyleEnvironmentNode,

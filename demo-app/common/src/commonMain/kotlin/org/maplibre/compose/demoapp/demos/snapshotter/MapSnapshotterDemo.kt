@@ -96,10 +96,12 @@ object MapSnapshotterDemo : Demo {
       val height = (rect.height / density.density).roundToInt().coerceAtLeast(1)
       val size = DpSize(width.dp, height.dp)
       val capturePosition = mapState.cameraPosition.copy(center = center)
+      // Compose declares this public property on restricted FontScalingLinear.
+      @Suppress("RestrictedApi") val fontScale = density.fontScale
       val captureDensity =
         Density(
           minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height),
-          density.fontScale,
+          fontScale,
         )
       val requestSettings: MapSnapshotRequest.Builder.() -> Unit = {
         cameraPosition = capturePosition

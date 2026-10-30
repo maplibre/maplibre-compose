@@ -16,7 +16,8 @@ private val globalFontScale = globalState(FontScaleGlobalState).asNumber(const(1
 
 @Composable
 internal fun styleFontScale(): Expression<FloatValue> {
-  val fontScale = LocalDensity.current.fontScale
+  // Compose declares this public property on restricted FontScalingLinear.
+  @Suppress("RestrictedApi") val fontScale = LocalDensity.current.fontScale
   // A nested density provider can give one group of layers its own accessibility scale.
   return if (fontScale == LocalStyleFontScale.current) globalFontScale else const(fontScale)
 }

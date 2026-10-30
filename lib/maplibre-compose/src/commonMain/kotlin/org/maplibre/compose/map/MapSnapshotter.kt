@@ -103,8 +103,10 @@ private constructor(
     require(density.density.isFinite() && density.density > 0f) {
       "Snapshot density must be finite and positive, was ${density.density}"
     }
-    require(density.fontScale.isFinite() && density.fontScale > 0f) {
-      "Snapshot font scale must be finite and positive, was ${density.fontScale}"
+    // Compose declares this public property on restricted FontScalingLinear.
+    @Suppress("RestrictedApi") val fontScale = density.fontScale
+    require(fontScale.isFinite() && fontScale > 0f) {
+      "Snapshot font scale must be finite and positive, was $fontScale"
     }
   }
 
