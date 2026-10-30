@@ -96,7 +96,8 @@ object MapSnapshotterDemo : Demo {
       val height = (rect.height / density.density).roundToInt().coerceAtLeast(1)
       val size = DpSize(width.dp, height.dp)
       val capturePosition = mapState.cameraPosition.copy(center = center)
-      // Compose declares this public property on restricted FontScalingLinear.
+      // Lint false positive (AGP 9.5): on non-Android targets FontScaling is a typealias for the
+      // @RestrictTo FontScalingLinear.
       @Suppress("RestrictedApi") val fontScale = density.fontScale
       val captureDensity =
         Density(

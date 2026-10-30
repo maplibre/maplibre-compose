@@ -103,7 +103,8 @@ private constructor(
     require(density.density.isFinite() && density.density > 0f) {
       "Snapshot density must be finite and positive, was ${density.density}"
     }
-    // Compose declares this public property on restricted FontScalingLinear.
+    // Lint false positive (AGP 9.5): on non-Android targets FontScaling is a typealias for the
+    // @RestrictTo FontScalingLinear.
     @Suppress("RestrictedApi") val fontScale = density.fontScale
     require(fontScale.isFinite() && fontScale > 0f) {
       "Snapshot font scale must be finite and positive, was $fontScale"

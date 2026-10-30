@@ -90,7 +90,8 @@ internal fun StyleContent(
   rootNode: StyleNode,
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
-  // Compose declares this public property on restricted FontScalingLinear.
+  // Lint false positive (AGP 9.5): on non-Android targets FontScaling is a typealias for the
+  // @RestrictTo FontScalingLinear.
   @Suppress("RestrictedApi") val fontScale = LocalDensity.current.fontScale
   val animatorDurationScale = rootNode.style.animatorDurationScale
   ComposeNode<StyleEnvironmentNode, MapNodeApplier>(
