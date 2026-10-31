@@ -3,15 +3,13 @@ package org.maplibre.compose.material3
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.ImageValue
-import org.maplibre.compose.interaction.ClickEvent
-import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureInteractionsBuilder
 import org.maplibre.compose.layers.LocationIndicatorLayer as BaseLocationIndicatorLayer
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
@@ -53,10 +51,7 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (ClickEvent.() -> ClickResult)? = null,
-  onLongClick: (ClickEvent.() -> ClickResult)? = null,
-  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   BaseLocationIndicatorLayer(
     id = id,
@@ -80,10 +75,7 @@ public fun LocationIndicatorLayer(
     bearingTransition = bearingTransition,
     accuracyRadiusTransition = accuracyRadiusTransition,
     bearingAccuracyTransition = bearingAccuracyTransition,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   )
 }
 
@@ -119,10 +111,7 @@ public fun LocationIndicatorLayer(
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
   bearingAccuracyTransition: TransitionOptions = bearingTransition,
-  onClick: (ClickEvent.() -> ClickResult)? = null,
-  onLongClick: (ClickEvent.() -> ClickResult)? = null,
-  onDoubleClick: (ClickEvent.() -> ClickResult)? = null,
-  hitPadding: Dp = 0.dp,
+  interactions: FeatureInteractionsBuilder.() -> Unit = {},
 ) {
   BaseLocationIndicatorLayer(
     id = id,
@@ -149,9 +138,6 @@ public fun LocationIndicatorLayer(
     bearingTransition = bearingTransition,
     accuracyRadiusTransition = accuracyRadiusTransition,
     bearingAccuracyTransition = bearingAccuracyTransition,
-    onClick = onClick,
-    onLongClick = onLongClick,
-    onDoubleClick = onDoubleClick,
-    hitPadding = hitPadding,
+    interactions = interactions,
   )
 }

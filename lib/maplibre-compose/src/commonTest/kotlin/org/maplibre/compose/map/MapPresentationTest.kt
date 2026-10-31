@@ -217,7 +217,7 @@ class MapPresentationTest {
       val original =
         StyleSnapshot(
           listOf(source.definition()),
-          listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+          listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
           emptyList(),
         )
       val backing =
@@ -253,7 +253,7 @@ class MapPresentationTest {
         val revision =
           StyleSnapshot(
             listOf(updatedSource.definition()),
-            listOf(StyleSnapshot.Layer(definition, Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(definition, Anchor.Top)),
             emptyList(),
           )
         assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
@@ -301,7 +301,7 @@ class MapPresentationTest {
         val original =
           StyleSnapshot(
             listOf(source.definition()),
-            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
             emptyList(),
           )
         fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
@@ -328,7 +328,7 @@ class MapPresentationTest {
                   .definition(),
               )
             else original.sources,
-            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+            listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
             emptyList(),
           )
         fixture.applyRevision(binding, next)
@@ -382,7 +382,7 @@ class MapPresentationTest {
             if (ids.isEmpty()) emptyList()
             else listOf(attributedVectorSource("added", "attribution").definition()),
             ids.map { id ->
-              StyleSnapshot.Layer(TestLayer(id, "background").definition(), Anchor.Top, null, null)
+              StyleSnapshot.Layer(TestLayer(id, "background").definition(), Anchor.Top)
             },
             emptyList(),
           )
@@ -796,7 +796,7 @@ class MapPresentationTest {
   fun a_layer_handle_does_not_revive_after_structural_replacement() = runTest {
     val fixture = presentationFixture()
     val layer = TestLayer("background", "background")
-    val original = StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)
+    val original = StyleSnapshot.Layer(layer.definition(), Anchor.Top)
     val declaredRevision = StyleSnapshot(emptyList(), listOf(original), emptyList())
     val binding = RecordingStyleBinding()
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)

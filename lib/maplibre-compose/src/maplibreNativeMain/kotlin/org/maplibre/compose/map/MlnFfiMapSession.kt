@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -1082,23 +1081,27 @@ internal class MlnFfiMapSession(
   /** Queries layers with the same hit area together, then groups the hits by their style layer. */
   override suspend fun queryRenderedFeaturesByLayer(
     offset: DpOffset,
-    hitPadding: Map<String, Dp>,
-  ): Map<String, List<Feature<Geometry, JsonObject?>>> {
-    val session = presentation.readySession() ?: return hitPadding.mapValues { emptyList() }
+    queries: Set<FeatureQuery>,
+  ): Map<FeatureQuery, List<Feature<Geometry, JsonObject?>>> {
+    val session = presentation.readySession() ?: return queries.associateWith { emptyList() }
     val pending =
-      hitPadding.entries
-        .groupBy { it.value }
-        .map { (padding, layers) ->
+      queries
+        .groupBy { it.hitPadding }
+        .mapValues { (padding, sameArea) ->
           val geometry =
             if (padding == 0.dp) offset.toQueryGeometry()
             else
               DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding)
                 .toQueryGeometry()
-          submitQuery(session, geometry, layers.map { it.key }.toSet(), null)
+          submitQuery(session, geometry, sameArea.map { it.layerId }.toSet(), null)
         }
-    val results = pending.flatMap { it?.awaitQuery() ?: emptyList() }.groupBy { it.layerId }
+    val results = pending.mapValues { (_, query) ->
+      (query?.awaitQuery() ?: emptyList()).groupBy { it.layerId }
+    }
     return withContext(Dispatchers.Default) {
-      hitPadding.mapValues { (id, _) -> results[id].orEmpty().toGeoJsonFeatures().asReversed() }
+      queries.associateWith { (id, padding) ->
+        results[padding]?.get(id).orEmpty().toGeoJsonFeatures().asReversed()
+      }
     }
   }
 

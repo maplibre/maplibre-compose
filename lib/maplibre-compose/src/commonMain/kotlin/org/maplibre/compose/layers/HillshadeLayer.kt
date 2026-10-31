@@ -83,8 +83,6 @@ public fun HillshadeLayer(
     source = source,
     type = "hillshade",
     filterUnsupportedProperties = true,
-    onClick = null,
-    onLongClick = null,
   ) {
     root("minzoom", JsonPrimitive(minZoom))
     root("maxzoom", JsonPrimitive(maxZoom))

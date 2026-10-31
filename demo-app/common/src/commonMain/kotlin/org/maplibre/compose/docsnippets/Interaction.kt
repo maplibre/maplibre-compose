@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.FeatureHit
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
@@ -18,6 +19,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
@@ -122,10 +124,12 @@ fun SelectableEarthquakes(onEarthquakeSelected: (JsonObject?) -> Unit) {
     CircleLayer(
       id = "earthquakes",
       source = earthquakes,
-      hitPadding = 12.dp,
-      onClick = { features ->
-        onEarthquakeSelected(features.first().properties)
-        ClickResult.Consume
+      interactions = {
+        hitPadding = 12.dp
+        onClick { event ->
+          onEarthquakeSelected(event.hits.first().feature.properties)
+          ClickResult.Consume
+        }
       },
     )
   }
@@ -144,4 +148,38 @@ fun SelectableEarthquakes(onEarthquakeSelected: (JsonObject?) -> Unit) {
       },
   )
 }
+
 // #endregion layer-click
+
+// #region feature-rows
+@Composable
+fun SelectableStreets(onStreetSelected: (FeatureHit) -> Unit) {
+  val state =
+    rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
+  MaplibreMap(
+    state = state,
+    interactions =
+      MapInteractions {
+        callbacks {
+          features {
+            // The same layers with growing padding: a closer street wins over a higher layer.
+            for (padding in listOf(0.dp, 8.dp, 16.dp)) {
+              layers(
+                "road_motorway",
+                "road_trunk_primary",
+                "road_secondary_tertiary",
+                "road_minor",
+              ) {
+                hitPadding = padding
+                onClick { event ->
+                  onStreetSelected(event.hits.first())
+                  ClickResult.Consume
+                }
+              }
+            }
+          }
+        }
+      },
+  )
+}
+// #endregion feature-rows

@@ -52,8 +52,6 @@ public fun ColorReliefLayer(
     source = source,
     type = "color-relief",
     filterUnsupportedProperties = true,
-    onClick = null,
-    onLongClick = null,
   ) {
     root("minzoom", JsonPrimitive(minZoom))
     root("maxzoom", JsonPrimitive(maxZoom))

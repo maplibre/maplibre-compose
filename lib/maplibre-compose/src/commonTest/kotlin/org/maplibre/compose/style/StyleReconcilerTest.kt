@@ -175,7 +175,7 @@ class StyleReconcilerTest {
     fun revisionWith(vararg layers: TestLayer) =
       StyleSnapshot(
         emptyList(),
-        layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top, null, null) },
+        layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top) },
         emptyList(),
       )
 
@@ -204,7 +204,7 @@ class StyleReconcilerTest {
     val withoutSource =
       StyleSnapshot(
         emptyList(),
-        listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+        listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
         emptyList(),
       )
 
@@ -280,7 +280,7 @@ class StyleReconcilerTest {
       style,
       StyleSnapshot(
         emptyList(),
-        listOf(StyleSnapshot.Layer(TestLayer("base", "fill").definition(), Anchor.Top, null, null)),
+        listOf(StyleSnapshot.Layer(TestLayer("base", "fill").definition(), Anchor.Top)),
         emptyList(),
       ),
     )
@@ -432,7 +432,7 @@ class StyleReconcilerTest {
   private fun revision(source: RasterTileSource, layer: TestLayer) =
     StyleSnapshot(
       sources = listOf(source.definition()),
-      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top, null, null)),
+      layers = listOf(StyleSnapshot.Layer(layer.definition(), Anchor.Top)),
       images = emptyList(),
     )
 

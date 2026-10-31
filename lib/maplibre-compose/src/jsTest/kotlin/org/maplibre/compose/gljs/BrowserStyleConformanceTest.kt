@@ -16,7 +16,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.testClickEvent
+import org.maplibre.compose.interaction.testFeatureClickEvent
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LocationIndicatorLayer
@@ -177,10 +177,12 @@ class BrowserStyleConformanceTest {
               location = Position(0.0, 0.0),
               bearing = Bearing.North,
               accuracyRadius = 20.meters,
-              hitPadding = 8.dp,
-              onClick = { ClickResult.Pass },
-              onLongClick = { ClickResult.Consume },
-              onDoubleClick = { ClickResult.Consume },
+              interactions = {
+                hitPadding = 8.dp
+                onClick { ClickResult.Pass }
+                onLongClick { ClickResult.Consume }
+                onDoubleClick { ClickResult.Consume }
+              },
             )
           },
         )
@@ -189,10 +191,14 @@ class BrowserStyleConformanceTest {
     waitUntilMap("indicator interaction registrations") { latest?.layers?.size == 1 }
     val indicator = checkNotNull(latest).layers.single()
     assertEquals("user", indicator.definition.id)
-    assertEquals(8.dp, indicator.hitPadding)
-    assertEquals(ClickResult.Pass, indicator.onClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onLongClick!!(testClickEvent(), emptyList()))
-    assertEquals(ClickResult.Consume, indicator.onDoubleClick!!(testClickEvent(), emptyList()))
+    val interactions = indicator.interactions
+    assertEquals(8.dp, interactions.hitPadding)
+    assertEquals(ClickResult.Pass, interactions.onClick!!.onClick(testFeatureClickEvent()))
+    assertEquals(ClickResult.Consume, interactions.onLongClick!!.onClick(testFeatureClickEvent()))
+    assertEquals(
+      ClickResult.Consume,
+      interactions.onDoubleClick!!.onClick(testFeatureClickEvent()),
+    )
   }
 
   @Composable
