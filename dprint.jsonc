@@ -53,10 +53,10 @@
   },
   // Digests are required on a bump; dprint reports the one it got.
   "plugins": [
-    "https://plugins.dprint.dev/exec-0.8.0.json@1f2dfbf5dec6d2e590b2c8b0ba6dbfaf80d0320fa9bd4c3f4f29efb99cd2bd6f",
+    "npm:@dprint/exec@0.8.0/plugin.json@9d6234ea05810c775f388c2a4cce82b9116b69294b65e0e1e9d64f1446283ef3",
     "https://plugins.dprint.dev/sargunv/ktfmt-0.65.0.json@d355d4440dda00c0e315b5c39669f417bcfa76b64b68591fa1818f7a1f6b1005",
-    "https://plugins.dprint.dev/ruff-0.11.2.wasm@451da30c12783e8cd562e1341c8591a72cacaefafc184ded1e170c0707234f3b",
-    "https://plugins.dprint.dev/oxc-0.47.0.wasm@531f729b3ebf18203a07b9c2da869eef5003130ac6a8936c2eca28cf6ee8b20b",
-    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.6.wasm@93dd0c870b60431ceea59f055792fee4a353868223c813d3a44414b31d1df602",
+    "npm:@dprint/ruff@0.11.3@106a85368aaa0f979dbe6af240a80e31cab035a77520d11fc34eecf0d7790f70",
+    "npm:@dprint/oxc@0.48.0@df41021ac038f6f34e39012425eef6247573f049203f0e6541120855e1c04082",
+    "npm:dprint-plugin-markup@0.27.6@2bc0cd38720ff3ce4418a7b1566e161c2193fbecf1969d61d77f09c4dfef5171",
   ],
 }
