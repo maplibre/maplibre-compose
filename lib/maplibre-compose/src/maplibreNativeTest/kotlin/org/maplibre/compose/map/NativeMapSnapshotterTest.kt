@@ -68,7 +68,7 @@ class NativeMapSnapshotterTest {
   @Test
   fun composed_source_and_layer_render_into_an_offscreen_snapshot(): MapTestResult = runMapTest {
     withTestMapRuntime { runtime ->
-      val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = pointComposition())
       try {
         val densityOne =
           snapshotter.capture(DpSize(Size.dp, Size.dp)) {
@@ -117,7 +117,7 @@ class NativeMapSnapshotterTest {
           CameraPosition(center = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0)
       }
     withTestMapRuntime { runtime ->
-      val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
+      val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = pointComposition())
       try {
         for (delayMillis in listOf(0L, 1L, 5L, 20L, 50L)) {
           val abandoned = launch {
@@ -141,7 +141,7 @@ class NativeMapSnapshotterTest {
   fun returning_to_an_equal_base_style_creates_a_fresh_style_identity(): MapTestResult =
     runMapTest {
       withTestMapRuntime { runtime ->
-        val snapshotter = runtime.createSnapshotter(BackgroundStyle, pointComposition())
+        val snapshotter = runtime.createSnapshotter(BackgroundStyle, content = pointComposition())
         try {
           val request =
             MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {
@@ -187,7 +187,7 @@ class NativeMapSnapshotterTest {
       val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
       withTestMapRuntime { runtime ->
         val snapshotter =
-          runtime.createSnapshotter(BackgroundStyle, pointComposition { data.value })
+          runtime.createSnapshotter(BackgroundStyle, content = pointComposition { data.value })
         try {
           val request =
             MapSnapshotRequest(DpSize(Size.dp, Size.dp)) {

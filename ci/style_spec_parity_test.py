@@ -117,6 +117,26 @@ class SupportTest(unittest.TestCase):
 
 
 class RootObjectTest(unittest.TestCase):
+    def test_browser_terrain_literal_writes_are_audited(self) -> None:
+        spec = _spec(js="1.0.0", android=None, ios=None)
+        spec["terrain"] = {
+            "source": {"sdk-support": {"basic functionality": {"js": "2.2.0"}}},
+            "exaggeration": {"sdk-support": {"basic functionality": {"js": "2.2.0"}}},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(root, "commonMain", "FillLayer.kt", "fill", "")
+            _write(
+                root,
+                "lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/style/WebTerrain.kt",
+                'put("source", source)\n',
+            )
+            self.assertEqual(scan_root_objects(root), {"terrain": {"source"}})
+            report = audit(spec, root, Pins(js=Version.parse("6.2.0")))
+        self.assertTrue(
+            any("terrain: missing exaggeration (js)" in line for line in report.errors)
+        )
+
     def test_a_missing_root_property_is_an_error(self) -> None:
         spec = _spec(js="1.0.0", android=None, ios=None)
         spec["sky"] = {

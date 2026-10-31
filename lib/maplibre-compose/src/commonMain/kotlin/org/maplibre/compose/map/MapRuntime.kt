@@ -82,8 +82,10 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.internal.StyleOverridesContent
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -216,23 +218,28 @@ internal constructor(
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
    * declares. The caller must close the result.
    *
+   * @param styleOverrides Replaces the base style's root objects, such as the light, after each
+   *   style load.
    * @param content Declares the map's sources, layers, and images. It reads the returned state
    *   through [LocalMapState] and its viewport through [LocalViewport]. It composes from the start
    *   for each style the map loads, so values it remembers reset when the base style changes.
    */
   public fun createMapState(
     baseStyle: BaseStyle,
+    styleOverrides: StyleOverrides = StyleOverrides.None,
     cameraPosition: CameraPosition = CameraPosition(),
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapState = lock.withLock {
     requireOpenLocked()
-    MapState(this, cameraPosition, baseStyle, content).also(children::add)
+    MapState(this, cameraPosition, baseStyle, styleOverrides, content).also(children::add)
   }
 
   /**
    * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
    * [content] declares, for image capture. The caller must close the result.
    *
+   * @param styleOverrides Replaces the base style's root objects, such as the light, after each
+   *   style load.
    * @param content Declares the snapshotter's sources, layers, and images. It reads the viewport of
    *   each capture request through [LocalViewport]. It has no [MapState], so [LocalMapState] is
    *   null. It composes from the start for each capture, so values it remembers do not carry over
@@ -241,10 +248,11 @@ internal constructor(
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,
+    styleOverrides: StyleOverrides = StyleOverrides.None,
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
-    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
+    MapSnapshotterImplementation(this, baseStyle, styleOverrides, content).also(snapshotters::add)
   }
 
   private fun requireOpen() {
@@ -382,7 +390,11 @@ internal interface MapStyleStateOwner {
  * [IllegalStateException]. A close while a call runs is treated like a style change: the command or
  * write does nothing and logs a warning, and the read returns null.
  */
-public class MapStyleState internal constructor(baseStyle: BaseStyle) {
+public class MapStyleState
+internal constructor(
+  baseStyle: BaseStyle,
+  styleOverrides: StyleOverrides = StyleOverrides.None,
+) {
   /** The map or snapshotter that owns this state, attached right after construction. */
   internal lateinit var owner: MapStyleStateOwner
     private set
@@ -426,13 +438,39 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
   private var baseStyleState: BaseStyle by mutableStateOf(baseStyle, structuralEqualityPolicy())
 
+  private var overridesState: StyleOverrides by mutableStateOf(styleOverrides)
+
+  /** Desired root-object overrides, retained across base-style loads. */
+  public val overrides: StyleOverrides
+    get() = overridesState
+
+  internal fun updateOverrides(value: StyleOverrides) {
+    owner.requireOpen()
+    overridesState = value
+  }
+
+  private fun isRootWritable(name: String): Boolean {
+    val desired = overrides.definition()
+    val committed = declaredRevision.overrides
+    return when (name) {
+      "light" -> desired.light == null && committed.light == null
+      "sky" -> desired.sky == null && committed.sky == null
+      "projection" -> desired.projection == null && committed.projection == null
+      else -> error("Unknown style root object '$name'")
+    }
+  }
+
+  private fun requireRootWritable(name: String) {
+    check(isRootWritable(name)) { "The $name is declared by styleOverrides" }
+  }
+
   internal var baseStyleDeclared: Boolean = false
 
   /** The desired base style. A change replaces generation-bound resources. */
   public val baseStyle: BaseStyle
     get() = baseStyleState
 
-  /** Base-style commands, or null when [rememberMapState] owns the base style. */
+  /** Base-style and override commands, or null when [rememberMapState] owns the style. */
   public val asMutable: MutableMapStyleState?
     get() = if (baseStyleDeclared) null else MutableMapStyleState(this)
 
@@ -507,6 +545,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun setLight(light: Light) {
+    requireRootWritable("light")
     val value = light.toJson()
     mutateStyle("The light", value) {
       it.setLight(value.withScaledTransitions(it.animatorDurationScale))
@@ -516,6 +555,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   internal suspend fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
+    requireRootWritable("sky")
     val value = sky?.toJson()
     mutateStyle("The sky", value) {
       it.setSky(value?.withScaledTransitions(it.animatorDurationScale))
@@ -527,6 +567,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   }
 
   internal fun setProjection(projection: Projection) {
+    requireRootWritable("projection")
     val value = projection.toJson()
     mutateStyle("The projection", value) { it.setProjection(value) }
   }
@@ -1002,6 +1043,7 @@ internal constructor(
   internal val runtime: MapRuntime,
   cameraPosition: CameraPosition,
   baseStyle: BaseStyle,
+  styleOverrides: StyleOverrides,
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   internal val styleContent: @Composable @MaplibreComposable () -> Unit = {
@@ -1009,12 +1051,13 @@ internal constructor(
       LocalMapState provides this,
       LocalViewport providesComputed { viewport },
     ) {
+      StyleOverridesContent(style.overrides)
       content()
     }
   }
   internal val lifecycle =
     MapLifecycleAuthority(this, runtime.physicalScope, runtime.mainDispatcher, runtime.mainThread)
-  internal val styleAuthority = MapStyleAuthority(lifecycle, runtime, baseStyle)
+  internal val styleAuthority = MapStyleAuthority(lifecycle, runtime, baseStyle, styleOverrides)
   public val style: MapStyleState = styleAuthority.style
   internal val gestureAuthority = CameraInputAuthority(this)
   internal val attachmentAuthority =
@@ -1445,6 +1488,9 @@ internal class MapPresentationOwnerToken
  *   starts MapLibre, so the map state works but no map renders.
  * @param baseStyle The map's base style, updated on recomposition. Its [MapStyleState.asMutable] is
  *   null.
+ * @param styleOverrides Replaces the base style's root objects, such as the light. Updated on
+ *   recomposition and reapplied after each style load. Clearing an override restores the current
+ *   base style's value.
  * @param initialCameraPosition Only seeds the camera; use [MapState.setCameraPosition] to move it.
  * @param content Declares the map's sources, layers, and images. Changes to it update the declared
  *   resources. It reads the returned state through [LocalMapState] and its viewport through
@@ -1455,22 +1501,30 @@ internal class MapPresentationOwnerToken
 public fun rememberMapState(
   runtime: MapRuntime = defaultMapRuntime(),
   baseStyle: BaseStyle = BaseStyle.Demo,
+  styleOverrides: StyleOverrides = StyleOverrides.None,
   initialCameraPosition: CameraPosition = CameraPosition(),
   content: @Composable @MaplibreComposable () -> Unit = {},
 ): MapState {
   val currentContent by rememberUpdatedState(content)
   val stableContent = remember<@Composable @MaplibreComposable () -> Unit> { { currentContent() } }
   val state =
-    rememberSaveable(runtime, saver = mapStateSaver(runtime, baseStyle, stableContent)) {
+    rememberSaveable(
+      runtime,
+      saver = mapStateSaver(runtime, baseStyle, styleOverrides, stableContent),
+    ) {
       runtime
         .createMapState(
           baseStyle = baseStyle,
+          styleOverrides = styleOverrides,
           cameraPosition = initialCameraPosition,
           content = stableContent,
         )
         .also { it.style.baseStyleDeclared = true }
     }
-  SideEffect { state.style.updateBaseStyle(baseStyle) }
+  SideEffect {
+    state.style.updateOverrides(styleOverrides)
+    state.style.updateBaseStyle(baseStyle)
+  }
   DisposableEffect(state) { onDispose { state.close() } }
   return state
 }
@@ -1494,6 +1548,7 @@ private fun defaultMapRuntime(): MapRuntime {
 private fun mapStateSaver(
   runtime: MapRuntime,
   baseStyle: BaseStyle,
+  styleOverrides: StyleOverrides,
   content: @Composable @MaplibreComposable () -> Unit,
 ): Saver<MapState, List<Double>> =
   Saver(
@@ -1517,6 +1572,7 @@ private fun mapStateSaver(
       runtime
         .createMapState(
           baseStyle = baseStyle,
+          styleOverrides = styleOverrides,
           cameraPosition =
             CameraPosition(
               bearing = values[0],

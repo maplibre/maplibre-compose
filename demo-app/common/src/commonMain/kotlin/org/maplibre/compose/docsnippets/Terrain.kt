@@ -27,6 +27,7 @@ import org.maplibre.compose.sources.rememberRasterDemTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 import org.maplibre.spatialk.geojson.Position
 
@@ -61,22 +62,30 @@ fun Terrain() {
     }
   MaplibreMap(state = mapState)
   // #endregion buildings
+}
 
+@Composable
+fun LitBuildingsMap() {
   // #region light
-  LaunchedEffect(mapState, mapState.style.loadState) {
-    if (mapState.style.loadState == StyleLoadState.Ready) {
-      mapState.style.light.set(
-        Light(
-          // Light from the west, whichever way the map is rotated
-          anchor = const(IlluminationAnchor.Map),
-          position = const(listOf(1.5f, 270f, 60f)),
-          color = const(Color(0xFFFFE0B2)),
-          intensity = const(0.6f),
-        ),
+  val lighting = StyleOverrides {
+    light =
+      Light(
+        // Light from the west, whichever way the map is rotated
+        anchor = const(IlluminationAnchor.Map),
+        position = const(listOf(1.5f, 270f, 60f)),
+        color = const(Color(0xFFFFE0B2)),
+        intensity = const(0.6f),
       )
-    }
   }
+  val mapState =
+    rememberMapState(
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/bright"),
+      styleOverrides = lighting,
+    ) {
+      // The 3D buildings from the previous example
+    }
   // #endregion light
+  MaplibreMap(state = mapState)
 }
 
 @Composable

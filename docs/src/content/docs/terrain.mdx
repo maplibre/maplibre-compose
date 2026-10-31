@@ -9,13 +9,14 @@ import TerrainExamples from "../../components/TerrainExamples.astro";
 import { region, rememberedMapStyle } from "../../snippets";
 
 import terrain from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Terrain.kt?raw";
+import browserTerrain from "../../../../demo-app/common/src/jsMain/kotlin/org/maplibre/compose/docsnippets/BrowserTerrain.kt?raw";
 
 Height data helps users see the shape of a city or a landscape. You can draw
 buildings as 3D blocks, shade mountains from elevation tiles, and show the
 whole world as a globe.
 
-MapLibre Compose has no API for 3D terrain, which raises the ground itself.
-Hillshade and color relief shade the flat map instead.
+Hillshade and color relief shade the flat map on every platform. In the
+browser, 3D terrain also raises the ground itself.
 
 ## Show 3D buildings
 
@@ -33,8 +34,8 @@ styles, such as OpenFreeMap Liberty, already include 3D buildings.
 
 ## Light 3D buildings
 
-The style's light shades the sides of extruded buildings. Set it with
-<Api of="StyleLight.set" /> when the style is ready:
+The style's light shades the sides of extruded buildings. To replace the base
+style's light, pass it in <Api of="StyleOverrides" />:
 
 <Code code={region(terrain, "light")} lang="kotlin" title="App.kt" />
 
@@ -43,9 +44,8 @@ north, and its angle in degrees from straight above. With
 `IlluminationAnchor.Map`, the light keeps its direction when the user rotates
 the map.
 
-Loading another base style replaces the light with the new style's light. The
-effect sets it again each time <Api of="MapStyleState.loadState" /> becomes
-<Api of="StyleLoadState.Ready" />.
+The map applies the light again after each style load, so it stays when the
+base style changes.
 
 ## Shade hills
 
@@ -75,6 +75,21 @@ Without `color`, the layer uses <Api of="LayerDefaults.ColorReliefColors" />.
 With the sample tiles from the previous section, start the camera over
 Innsbruck as that example does; elsewhere the layer has no data to color.
 
+## Raise the ground in the browser
+
+In the browser, 3D terrain draws the map on top of elevation data from a raster
+DEM source. Pass the source to <Api of="WebTerrain" /> in the style overrides.
+The map adds the source to the style even though no layer uses it.
+`exaggeration` multiplies the heights:
+
+<Code code={region(browserTerrain, "terrain")} lang="kotlin" title="App.kt" />
+
+To use a raster DEM source that the base style already has, pass its ID to
+`WebTerrain` instead. MapLibre recommends separate DEM sources for terrain and
+for hillshade or color relief layers. `removeTerrain()` in the overrides
+removes terrain that the base style declares. MapLibre Native does not support
+3D terrain.
+
 ## Show a globe
 
 Set the style's projection to <Api of="ProjectionType.Globe" /> to show the
@@ -84,8 +99,10 @@ world as a globe when the user zooms out:
 
 Below zoom 11, the map is a globe. Between zoom 11 and zoom 12, it turns into
 the flat Mercator map. `ProjectionType.Globe` is experimental, so the function
-opts in to <Api of="ExperimentalMaplibreComposeApi" />. As with the light, a new base
-style replaces the projection, so the effect sets it again.
+opts in to <Api of="ExperimentalMaplibreComposeApi" />. A new base style
+replaces the projection, so the effect sets it again. Browser code can set
+`projection` in <Api of="StyleOverrides" /> instead, which the map applies
+again after each style load.
 
 Only the browser draws a globe. MapLibre Native supports only the Mercator
 projection, so it logs a warning and keeps the flat map. On the browser, the
