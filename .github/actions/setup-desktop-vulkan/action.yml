@@ -31,7 +31,7 @@ runs:
       if: runner.os == 'Windows'
       uses: jakoch/install-vulkan-sdk-action@d17de7e2f5e50efb5d2123efed18497d3c58c533 # v1.7.0
       with:
-        vulkan_version: 1.4.341.1
+        vulkan_version: 1.4.363.0
         cache: true
         stripdown: true
         # dzn is an ICD, not the vulkan-1.dll loader that LWJGL opens.
@@ -58,16 +58,16 @@ runs:
           New-ItemProperty -Path $driverKey -Name $Manifest -PropertyType DWord -Value 0 -Force | Out-Null
         }
 
-        $mesaVersion = "26.1.3"
+        $mesaVersion = "26.2.6"
         if ($env:RUNNER_ARCH -eq "ARM64") {
           $architecture = "arm64"
-          $openGlHash = "C7B65C2CDF8774E19CEAB45FA7BBE18D2C7E735D9CE879BC071A25DFFAD46ECF"
-          $expectedHash = "9F235A7A1195B91DC4140133D614FC7BA26A804DB16C43AE51F840FED5E84AD7"
+          $openGlHash = "1C7BD291665ECE8901E3D3D928C22C04418CEA095527BABAC9752733FA0ABFC4"
+          $expectedHash = "8B48C8CFD862485371AB8E7DCB9149279B14D04A72E03BD82051ECAEB24CFEB2"
           $manifestName = "dzn_icd.aarch64.json"
         } else {
           $architecture = "x64"
-          $openGlHash = "195EA10AE0E682E6B2A265C4C7E96D229F09A8A24C92D5A9BE2D210214D7B14E"
-          $expectedHash = "58222C2972549FA617DE6485ADD07A5CE57B728AE005744D2FD14E419A7D670D"
+          $openGlHash = "5C6FB3C75CE4C8A7AE6A0D0C3077935D4D9331D0C2F8DB2ECB6E461E08A62F57"
+          $expectedHash = "71A358A714D91175847CE0FDB2F9F3D797E58FBF74F8F39EDA4555DB429D0E57"
           $manifestName = "dzn_icd.x86_64.json"
         }
         $archiveName = "mesa-dzn-$architecture-$mesaVersion.7z"
