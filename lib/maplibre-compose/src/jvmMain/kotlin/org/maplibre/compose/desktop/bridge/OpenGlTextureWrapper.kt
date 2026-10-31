@@ -170,3 +170,7 @@ private fun clearAngleGlErrors() {
     // Reading the flag clears it.
   }
 }
+
+/** Desktop hosts lend MapLibre a ring of one texture. */
+private val OpenGlTextureTarget.textureName: Int
+  get() = textureNames.single()

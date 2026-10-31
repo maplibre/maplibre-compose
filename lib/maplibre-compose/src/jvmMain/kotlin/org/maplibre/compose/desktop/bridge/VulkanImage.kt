@@ -44,6 +44,7 @@ import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.VulkanImageTarget
+import org.maplibre.compose.mlnffi.VulkanRingImage
 
 /** Where a [VulkanImage]'s memory comes from. */
 internal sealed interface VulkanImageMemory {
@@ -88,8 +89,7 @@ private constructor(
   override fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
       context = vulkan.handles,
-      image = NativeHandle(image),
-      imageView = NativeHandle(view),
+      images = listOf(VulkanRingImage(NativeHandle(image), NativeHandle(view))),
       format = format,
       initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = finalLayout,

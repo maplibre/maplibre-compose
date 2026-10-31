@@ -1,5 +1,6 @@
 package org.maplibre.compose.mlnffi
 
+import android.hardware.HardwareBuffer
 import android.view.Surface
 import org.maplibre.compose.map.MapExtent
 
@@ -43,7 +44,7 @@ internal class AndroidVulkanContext private constructor(private var handle: Long
   }
 }
 
-private fun Long.toVulkanContextHandles() =
+internal fun Long.toVulkanContextHandles() =
   VulkanContextHandles(
     instance = NativeHandle(AndroidVulkanNativeBridge.instance(this)),
     physicalDevice = NativeHandle(AndroidVulkanNativeBridge.physicalDevice(this)),
@@ -55,7 +56,7 @@ private fun Long.toVulkanContextHandles() =
   )
 
 /** JNI bindings for the native Vulkan loader shim. */
-private object AndroidVulkanNativeBridge {
+internal object AndroidVulkanNativeBridge {
   init {
     System.loadLibrary("maplibre_compose_vulkan")
   }
@@ -63,7 +64,29 @@ private object AndroidVulkanNativeBridge {
   /** Builds the context for [surface], or throws with the Vulkan failure. */
   external fun create(surface: Surface): Long
 
+  /** Builds a context that imports hardware buffers, or throws with the Vulkan failure. */
+  external fun createForHardwareBuffers(): Long
+
   external fun destroy(handle: Long)
+
+  /**
+   * Imports [buffer] as a `width` by `height` RGBA8 image, and returns the import for [image],
+   * [imageView], and [destroyImage].
+   */
+  external fun importHardwareBuffer(
+    handle: Long,
+    buffer: HardwareBuffer,
+    width: Int,
+    height: Int,
+  ): Long
+
+  external fun destroyImage(handle: Long, image: Long)
+
+  /** `VkImage` of an import. */
+  external fun image(image: Long): Long
+
+  /** `VkImageView` of an import. */
+  external fun imageView(image: Long): Long
 
   /** `VkInstance`. */
   external fun instance(handle: Long): Long

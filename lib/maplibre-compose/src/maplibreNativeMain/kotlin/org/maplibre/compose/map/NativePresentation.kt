@@ -373,6 +373,14 @@ internal class NativePresentation(
               "The host draws only frames whose producer work is complete, not ${sync.kind}"
             }
           }
+          frame.acquiredSlot =
+            when (val target = frame.target) {
+              is OpenGlTextureTarget -> {
+                target.makeContextCurrent()
+                acquired.withOpenGlTexture { it.slot.toInt() }
+              }
+              else -> acquiredPlatformSlot(acquired, target)
+            }
         } catch (error: Throwable) {
           acquired.release(null)
           throw error
@@ -384,6 +392,7 @@ internal class NativePresentation(
             }
           acquired.release(null)
         }
+        frame.discardAfterReads = acquired::discard
         attachment.host.requestFrame()
       }
     } catch (error: MaplibreException) {
@@ -537,7 +546,7 @@ internal class NativePresentation(
       physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
       physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
       context = context.toFfi(),
-      textures = listOf(OpenGlBorrowedTexture(textureName.toUInt())),
+      textures = textureNames.map { OpenGlBorrowedTexture(it.toUInt()) },
       target = textureTarget.toUInt(),
     )
 

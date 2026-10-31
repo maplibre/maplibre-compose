@@ -1,10 +1,12 @@
 package org.maplibre.compose.mlnffi
 
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
+import androidx.annotation.RequiresApi
 import java.util.concurrent.FutureTask
 import kotlin.time.Duration
 import org.maplibre.compose.logging.MapLog
@@ -18,12 +20,17 @@ import org.maplibre.compose.map.MapExtent
  * waits for the next display frame, so consecutive updates can share that frame.
  *
  * [maximumFps] can further limit the display cadence.
+ *
+ * The map renders either into a [Surface] that MapLibre presents, or into map buffers whose
+ * rendered frames go to [onBufferFrame] for the caller to present.
  */
 internal class AndroidMlnFfiSurfaceController(
   renderer: MlnFfiMapRenderer,
   private val backend: MapRenderBackend,
   logger: MapLog?,
   maximumFps: Int? = null,
+  /** Receives each frame rendered into map buffers, on the render thread. */
+  private val onBufferFrame: ((AndroidMapBufferFrame) -> Unit)? = null,
   private val onFailure: (Throwable) -> Unit = {},
 ) :
   MlnFfiSurfaceRenderLoop<AndroidMapGraphicsContext>(
@@ -48,6 +55,43 @@ internal class AndroidMlnFfiSurfaceController(
       attachSurface(MapExtent.fromPhysical(width, height, scaleFactor)) {
         AndroidMapGraphicsContext.create(backend, surface)
       }
+    }
+  }
+
+  /**
+   * Renders into map buffers instead of a surface. Calls [onUnsupported] on the render thread
+   * instead when the device cannot allocate or import map buffers for the backend.
+   */
+  @RequiresApi(33)
+  fun buffersCreated(
+    width: Int,
+    height: Int,
+    scaleFactor: Double,
+    onUnsupported: (Throwable) -> Unit,
+  ) {
+    renderHandler.post {
+      val extent = MapExtent.fromPhysical(width, height, scaleFactor)
+      val buffers =
+        try {
+          // Allocating and importing the first ring here tells whether this device supports it.
+          AndroidMapBuffers.create(backend).apply {
+            try {
+              target(extent, 0)
+            } catch (error: Exception) {
+              close()
+              throw error
+            }
+          }
+        } catch (error: Exception) {
+          onUnsupported(error)
+          return@post
+        }
+      var attached = false
+      attachSurface(extent) {
+        attached = true
+        buffers
+      }
+      if (!attached) buffers.close()
     }
   }
 
@@ -120,6 +164,27 @@ internal class AndroidMlnFfiSurfaceController(
 
   override fun releaseSurface(surface: AndroidMapGraphicsContext) {
     surface.close()
+  }
+
+  override val capturesProjection: Boolean
+    get() = surface is AndroidMapBuffers
+
+  override fun frameRendered(frame: MlnFfiMapFrame, projection: MlnFfiMapFrameProjection?) {
+    val buffers = surface as? AndroidMapBuffers
+    if (buffers == null || Build.VERSION.SDK_INT < 33) {
+      projection?.close()
+      return
+    }
+    val bufferFrame = buffers.frame(frame, checkNotNull(projection), this) ?: return
+    onBufferFrame?.invoke(bufferFrame) ?: bufferFrame.discard()
+  }
+
+  /** The session is about to let go of its map buffers, so frames in flight must give up theirs. */
+  override fun completeConsumerAccess() {
+    if (closed) return
+    withRendererAccess {
+      if (Build.VERSION.SDK_INT >= 33) (surface as? AndroidMapBuffers)?.retire()
+    }
   }
 
   override fun onTerminalFailure(message: String, error: Throwable, releaseFailure: Throwable?) {

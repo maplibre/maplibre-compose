@@ -7,6 +7,7 @@ import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
+import org.maplibre.nativeffi.AcquiredFrameHandle
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.MetalBorrowedTexture
 import org.maplibre.nativeffi.MetalBorrowedTextureDescriptor
@@ -33,6 +34,12 @@ internal expect fun replacePlatformTarget(
   extent: MapExtent,
 ): Deferred<*>
 
+/** The ring slot of [frame], a frame of [target], for targets that [attachPlatformTarget] takes. */
+internal expect fun acquiredPlatformSlot(
+  frame: AcquiredFrameHandle,
+  target: MlnFfiRenderTarget,
+): Int
+
 internal fun VulkanImageTarget.toDescriptor(extent: MapExtent) =
   VulkanBorrowedTextureDescriptor(
     extent = extent.toFfiExtent(),
@@ -40,12 +47,12 @@ internal fun VulkanImageTarget.toDescriptor(extent: MapExtent) =
     physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
     context = context.toFfi(),
     textures =
-      listOf(
+      images.map {
         VulkanBorrowedTexture(
-          image = image.address.toULong(),
-          imageView = imageView.address.toULong(),
-        ),
-      ),
+          image = it.image.address.toULong(),
+          imageView = it.imageView.address.toULong(),
+        )
+      },
     format = format.toUInt(),
     initialLayout = initialLayout.toUInt(),
     finalLayout = finalLayout.toUInt(),
