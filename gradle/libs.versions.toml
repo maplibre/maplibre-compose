@@ -36,7 +36,7 @@ fflate = "0.8.3"
 jsJodaTimezone = "2.22.0"
 htmlConverterCompose = "1.1.1"
 hms-location = "6.12.0.300"
-nucleus = "3.0.0-dev-202610200221"
+nucleus = "3.0.0-dev-202610230652"
 kermit = "2.2.0"
 kotlin-wrappers = "2026.10.5"
 kotlinx-coroutines = "1.11.0"
@@ -89,7 +89,7 @@ gradle-kotlin = "2.4.21"
 # Complexity metrics for tools/code-metrics. Its kotlin-compiler dependency must
 # parse the same syntax the build compiles, so it is built against gradle-kotlin.
 detekt = "2.0.0-alpha.6"
-gradle-android = "9.4.1"
+gradle-android = "9.5.0"
 # Renders @Preview with the Android Studio renderer; tied to the AGP version.
 gradle-composeScreenshot = "0.0.1-alpha16"
 
