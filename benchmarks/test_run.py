@@ -1,9 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from run import wait_for
+from run import CLASSIC_PACKAGE, setup, wait_for
 
 
 class CaptureTest(unittest.TestCase):
@@ -19,3 +19,24 @@ class CaptureTest(unittest.TestCase):
             process.poll.return_value = 0
             log.write_text("MAP_BENCHMARK DONE")
             wait_for(log, process)
+
+
+class SetupTest(unittest.TestCase):
+    def test_android_install_compiles_the_app_before_it_runs(self):
+        with patch("run.call", return_value="/sdk") as call:
+            setup("android", '{"implementation":"classic-android"}', "phone")
+        commands = [args[3:] for args, _ in call.call_args_list[1:]]
+        self.assertEqual(commands[0][0], "install")
+        self.assertEqual(
+            commands[1],
+            (
+                "shell",
+                "cmd",
+                "package",
+                "compile",
+                "-m",
+                "speed",
+                "-f",
+                CLASSIC_PACKAGE,
+            ),
+        )

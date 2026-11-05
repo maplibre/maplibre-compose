@@ -236,6 +236,14 @@ def is_simulator(device):
     )
 
 
+def android_compile_args(package):
+    """Compile [package] ahead of time, so runs measure compiled code instead of JIT warm-up.
+
+    An adb install leaves the app's code to the interpreter and JIT, which dominate a short run.
+    """
+    return ["shell", "cmd", "package", "compile", "-m", "speed", "-f", package]
+
+
 def setup(platform, config, device=None, app=None):
     """Install the app that runs [config] and return the launch context for [capture]."""
     context = {"device": device, "app": app}
@@ -246,6 +254,7 @@ def setup(platform, config, device=None, app=None):
             device,
         ]
         call(*adb, "install", "-r", android_apk(config))
+        call(*adb, *android_compile_args(app_package(config)))
         context["adb"] = adb
     elif platform == "ios":
         devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
