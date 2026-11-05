@@ -5,8 +5,27 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from backfill import capture, host
+from backfill import capture, host, measure_one
 from test_performance import write_run
+
+
+class MeasureTest(unittest.TestCase):
+    def test_a_run_that_never_finishes_is_measured_again(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "001"
+            device = Mock(serial="phone")
+            device.thermal.return_value = 0
+            report = {"cpu_ms": 1}
+            with (
+                patch("backfill.WORK", Path(directory)),
+                patch(
+                    "backfill.capture",
+                    side_effect=[TimeoutError("Benchmark did not finish"), report],
+                ),
+            ):
+                self.assertEqual(measure_one(device, {}, output, "/app.log"), report)
+            self.assertTrue((output / "accepted.json").exists())
+            self.assertEqual(len(list(output.parent.glob("001-rejected-*"))), 1)
 
 
 class HostTest(unittest.TestCase):
