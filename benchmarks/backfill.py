@@ -564,6 +564,7 @@ def measure(args):
                 if not installed.endswith("Success"):
                     device("uninstall", manifest["apks"][kind]["package"], check=False)
                     device("install", str(path))
+                device(*runner.android_compile_args(manifest["apks"][kind]["package"]))
             plan = [
                 e for e in manifest["plan"] if not args.case or e["case"] in args.case
             ]

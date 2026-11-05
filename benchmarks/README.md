@@ -38,7 +38,9 @@ Add `--implementation classic-android` or `classic-ios` to compare SDKs.
 
 Use one device, viewport, and data set per comparison, keep the device idle and
 cool, and prefer physical hardware. SDK comparisons measure the delivered
-stacks, including their MapLibre Native revisions.
+stacks, including their MapLibre Native revisions. On Android, the runner
+compiles each app ahead of time after installing it, so runs measure compiled
+code rather than interpreter and JIT warm-up.
 
 ## Operation boundaries
 
