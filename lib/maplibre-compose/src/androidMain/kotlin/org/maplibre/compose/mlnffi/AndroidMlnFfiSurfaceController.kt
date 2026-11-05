@@ -38,6 +38,9 @@ internal class AndroidMlnFfiSurfaceController(
     get() = closed
 
   override val backends = RenderBackendPair(backend, ComposeRenderBackend.OpenGl)
+  // TODO: answer rendered-feature queries on the driver-work wake once
+  // https://github.com/maplibre/maplibre-native-ffi/issues/1696 lets a service skip parked
+  // frame demands. Until then each query waits for the next display frame.
   override val servicesDriverWorkOnFrame = true
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
