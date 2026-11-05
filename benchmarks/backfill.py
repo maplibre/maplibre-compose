@@ -650,7 +650,12 @@ def measure_one(device, config, output, log_file):
             report = capture(
                 device, json.dumps(config, separators=(",", ":")), output, log_file
             )
-        except (RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+        except (
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            subprocess.CalledProcessError,
+        ) as error:
             print(f"[{device.serial}] failed: {error}", flush=True)
             continue
         status = device.thermal()
