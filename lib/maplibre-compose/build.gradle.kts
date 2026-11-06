@@ -224,8 +224,9 @@ kotlin {
       implementation(libs.androidx.activity.compose)
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
-      // The shared device-test render driver targets OpenGL.
-      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
+      // The shared device-test render driver targets OpenGL, and coordinated presentation imports
+      // map buffers through the runtime's shim.
+      implementation(project(":lib:maplibre-compose-runtime-opengl-android"))
     }
   }
 }

@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
 
 plugins {
@@ -11,17 +12,41 @@ mavenPublishing {
   configure(AndroidSingleVariantLibrary())
   pom {
     name = "MapLibre Compose Runtime (OpenGL, Android)"
-    description = "The MapLibre Native FFI OpenGL runtime for MapLibre Compose on Android."
+    description =
+      "The MapLibre Native FFI OpenGL runtime and its hardware buffer shim, " +
+        "for MapLibre Compose on Android."
     url = "https://github.com/maplibre/maplibre-compose"
   }
 }
+
+// externalNativeBuild needs the SDK at configuration time; without an SDK the
+// module configures but does not build.
+val hasAndroidSdk =
+  gradleLocalProperties(rootDir, providers).getProperty("sdk.dir") != null ||
+    providers.environmentVariable("ANDROID_HOME").isPresent ||
+    providers.environmentVariable("ANDROID_SDK_ROOT").isPresent
 
 android {
   namespace = "org.maplibre.compose.runtime.opengl"
 
   compileSdk = libs.versions.android.compileSdk.get().toInt()
 
-  defaultConfig { minSdk = libs.versions.android.minSdk.get().toInt() }
+  ndkVersion = libs.versions.android.ndk.get()
+
+  if (hasAndroidSdk) {
+    externalNativeBuild {
+      cmake {
+        path = file("src/main/cpp/CMakeLists.txt")
+        version = libs.versions.android.cmake.get()
+      }
+    }
+  }
+
+  defaultConfig {
+    minSdk = libs.versions.android.minSdk.get().toInt()
+
+    ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
+  }
 }
 
 dependencies {

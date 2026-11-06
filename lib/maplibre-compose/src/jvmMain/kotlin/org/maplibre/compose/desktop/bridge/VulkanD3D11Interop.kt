@@ -45,7 +45,7 @@ private constructor(private val extent: MapExtent, private var binding: AngleBou
     OpenGlTextureTarget(
       context =
         EglContextHandles(NativeHandle(0), NativeHandle(0), NativeHandle(0), NativeHandle(0)),
-      textureName = textureName,
+      textureNames = listOf(textureName),
       textureTarget = GL_TEXTURE_2D,
       format = GL_RGBA8,
       origin = TextureOrigin.TopLeft,

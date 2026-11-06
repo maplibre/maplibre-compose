@@ -410,7 +410,7 @@ private constructor(
   fun target(generation: Long): OpenGlTextureTarget =
     OpenGlTextureTarget(
       context = context.handles,
-      textureName = texture,
+      textureNames = listOf(texture),
       textureTarget = GL_TEXTURE_2D,
       format = GL_BGRA8_EXT,
       makeContextCurrent = { context.makeCurrent() },

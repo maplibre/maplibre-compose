@@ -30,6 +30,16 @@ internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget) {
    * consumer finished its GPU reads; false abandons the session before releasing the frame.
    */
   var releaseAfterReads: ((consumerCompleted: Boolean) -> Unit)? = null
+
+  /**
+   * Gives up the frame that [releaseAfterReads] holds while its consumer may still read it. The
+   * session never renders into the frame's slot again until a replacement of [target] gives the
+   * slot a new texture. Call at most one of the two; either thread may call this one.
+   */
+  var discardAfterReads: (() -> Unit)? = null
+
+  /** The ring slot of the frame that [releaseAfterReads] holds, in [target]'s slot order. */
+  var acquiredSlot: Int = 0
 }
 
 /** The explicit outcome of asking a host for a frame. */
