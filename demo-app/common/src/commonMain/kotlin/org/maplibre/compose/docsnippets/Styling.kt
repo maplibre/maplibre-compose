@@ -5,9 +5,12 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Light
+import org.maplibre.compose.style.StyleOverrides
 
 @Composable
 fun Styling() {
@@ -26,6 +29,16 @@ fun Styling() {
     )
   MaplibreMap(state = themed)
   // #endregion dynamic
+
+  // #region overrides
+  val dim = StyleOverrides { light = Light(intensity = const(0.25f)) }
+  val lit =
+    rememberMapState(
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+      styleOverrides = dim,
+    )
+  MaplibreMap(state = lit)
+  // #endregion overrides
 
   // #region local
   val local = rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/styles/colorful.json")))

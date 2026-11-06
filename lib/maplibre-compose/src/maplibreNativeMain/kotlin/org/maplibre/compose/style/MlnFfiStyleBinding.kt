@@ -164,6 +164,12 @@ internal open class MlnFfiStyleBinding(
 
   override val baseLayers: List<LayerSummary> = contents.layers
 
+  override val baseLight: JsonObject =
+    contents.document?.get("light") as? JsonObject ?: JsonObject(emptyMap())
+  override val baseSky: JsonObject? = null
+  override val baseProjection: JsonObject = JsonObject(emptyMap())
+  override val baseTerrain: JsonObject? = null
+
   override val baseSources: Map<String, Source> =
     contents.sources.associate { it.id to reconstructedSource(it.id, sourceDefinition(it)) }
 
@@ -975,6 +981,13 @@ internal open class MlnFfiStyleBinding(
   override fun setSky(sky: JsonObject?) {
     requireCurrent()
     if (sky != null) logger?.w { "MapLibre Native does not support the sky" }
+  }
+
+  override val supportsTerrain: Boolean = false
+
+  override fun setTerrain(terrain: JsonObject?) {
+    requireCurrent()
+    if (terrain != null) logger?.w { "MapLibre Native does not support 3D terrain" }
   }
 
   override val supportsProjection: Boolean = false

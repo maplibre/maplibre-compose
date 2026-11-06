@@ -28,9 +28,10 @@ fun ShareMapButton(
 ) {
   // #region capture
   val snapshotter =
-    remember(mapState.style.baseStyle) {
+    remember(mapState.style.baseStyle, mapState.style.overrides) {
       DefaultMapRuntime.instance.createSnapshotter(
         baseStyle = mapState.style.baseStyle,
+        styleOverrides = mapState.style.overrides,
         content = mapContent,
       )
     }

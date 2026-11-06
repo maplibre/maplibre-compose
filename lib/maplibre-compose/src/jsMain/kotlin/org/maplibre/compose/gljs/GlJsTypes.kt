@@ -70,6 +70,9 @@ internal external interface SkySpecification
 /** A style-spec `projection` object; keys index it. */
 internal external interface ProjectionSpecification
 
+/** A style-spec `terrain` object. */
+internal external interface TerrainSpecification
+
 internal external interface StyleSetterOptions {
   var validate: Boolean?
 }

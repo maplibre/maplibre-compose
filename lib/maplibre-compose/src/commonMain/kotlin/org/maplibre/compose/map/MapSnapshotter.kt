@@ -50,8 +50,10 @@ import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.groundScale
+import org.maplibre.compose.style.internal.StyleOverridesContent
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.formatToString
 
@@ -161,6 +163,7 @@ internal interface SnapshotterAdapter {
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
+    styleOverrides: StyleOverrides,
     request: MapSnapshotRequest,
   ): SnapshotPreparation
 
@@ -339,7 +342,8 @@ public sealed interface MapSnapshotter {
 internal class MapSnapshotterImplementation(
   private val runtime: MapRuntime,
   baseStyle: BaseStyle,
-  private val styleContent: @Composable @MaplibreComposable () -> Unit,
+  styleOverrides: StyleOverrides,
+  private val content: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter, MapStyleStateOwner {
   private val mutex = Mutex()
   private val captures = SupervisorJob(runtime.physicalScope.coroutineContext[Job])
@@ -363,7 +367,8 @@ internal class MapSnapshotterImplementation(
   override val logger: MapLog?
     get() = runtime.logger
 
-  override val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
+  override val style: MapStyleState =
+    MapStyleState(baseStyle, styleOverrides).also { it.attach(this) }
 
   override suspend fun capture(
     size: DpSize,
@@ -446,13 +451,18 @@ internal class MapSnapshotterImplementation(
     val claim = claimStyle()
     var binding: StyleBinding? = null
     try {
-      val prepared = platform.prepare(claim.baseStyle, claim.revision, request)
+      // Preparation and content read one value, so the viewport matches the rendered projection.
+      val overrides = style.overrides
+      val prepared = platform.prepare(claim.baseStyle, claim.revision, overrides, request)
       val currentBinding = prepared.binding
       binding = currentBinding
       markReloaded(currentBinding)
       val revision =
         runtime.styleEvaluator.evaluate(
-          styleContent,
+          {
+            StyleOverridesContent(overrides)
+            content()
+          },
           currentBinding,
           prepared.viewport,
           request.density,

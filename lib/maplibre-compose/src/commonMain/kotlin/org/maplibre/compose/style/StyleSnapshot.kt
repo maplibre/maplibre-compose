@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
+import org.maplibre.compose.style.internal.StyleOverrideDefinition
 
 /** An immutable, engine-ready snapshot of committed style content. */
 internal data class StyleSnapshot(
@@ -15,6 +16,7 @@ internal data class StyleSnapshot(
   val fontScale: Float? = null,
   /** At least one committed property is waiting for painter preparation. */
   val imagesPending: Boolean = false,
+  val overrides: StyleOverrideDefinition = StyleOverrideDefinition(),
 ) {
   init {
     requireUniqueIds("Source", sources.map(SourceDefinition::id))

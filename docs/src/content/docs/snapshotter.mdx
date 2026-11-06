@@ -22,10 +22,10 @@ button captures what a displayed map shows:
 
 <Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
 
-To match the displayed map, the example passes the map's base style and
-`mapContent`, the same function that declares the map's sources and layers in
-`rememberMapState`. It also copies the map's camera position, the screen
-density, and the layout direction into the request. In a snapshotter,
+To match the displayed map, the example passes the map's base style, its
+style overrides, and `mapContent`, the same function that declares the map's
+sources and layers in `rememberMapState`. It also copies the map's camera
+position, the screen density, and the layout direction into the request. In a snapshotter,
 <Api of="LocalMapState" /> is `null`, so content that reads it must handle that.
 [How the map composes](/maplibre-compose/composition/) shows content that works
 in both places.
