@@ -38,7 +38,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           # Notes come from the annotated tag object, including on reruns.
           fetch-depth: 0
@@ -64,7 +64,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
-      - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a # v1.8.1
+      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0
