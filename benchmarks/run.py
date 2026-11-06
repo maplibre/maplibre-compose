@@ -84,7 +84,8 @@ def call(*command):
     return subprocess.check_output(command, text=True).strip()
 
 
-def wait_for(path, process=None, poll=None):
+def wait_for(path, process=None, poll=None, crash_log=None):
+    """Wait for [path] to report a finished run, watching [crash_log] for a crash."""
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         if poll is not None:
@@ -92,6 +93,10 @@ def wait_for(path, process=None, poll=None):
         logs = path.read_text(errors="replace")
         if "MAP_BENCHMARK ERROR" in logs or "FATAL EXCEPTION" in logs:
             raise RuntimeError(f"Benchmark failed; inspect {path}")
+        if crash_log is not None and "FATAL EXCEPTION" in crash_log.read_text(
+            errors="replace"
+        ):
+            raise RuntimeError(f"Benchmark failed; inspect {crash_log}")
         if "MAP_BENCHMARK DONE" in logs:
             return
         if process is not None and process.poll() is not None:
@@ -129,23 +134,55 @@ def android_launch_args(adb, config):
     ]
 
 
-def android(args, output):
-    adb = args.adb
-    package = app_package(args.config)
+def android_log_file(package):
+    """The log the app tees its output to; see recordBenchmarkOutput."""
+    return f"/sdcard/Android/data/{package}/files/benchmark.log"
+
+
+def android_read(adb, path):
+    """[path]'s bytes, or nothing while the app has not written the file yet."""
+    result = subprocess.run(
+        [*adb, "exec-out", "cat", path], check=False, capture_output=True
+    )
+    return result.stdout if result.returncode == 0 else b""
+
+
+def android_capture(adb, config, output, log_file):
+    """Run once, reading the app's own log file instead of the lossy logcat stream."""
+    package = app_package(config)
     call(*adb, "shell", "am", "force-stop", package)
+    call(*adb, "shell", "rm", "-f", log_file)
+    # Bound logcat to this launch; Android can reuse the PID of an earlier process.
+    since = call(*adb, "shell", "date", "+%s.%N")
     logger = None
     try:
-        call(*android_launch_args(adb, args.config))
+        call(*android_launch_args(adb, config))
         pid = call(*adb, "shell", "pidof", package)
-        with (output / "app.log").open("w") as log:
+        with (output / "logcat.log").open("w") as log:
             logger = subprocess.Popen(
-                [*adb, "logcat", "--pid=" + pid, "-v", "brief"], stdout=log, stderr=log
+                [*adb, "logcat", f"--pid={pid}", "-T", since, "-v", "brief"],
+                stdout=log,
+                stderr=log,
             )
-            wait_for(output / "app.log")
+
+            def poll():
+                (output / "app.log").write_bytes(android_read(adb, log_file))
+
+            wait_for(output / "app.log", poll=poll, crash_log=output / "logcat.log")
     finally:
         if logger:
             stop(logger)
         call(*adb, "shell", "am", "force-stop", package)
+    (output / "app.log").write_bytes(android_read(adb, log_file))
+
+
+def android(args, output):
+    android_capture(
+        args.adb,
+        args.config,
+        output,
+        android_log_file(app_package(args.config)),
+    )
 
 
 def ios(args, output):
@@ -244,6 +281,18 @@ def android_compile_args(package):
     return ["shell", "cmd", "package", "compile", "-m", "speed", "-f", package]
 
 
+def android_install(adb, apk, package):
+    """Install [apk], replacing an app of the same name that is signed with another key."""
+    result = subprocess.run(
+        [*adb, "install", "-r", str(apk)], check=False, capture_output=True, text=True
+    )
+    if result.returncode:
+        subprocess.run(
+            [*adb, "uninstall", package], check=False, capture_output=True, text=True
+        )
+        call(*adb, "install", str(apk))
+
+
 def setup(platform, config, device=None, app=None):
     """Install the app that runs [config] and return the launch context for [capture]."""
     context = {"device": device, "app": app}
@@ -253,8 +302,9 @@ def setup(platform, config, device=None, app=None):
             "-s",
             device,
         ]
-        call(*adb, "install", "-r", android_apk(config))
-        call(*adb, *android_compile_args(app_package(config)))
+        package = app_package(config)
+        android_install(adb, android_apk(config), package)
+        call(*adb, *android_compile_args(package))
         context["adb"] = adb
     elif platform == "ios":
         devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[

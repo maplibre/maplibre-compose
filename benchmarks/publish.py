@@ -84,6 +84,28 @@ def summarize(reports):
     return summary
 
 
+def capture_with_retries(platform, context, config, directory, repeat):
+    """Capture [config] into [directory], since a run can report a truncated stream."""
+    for attempt in range(1, 4):
+        try:
+            return runner.capture(platform, context, config, directory, repeat)
+        except (
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            subprocess.CalledProcessError,
+        ) as error:
+            if attempt == 3:
+                raise SystemExit(f"{directory} failed three times: {error}") from error
+            print(f"Measuring again after: {error}", flush=True)
+            rejected = directory.with_name(
+                f"{directory.name}-rejected-{time.time_ns()}"
+            )
+            if directory.exists():
+                directory.rename(rejected)
+    raise AssertionError("unreachable")
+
+
 def measure(platform, device, app, output, repeat, build=True):
     """Run the plan into [output] and return the snapshot of this device's results."""
     if build:
@@ -101,7 +123,7 @@ def measure(platform, device, app, output, repeat, build=True):
         if package not in contexts:
             contexts[package] = runner.setup(platform, config, device, app)
         print(f"== {name} ({kind})", flush=True)
-        reports = runner.capture(
+        reports = capture_with_retries(
             platform, contexts[package], config, output / name / kind, repeat
         )
         cases.setdefault(name, {})[kind] = {

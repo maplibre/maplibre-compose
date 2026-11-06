@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from backfill import capture, host, measure_one
+from backfill import capture, host, measure_one, record_output
 from test_performance import write_run
 
 
@@ -28,6 +28,31 @@ class MeasureTest(unittest.TestCase):
             self.assertEqual(len(list(output.parent.glob("001-rejected-*"))), 1)
 
 
+class RecordOutputTest(unittest.TestCase):
+    def test_record_output_calls_the_harness_log_once(self):
+        activities = (
+            "demo-app/android/src/main/kotlin/org/maplibre/compose/demoapp/MainActivity.kt",
+            "benchmarks/android/src/main/kotlin/org/maplibre/compose/benchmark/classic/MainActivity.kt",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory)
+            for name in activities:
+                path = checkout / name
+                path.parent.mkdir(parents=True)
+                path.write_text(
+                    "class MainActivity {\n"
+                    "  override fun onCreate(savedInstanceState: Bundle?) {\n"
+                    "    super.onCreate(savedInstanceState)\n"
+                    "  }\n"
+                    "}\n"
+                )
+            record_output(checkout)
+            record_output(checkout)
+            for name in activities:
+                text = (checkout / name).read_text()
+                self.assertEqual(text.count("recordBenchmarkOutput(this)"), 1, name)
+
+
 class HostTest(unittest.TestCase):
     def test_archived_animation_reads_the_durable_app_log(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -37,8 +62,12 @@ class HostTest(unittest.TestCase):
             )
             (root / "app.log").write_text("")
             device = Mock(adb=["adb", "-s", "phone"])
-            device.bytes.return_value = log.encode()
-            with patch("backfill.subprocess.Popen"), patch("backfill.runner.stop"):
+            with (
+                patch("backfill.runner.call", return_value=""),
+                patch("backfill.runner.subprocess.Popen"),
+                patch("backfill.runner.stop"),
+                patch("backfill.runner.android_read", return_value=log.encode()),
+            ):
                 report = capture(
                     device,
                     json.dumps(
