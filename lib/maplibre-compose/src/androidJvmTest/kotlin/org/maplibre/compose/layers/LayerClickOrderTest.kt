@@ -150,13 +150,15 @@ class LayerClickOrderTest {
               id = Front,
               source = source,
               color = const(Color.Red),
-              onClick = {
-                clicked += Front
-                frontResult
-              },
-              onLongClick = {
-                longClicked += Front
-                frontResult
+              interactions = {
+                onClick {
+                  clicked += Front
+                  frontResult
+                }
+                onLongClick {
+                  longClicked += Front
+                  frontResult
+                }
               },
             )
           }
@@ -165,13 +167,15 @@ class LayerClickOrderTest {
               id = Back,
               source = source,
               color = const(Color.Blue),
-              onClick = {
-                clicked += Back
-                ClickResult.Consume
-              },
-              onLongClick = {
-                longClicked += Back
-                ClickResult.Consume
+              interactions = {
+                onClick {
+                  clicked += Back
+                  ClickResult.Consume
+                }
+                onLongClick {
+                  longClicked += Back
+                  ClickResult.Consume
+                }
               },
             )
           }

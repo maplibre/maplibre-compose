@@ -121,9 +121,11 @@ internal fun MarkerLayers(
     textOpacityTransition = instant,
     textAllowOverlap = const(true),
     textIgnorePlacement = const(true),
-    onClick = {
-      onSelect()
-      ClickResult.Consume
+    interactions = {
+      onClick {
+        onSelect()
+        ClickResult.Consume
+      }
     },
   )
 }

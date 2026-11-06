@@ -28,8 +28,8 @@ pitched:
 <Code code={region(interaction, "camera-movement")} lang="kotlin" title="App.kt" />
 
 Settings that you leave out keep their defaults. To turn off every camera
-movement, pass `MapInteractions.None`; clicks still reach the layers'
-`onClick` handlers. To make the map ignore all input, including clicks, pass
+movement, pass `MapInteractions.None`; clicks still reach the layers' click
+handlers. To make the map ignore all input, including clicks, pass
 `MapUiOptions.None` as `uiOptions`. To keep the camera inside an area or a zoom
 range instead, see
 [Limit where the camera can go](/maplibre-compose/camera/#limit-where-the-camera-can-go).
@@ -55,26 +55,45 @@ example to drop a pin there:
 The callback runs before any layer receives the click. Return
 <Api of="ClickResult.Consume" /> to stop there, or
 <Api of="ClickResult.Pass" /> to let layers receive the click too. For a touch
-long press or a right click, use `longClick` in the same way.
+long press or a right click, use `longClick` in the same way, and use
+`doubleClick` for a double tap or double click.
 
 ## Respond to clicks on a layer
 
-Give a layer an `onClick` handler to let users select its features. This map
-reports the earthquake that the user taps, and reports `null` when they tap
-anywhere else:
+Set a click handler in a layer's `interactions` block to let users select its
+features. This map reports the earthquake that the user taps, and reports
+`null` when they tap anywhere else:
 
 <Code code={region(interaction, "layer-click")} lang="kotlin" title="App.kt" />
 
-`onClick` receives the layer's features at the click, topmost first. Its
-receiver is the <Api of="ClickEvent" />, so the handler can also read
+The handler receives a <Api of="FeatureClickEvent" />. Its `hits` are the
+layer's features at the click, topmost first, and it also has the click's
 `position` and `screenOffset`. `hitPadding` widens the area around the click
 that counts as a hit, which makes small circles and thin lines easier to tap.
+`onLongClick` and `onDoubleClick` work the same way.
 
 When several layers have features at the click, they receive it from the top
 layer down until one handler returns `ClickResult.Consume`. If none does,
 <Api of="ClickCallbackBuilder.onUnhandled" display="onUnhandled" /> runs. To
 change how the selected feature looks, see
 [Query and highlight features](/maplibre-compose/features/).
+
+## Respond to clicks on base-style layers
+
+Layers that come with the base style, such as its roads and labels, have no
+composable to put an `interactions` block on. Name them in
+`callbacks.features` instead. Each `layers` row works like a layer's
+`interactions` block, and its handler receives the hits of all the layers it
+names together.
+
+Rows run from the top of the map down, by the topmost layer that each row names.
+Repeating a row with a growing `hitPadding` searches outward from the click: a
+feature within the smallest padding wins, even when it is in a lower layer than
+a feature that only a larger padding reaches. Features within the same padding
+still come in layer order, so the steps set how precise the search is. This map
+selects a street close to the tap:
+
+<Code code={region(interaction, "feature-rows")} lang="kotlin" title="App.kt" />
 
 ## Change what scrolling does
 

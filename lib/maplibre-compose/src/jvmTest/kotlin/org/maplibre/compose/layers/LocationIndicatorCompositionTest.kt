@@ -18,9 +18,9 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.testClickEvent
+import org.maplibre.compose.interaction.FeatureClickEvent
+import org.maplibre.compose.interaction.testFeatureClickEvent
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.LocationMeasurement
@@ -196,7 +196,7 @@ class LocationIndicatorCompositionTest {
           LocationMeasurement(position = Position(0.0, 0.0), measuredAt = Clock.System.now())
       }
     var enabled by mutableStateOf(true)
-    val calls = mutableListOf<Pair<String, ClickEvent>>()
+    val calls = mutableListOf<Pair<String, FeatureClickEvent>>()
     var latest: StyleSnapshot? = null
     setContent {
       val revision by
@@ -206,40 +206,43 @@ class LocationIndicatorCompositionTest {
             LocationIndicatorLayer(
               id = "user",
               locationState = locationState,
-              onClick =
-                if (enabled)
-                  ({
-                    calls += "click" to this
-                    ClickResult.Pass
-                  })
-                else null,
-              onLongClick = {
-                calls += "long" to this
-                ClickResult.Consume
+              interactions = {
+                hitPadding = 12.dp
+                onClick(
+                  if (enabled) {
+                    { event ->
+                      calls += "click" to event
+                      ClickResult.Pass
+                    }
+                  } else null,
+                )
+                onLongClick { event ->
+                  calls += "long" to event
+                  ClickResult.Consume
+                }
+                onDoubleClick { event ->
+                  calls += "double" to event
+                  ClickResult.Consume
+                }
               },
-              onDoubleClick = {
-                calls += "double" to this
-                ClickResult.Consume
-              },
-              hitPadding = 12.dp,
             )
           },
         )
       LaunchedEffect(revision) { latest = revision }
     }
     waitForIdle()
-    val node = checkNotNull(latest).layers.single()
-    assertEquals(12.dp, node.hitPadding)
-    val click = testClickEvent()
-    val longClick = testClickEvent()
-    val doubleClick = testClickEvent()
-    assertEquals(ClickResult.Pass, node.onClick!!(click, emptyList()))
-    assertEquals(ClickResult.Consume, node.onLongClick!!(longClick, emptyList()))
-    assertEquals(ClickResult.Consume, node.onDoubleClick!!(doubleClick, emptyList()))
+    val interactions = checkNotNull(latest).layers.single().interactions
+    assertEquals(12.dp, interactions.hitPadding)
+    val click = testFeatureClickEvent()
+    val longClick = testFeatureClickEvent()
+    val doubleClick = testFeatureClickEvent()
+    assertEquals(ClickResult.Pass, interactions.onClick!!.onClick(click))
+    assertEquals(ClickResult.Consume, interactions.onLongClick!!.onClick(longClick))
+    assertEquals(ClickResult.Consume, interactions.onDoubleClick!!.onClick(doubleClick))
     assertEquals(listOf("click" to click, "long" to longClick, "double" to doubleClick), calls)
     runOnIdle { enabled = false }
     waitForIdle()
-    assertEquals(null, checkNotNull(latest).layers.single().onClick)
+    assertEquals(null, checkNotNull(latest).layers.single().interactions.onClick)
   }
 
   @Test

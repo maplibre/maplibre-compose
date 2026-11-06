@@ -53,8 +53,6 @@ public fun BackgroundLayer(
     id = id,
     type = "background",
     filterUnsupportedProperties = true,
-    onClick = null,
-    onLongClick = null,
   ) {
     root("minzoom", JsonPrimitive(minZoom))
     root("maxzoom", JsonPrimitive(maxZoom))

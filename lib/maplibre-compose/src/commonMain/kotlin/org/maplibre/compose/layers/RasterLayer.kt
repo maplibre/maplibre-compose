@@ -79,8 +79,6 @@ public fun RasterLayer(
     source = source,
     type = "raster",
     filterUnsupportedProperties = true,
-    onClick = null,
-    onLongClick = null,
   ) {
     root("minzoom", JsonPrimitive(minZoom))
     root("maxzoom", JsonPrimitive(maxZoom))
