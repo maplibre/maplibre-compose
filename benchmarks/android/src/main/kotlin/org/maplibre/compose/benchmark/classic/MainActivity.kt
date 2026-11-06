@@ -23,6 +23,8 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    // A benchmark run's output goes to a file the runner reads; logcat drops lines.
+    recordBenchmarkOutput(this)
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     enableEdgeToEdge()
     MapLibre.getInstance(this)

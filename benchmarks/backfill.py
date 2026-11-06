@@ -266,48 +266,19 @@ internal object Res {
 
 
 def record_output(checkout):
-    """Tee the benchmark log to a file; logd can drop lines in the end-of-run burst."""
-    write(
-        checkout
-        / "benchmarks/core/src/androidMain/kotlin/org/maplibre/compose/benchmark/BenchmarkLog.kt",
-        """package org.maplibre.compose.benchmark
+    """Tee the benchmark log to a file; logd can drop lines in the end-of-run burst.
 
-import android.content.Context
-import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
-import java.io.PrintStream
-
-fun recordBenchmarkOutput(context: Context) {
-  val console = System.out
-  val file = FileOutputStream(File(context.getExternalFilesDir(null), "benchmark.log"))
-  val tee =
-    object : OutputStream() {
-      override fun write(value: Int) {
-        file.write(value)
-        console.write(value)
-      }
-
-      override fun write(bytes: ByteArray, offset: Int, length: Int) {
-        file.write(bytes, offset, length)
-        console.write(bytes, offset, length)
-      }
-
-      override fun flush() {
-        file.flush()
-        console.flush()
-      }
-    }
-  System.setOut(PrintStream(tee, true))
-}
-""",
-    )
+    The harness in this checkout provides recordBenchmarkOutput, but a release's activities do
+    not call it.
+    """
     for name in (
         "demo-app/android/src/main/kotlin/org/maplibre/compose/demoapp/MainActivity.kt",
         "benchmarks/android/src/main/kotlin/org/maplibre/compose/benchmark/classic/MainActivity.kt",
     ):
         path = checkout / name
         text = path.read_text()
+        if "recordBenchmarkOutput" in text:
+            continue
         call = "super.onCreate(savedInstanceState)"
         assert text.count(call) == 1, name
         path.write_text(
@@ -502,9 +473,6 @@ class Device:
             raise RuntimeError(f"adb {' '.join(args)}: {result.stderr.strip()}")
         return result.stdout.strip()
 
-    def bytes(self, path):
-        return subprocess.check_output([*self.adb, "exec-out", "cat", path])
-
     def thermal(self):
         report = self("shell", "dumpsys", "thermalservice")
         return int(re.search(r"^Thermal Status: (\d+)$", report, re.MULTILINE)[1])
@@ -519,31 +487,7 @@ class Device:
 
 
 def capture(device, config, output, log_file):
-    package = runner.app_package(config)
-    device("shell", "am", "force-stop", package)
-    device("shell", "rm", "-f", log_file)
-    # Bound logcat to this launch; Android can reuse the PID of an earlier process.
-    since = device("shell", "date", "+%s.%N")
-    logger = None
-    try:
-        device(*runner.android_launch_args([], config))
-        pid = device("shell", "pidof", package)
-        with (output / "logcat.log").open("w") as log:
-            logger = subprocess.Popen(
-                [*device.adb, "logcat", f"--pid={pid}", "-T", since, "-v", "brief"],
-                stdout=log,
-                stderr=log,
-            )
-
-            def poll():
-                (output / "app.log").write_bytes(device.bytes(log_file))
-
-            runner.wait_for(output / "app.log", poll=poll)
-    finally:
-        if logger:
-            runner.stop(logger)
-        device("shell", "am", "force-stop", package)
-    (output / "app.log").write_bytes(device.bytes(log_file))
+    runner.android_capture(device.adb, config, output, log_file)
     return analyze(output)
 
 

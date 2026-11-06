@@ -8,6 +8,7 @@ from performance import analyze
 from publish import (
     PREFIX,
     cases_meta,
+    measure,
     plan,
     publishable,
     series_values,
@@ -59,6 +60,39 @@ class Store:
 
     def write(self, items, immutable):
         self.data.update(json.loads(json.dumps(items)))
+
+
+class MeasureRetryTest(unittest.TestCase):
+    def test_a_run_with_truncated_output_is_measured_again(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            with tempfile.TemporaryDirectory() as scratch:
+                write_run(Path(scratch) / "run", cpu=100, build=BUILD)
+                report = analyze(Path(scratch) / "run")
+            entry = (
+                "paint-points",
+                "compose",
+                '{"implementation":"compose-imperative"}',
+            )
+            # The failed attempt's directory is kept beside the retry's.
+            (output / "paint-points" / "compose").mkdir(parents=True)
+            with (
+                patch("publish.plan", return_value=[entry]),
+                patch("publish.runner.setup", return_value={}),
+                patch(
+                    "publish.runner.capture",
+                    side_effect=[
+                        ValueError("Incomplete render statistics"),
+                        [report],
+                    ],
+                ) as capture,
+            ):
+                cases = measure("android", "phone", None, output, 1, build=False)
+            self.assertEqual(capture.call_count, 2)
+            self.assertEqual(cases["paint-points"]["compose"]["runs"], [report])
+            self.assertEqual(
+                len(list(output.glob("paint-points/compose-rejected-*"))), 1
+            )
 
 
 class PublishTest(unittest.TestCase):
