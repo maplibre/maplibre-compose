@@ -243,8 +243,9 @@ class BrowserLocationIndicatorTest {
   @Test
   fun rotated_non_square_images_keep_pixel_ratio_order_and_shadow_out_of_picking() =
     MainScope().promise {
-      val gl = browserGpu().gl.asDynamic()
-      browserRenderTarget(512, 512, generation = 1).use { target ->
+      val gpu = browserGpu()
+      val gl = gpu.gl.asDynamic()
+      browserRenderTarget(gpu, 512, 512).use { target ->
         CompositedMap(BaseStyle.Empty, scaleFactor = 2.0).use { host ->
           host.drawUntil(target, "loaded style") { host.loadedBinding != null }
           val style = host.loadedBinding as GlJsStyleBinding
@@ -316,8 +317,9 @@ class BrowserLocationIndicatorTest {
   @Test
   fun images_render_and_pick_at_zoom_22_and_during_globe_transition() =
     MainScope().promise {
-      val gl = browserGpu().gl.asDynamic()
-      browserRenderTarget(256, 256, generation = 1).use { target ->
+      val gpu = browserGpu()
+      val gl = gpu.gl.asDynamic()
+      browserRenderTarget(gpu, 256, 256).use { target ->
         CompositedMap(BaseStyle.Empty).use { host ->
           host.drawUntil(target, "loaded style") { host.loadedBinding != null }
           val style = host.loadedBinding as GlJsStyleBinding
@@ -383,8 +385,9 @@ class BrowserLocationIndicatorTest {
   @Test
   fun custom_indicator_restores_gl_bindings_and_upload_state() =
     MainScope().promise {
-      val gl = browserGpu().gl.asDynamic()
-      browserRenderTarget(256, 256, generation = 1).use { target ->
+      val gpu = browserGpu()
+      val gl = gpu.gl.asDynamic()
+      browserRenderTarget(gpu, 256, 256).use { target ->
         CompositedMap(BaseStyle.Empty).use { host ->
           host.drawUntil(target, "loaded style") { host.loadedBinding != null }
           val style = host.loadedBinding as GlJsStyleBinding
@@ -453,7 +456,7 @@ class BrowserLocationIndicatorTest {
     MainScope().promise {
       val gpu = browserGpu()
       val gl = gpu.gl.asDynamic()
-      browserRenderTarget(256, 256, generation = 1).use { target ->
+      browserRenderTarget(gpu, 256, 256).use { target ->
         CompositedMap(BaseStyle.Empty).use { host ->
           host.drawUntil(target, "loaded style") { host.loadedBinding != null }
           val style = host.loadedBinding as GlJsStyleBinding
@@ -626,7 +629,7 @@ class BrowserLocationIndicatorTest {
             indicator.hitTest(128.0, 128.0, 128.0, 128.0),
             "wrapped world copy is interactive",
           )
-          browserRenderTarget(128, 192, generation = 2).use { resized ->
+          browserRenderTarget(gpu, 128, 192).use { resized ->
             host.drawOnce(resized)
             assertTrue(
               indicator.hitTest(64.0, 96.0, 64.0, 96.0),

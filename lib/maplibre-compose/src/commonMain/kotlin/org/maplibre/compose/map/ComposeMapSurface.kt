@@ -32,6 +32,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 internal interface ComposeMapSurface {
   val maximumFps: Int?
 
+  /** WebGL shares Compose's context and must finish rendering before layout starts. */
+  val preparesOnFrame: Boolean
+    get() = false
+
   /** Connects a node, including reattachment after a temporary [detach]. */
   fun attach(requestFrame: () -> Unit)
 
@@ -144,8 +148,19 @@ private class MapSurfaceNode(
         }
         withFrameNanos {
           if (currentRequests.pending) {
-            framePermitted = true
+            if (surface.preparesOnFrame) {
+              if (!extent.isEmpty) {
+                currentRequests.consume()
+                val start = TimeSource.Monotonic.markNow()
+                if (Snapshot.withoutReadObservation { surface.prepare(extent) }) {
+                  pacer.rendered(start)
+                }
+              }
+            } else {
+              framePermitted = true
+            }
             invalidateMeasurement()
+            if (surface.preparesOnFrame) invalidateDraw()
           }
         }
       }
@@ -180,7 +195,9 @@ private class MapSurfaceNode(
     extent = next
     if (resized) requests.request()
     var attempted = false
-    if (!next.isEmpty && (framePermitted || resized) && requests.pending) {
+    if (
+      !surface.preparesOnFrame && !next.isEmpty && (framePermitted || resized) && requests.pending
+    ) {
       framePermitted = false
       if (pacer.remaining(surface.maximumFps) == Duration.ZERO) {
         requests.consume()
@@ -191,6 +208,8 @@ private class MapSurfaceNode(
       } else requests.request()
     }
     Snapshot.withoutReadObservation { surface.present(next) }
+    // Placement readers must observe the projection published during this measurement.
+    Snapshot.sendApplyNotifications()
     if (resized || attempted) invalidateDraw()
     return layout(child.width, child.height) { child.place(0, 0) }
   }

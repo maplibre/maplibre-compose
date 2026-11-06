@@ -51,9 +51,18 @@ class BrowserMapSurfaceTest {
           LocalGlJsCompositor provides
             {
               object : GlJsCompositor {
-                override fun acquire(extent: MapExtent): GlJsFrameTarget =
-                  if (extent.width == 96) GlJsFrameTarget.UnsupportedSize
-                  else GlJsFrameTarget.OwnCanvas
+                override val painter = null
+
+                override fun render(
+                  extent: MapExtent,
+                  renderMap: (GlJsFrameTarget) -> Unit,
+                ): GlJsFrameTarget {
+                  val target =
+                    if (extent.width == 96) GlJsFrameTarget.UnsupportedSize
+                    else GlJsFrameTarget.OwnCanvas
+                  if (target != GlJsFrameTarget.UnsupportedSize) renderMap(target)
+                  return target
+                }
 
                 override fun close() = Unit
               }
