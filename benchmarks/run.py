@@ -287,10 +287,37 @@ def android_install(adb, apk, package):
         [*adb, "install", "-r", str(apk)], check=False, capture_output=True, text=True
     )
     if result.returncode:
-        subprocess.run(
-            [*adb, "uninstall", package], check=False, capture_output=True, text=True
+        android_reinstall(adb, apk, package)
+
+
+def android_reinstall(adb, apk, package):
+    subprocess.run(
+        [*adb, "uninstall", package], check=False, capture_output=True, text=True
+    )
+    call(*adb, "install", str(apk))
+
+
+def android_compile(adb, apk, package):
+    """Compile [package] ahead of time, so runs measure compiled code instead of JIT warm-up.
+
+    An install leaves the app's code to the interpreter and JIT, which dominate a short run. Some
+    devices refuse to compile a package that was updated in place, so install it cleanly once
+    before giving up.
+    """
+    for attempt in range(1, 4):
+        result = subprocess.run(
+            [*adb, *android_compile_args(package)],
+            check=False,
+            capture_output=True,
+            text=True,
         )
-        call(*adb, "install", str(apk))
+        if result.returncode == 0:
+            return
+        if attempt == 3:
+            android_reinstall(adb, apk, package)
+            call(*adb, *android_compile_args(package))
+            return
+        time.sleep(1)
 
 
 def setup(platform, config, device=None, app=None):
@@ -303,8 +330,9 @@ def setup(platform, config, device=None, app=None):
             device,
         ]
         package = app_package(config)
-        android_install(adb, android_apk(config), package)
-        call(*adb, *android_compile_args(package))
+        apk = android_apk(config)
+        android_install(adb, apk, package)
+        android_compile(adb, apk, package)
         context["adb"] = adb
     elif platform == "ios":
         devices = json.loads(call("xcrun", "simctl", "list", "devices", "--json"))[
