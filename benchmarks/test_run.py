@@ -62,27 +62,24 @@ class AndroidCaptureTest(unittest.TestCase):
 class SetupTest(unittest.TestCase):
     def test_android_install_compiles_the_app_before_it_runs(self):
         with (
-            patch("run.call", return_value="/sdk") as call,
+            patch("run.call", return_value="/sdk"),
             patch("run.subprocess.run", return_value=Mock(returncode=0)) as run,
         ):
             setup("android", '{"implementation":"classic-android"}', "phone")
-        install = run.call_args_list[0].args[0]
-        self.assertEqual(install[3:5], ["install", "-r"])
-        commands = [args[3:] for args, _ in call.call_args_list[1:]]
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[0][3:5], ["install", "-r"])
         self.assertEqual(
-            commands,
-            [
-                (
-                    "shell",
-                    "cmd",
-                    "package",
-                    "compile",
-                    "-m",
-                    "speed",
-                    "-f",
-                    CLASSIC_PACKAGE,
-                )
-            ],
+            tuple(commands[1][3:]),
+            (
+                "shell",
+                "cmd",
+                "package",
+                "compile",
+                "-m",
+                "speed",
+                "-f",
+                CLASSIC_PACKAGE,
+            ),
         )
 
     def test_android_replaces_an_app_signed_with_another_key(self):
@@ -90,7 +87,11 @@ class SetupTest(unittest.TestCase):
             patch("run.call", return_value="/sdk") as call,
             patch(
                 "run.subprocess.run",
-                side_effect=[Mock(returncode=1), Mock(returncode=0)],
+                side_effect=[
+                    Mock(returncode=1),
+                    Mock(returncode=0),
+                    Mock(returncode=0),
+                ],
             ) as run,
         ):
             setup("android", '{"implementation":"compose-imperative"}', "phone")
@@ -98,3 +99,29 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].args[0][3:5], ["uninstall", PACKAGE])
         retried = call.call_args_list[1].args
         self.assertEqual(retried[3], "install")
+
+    def test_android_reinstalls_a_package_it_cannot_compile(self):
+        with (
+            patch("run.call", return_value="/sdk") as call,
+            patch("run.time.sleep"),
+            patch(
+                "run.subprocess.run",
+                side_effect=[
+                    Mock(returncode=0),
+                    Mock(returncode=1),
+                    Mock(returncode=1),
+                    Mock(returncode=1),
+                    Mock(returncode=0),
+                ],
+            ) as run,
+        ):
+            setup("android", '{"implementation":"compose-imperative"}', "phone")
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[-1][3:5], ["uninstall", PACKAGE])
+        self.assertEqual(
+            [command[3] for command in commands].count("shell"),
+            3,
+            "three compile attempts before the clean install",
+        )
+        self.assertEqual(call.call_args_list[-2].args[3], "install")
+        self.assertEqual(call.call_args_list[-1].args[3:5], ("shell", "cmd"))
