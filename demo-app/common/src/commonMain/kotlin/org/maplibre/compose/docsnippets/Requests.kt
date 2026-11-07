@@ -12,6 +12,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.resource.MapRequestInterceptor
+import org.maplibre.compose.resource.MapRequestRules
 import org.maplibre.compose.resource.MapResourceKind
 import org.maplibre.compose.resource.MapResourceLoad
 import org.maplibre.compose.resource.MapResourceProvider
@@ -34,14 +35,23 @@ fun authHeaders(token: StateFlow<String?>): MapRequestInterceptor {
   return interceptor
 }
 
-fun apiKeyRewrite(apiKey: String): MapRequestInterceptor {
+fun fixedRules(apiKey: String, token: String): MapRequestInterceptor {
+  // #region rules
+  val rules = MapRequestRules {
+    addQueryParameters("https://tiles.example.com/**", mapOf("key" to apiKey))
+    addHeaders("https://tiles.example.com/**", mapOf("Authorization" to "Bearer $token"))
+  }
+  // #endregion rules
+  return rules
+}
+
+fun mirrorRewrite(): MapRequestInterceptor {
   // #region rewrite
   val interceptor =
     MapRequestInterceptor(
       rewriteUrl = { request ->
         if (request.url.startsWith("https://tiles.example.com/")) {
-          val separator = if ('?' in request.url) '&' else '?'
-          "${request.url}${separator}key=$apiKey"
+          request.url.replaceFirst("https://tiles.example.com/", "https://mirror.example.com/")
         } else {
           null
         }

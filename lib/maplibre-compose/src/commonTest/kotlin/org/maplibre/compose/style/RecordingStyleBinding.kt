@@ -226,6 +226,8 @@ internal class RecordingStyleBinding(
     return acceptedStyleCommand()
   }
 
+  override fun invalidateCustomVectorSourceBounds(sourceId: String, bounds: BoundingBox) = Unit
+
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) = Unit
 
   override suspend fun clusterExpansionZoom(

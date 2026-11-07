@@ -101,7 +101,7 @@ private val SourceDefinition.attribution: String
       is SourceDefinition.Json -> (value["attribution"] as? JsonPrimitive)?.contentOrNull
       is SourceDefinition.Image -> (value["attribution"] as? JsonPrimitive)?.contentOrNull
       is SourceDefinition.RasterDem -> options.attributionHtml
-      is SourceDefinition.GeoJson,
+      is SourceDefinition.GeoJson -> options.attributionHtml
       is SourceDefinition.CustomGeometry,
       is SourceDefinition.CustomVector -> null
     }.orEmpty()

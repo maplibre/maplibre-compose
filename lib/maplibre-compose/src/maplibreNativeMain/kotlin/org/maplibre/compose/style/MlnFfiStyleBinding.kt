@@ -491,6 +491,10 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
+  override fun invalidateCustomVectorSourceBounds(sourceId: String, bounds: BoundingBox) {
+    write { it.invalidateCustomVectorSourceRegion(sourceId, bounds.toLatLngBounds()) }
+  }
+
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
     write { it.invalidateCustomVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
   }
@@ -564,7 +568,7 @@ internal open class MlnFfiStyleBinding(
     options: GeoJsonOptions,
   ): StyleCommand {
     val added = addSourceWith { map ->
-      map.addGeoJsonSource(sourceId, options.toFfiOptions()).also {
+      map.addGeoJsonSource(sourceId, options.toFfiOptions(), options.attributionHtml).also {
         // Synchronous tiling isn't a source option. Set right after the add, it covers every data.
         if (options.synchronousTiling)
           map.discarding.setGeoJsonSourceSynchronousTiling(sourceId, true)

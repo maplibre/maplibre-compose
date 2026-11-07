@@ -140,6 +140,7 @@ public sealed interface GeoJsonData {
  *   small, frequently updated sources appear sooner, but large data then delays later camera and
  *   style changes. Source updates still return without waiting. Android, iOS, and desktop honor
  *   this option. The browser ignores it.
+ * @property attributionHtml Attribution shown for this source, as HTML, or null for none.
  */
 @Immutable
 public data class GeoJsonOptions
@@ -156,6 +157,7 @@ private constructor(
   public val lineMetrics: Boolean,
   public val synchronousTiling: Boolean,
   private val clusterMaxZoomOverride: Int?,
+  public val attributionHtml: String?,
 ) {
   private constructor(
     builder: Builder,
@@ -172,6 +174,7 @@ private constructor(
     builder.lineMetrics,
     builder.synchronousTiling,
     builder.clusterMaxZoomOverride,
+    builder.attributionHtml,
   )
 
   /** Edits [from]; omitted settings inherit. */
@@ -194,6 +197,7 @@ private constructor(
       "clusterProperties" to clusterProperties,
       "lineMetrics" to lineMetrics,
       "synchronousTiling" to synchronousTiling,
+      "attributionHtml" to attributionHtml,
     )
 
   @MapOptionsDsl
@@ -226,6 +230,8 @@ private constructor(
     public var lineMetrics: Boolean = from?.lineMetrics ?: false
     /** See [GeoJsonOptions.synchronousTiling]. */
     public var synchronousTiling: Boolean = from?.synchronousTiling ?: false
+    /** See [GeoJsonOptions.attributionHtml]. */
+    public var attributionHtml: String? = from?.attributionHtml
 
     internal var clusterMaxZoomOverride: Int? = from?.clusterMaxZoomOverride
   }

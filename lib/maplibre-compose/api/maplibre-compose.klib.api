@@ -923,6 +923,7 @@ sealed interface org.maplibre.compose.sources/CustomVectorTileSourceHandle : org
     abstract val asMutable // org.maplibre.compose.sources/CustomVectorTileSourceHandle.asMutable|{}asMutable[0]
         abstract fun <get-asMutable>(): org.maplibre.compose.sources/MutableCustomVectorTileSourceHandle? // org.maplibre.compose.sources/CustomVectorTileSourceHandle.asMutable.<get-asMutable>|<get-asMutable>(){}[0]
 
+    abstract fun invalidateBounds(org.maplibre.spatialk.geojson/BoundingBox) // org.maplibre.compose.sources/CustomVectorTileSourceHandle.invalidateBounds|invalidateBounds(org.maplibre.spatialk.geojson.BoundingBox){}[0]
     abstract fun invalidateTile(org.maplibre.compose.sources/TileCoordinate) // org.maplibre.compose.sources/CustomVectorTileSourceHandle.invalidateTile|invalidateTile(org.maplibre.compose.sources.TileCoordinate){}[0]
 }
 
@@ -2546,6 +2547,49 @@ final class org.maplibre.compose.overlay/ZoomButtonsStyle { // org.maplibre.comp
     final fun toString(): kotlin/String // org.maplibre.compose.overlay/ZoomButtonsStyle.toString|toString(){}[0]
 }
 
+final class org.maplibre.compose.resource/MapRequestRule { // org.maplibre.compose.resource/MapRequestRule|null[0]
+    final val kinds // org.maplibre.compose.resource/MapRequestRule.kinds|{}kinds[0]
+        final fun <get-kinds>(): kotlin.collections/Set<org.maplibre.compose.resource/MapResourceKind> // org.maplibre.compose.resource/MapRequestRule.kinds.<get-kinds>|<get-kinds>(){}[0]
+    final val urlPattern // org.maplibre.compose.resource/MapRequestRule.urlPattern|{}urlPattern[0]
+        final fun <get-urlPattern>(): kotlin/String // org.maplibre.compose.resource/MapRequestRule.urlPattern.<get-urlPattern>|<get-urlPattern>(){}[0]
+    final val values // org.maplibre.compose.resource/MapRequestRule.values|{}values[0]
+        final fun <get-values>(): kotlin.collections/Map<kotlin/String, kotlin/String> // org.maplibre.compose.resource/MapRequestRule.values.<get-values>|<get-values>(){}[0]
+
+    final fun component1(): kotlin/String // org.maplibre.compose.resource/MapRequestRule.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/Set<org.maplibre.compose.resource/MapResourceKind> // org.maplibre.compose.resource/MapRequestRule.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/Map<kotlin/String, kotlin/String> // org.maplibre.compose.resource/MapRequestRule.component3|component3(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapRequestRule.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapRequestRule.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.resource/MapRequestRule.toString|toString(){}[0]
+}
+
+final class org.maplibre.compose.resource/MapRequestRules : org.maplibre.compose.resource/MapRequestInterceptor { // org.maplibre.compose.resource/MapRequestRules|null[0]
+    constructor <init>(org.maplibre.compose.resource/MapRequestRules = ..., kotlin/Function1<org.maplibre.compose.resource/MapRequestRules.Builder, kotlin/Unit>) // org.maplibre.compose.resource/MapRequestRules.<init>|<init>(org.maplibre.compose.resource.MapRequestRules;kotlin.Function1<org.maplibre.compose.resource.MapRequestRules.Builder,kotlin.Unit>){}[0]
+
+    final val headerRules // org.maplibre.compose.resource/MapRequestRules.headerRules|{}headerRules[0]
+        final fun <get-headerRules>(): kotlin.collections/List<org.maplibre.compose.resource/MapRequestRule> // org.maplibre.compose.resource/MapRequestRules.headerRules.<get-headerRules>|<get-headerRules>(){}[0]
+    final val queryParameterRules // org.maplibre.compose.resource/MapRequestRules.queryParameterRules|{}queryParameterRules[0]
+        final fun <get-queryParameterRules>(): kotlin.collections/List<org.maplibre.compose.resource/MapRequestRule> // org.maplibre.compose.resource/MapRequestRules.queryParameterRules.<get-queryParameterRules>|<get-queryParameterRules>(){}[0]
+
+    final fun component1(): kotlin.collections/List<org.maplibre.compose.resource/MapRequestRule> // org.maplibre.compose.resource/MapRequestRules.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<org.maplibre.compose.resource/MapRequestRule> // org.maplibre.compose.resource/MapRequestRules.component2|component2(){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.maplibre.compose.resource/MapRequestRules.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.maplibre.compose.resource/MapRequestRules.hashCode|hashCode(){}[0]
+    final fun headers(org.maplibre.compose.resource/MapResourceRequest): kotlin.collections/Map<kotlin/String, kotlin/String> // org.maplibre.compose.resource/MapRequestRules.headers|headers(org.maplibre.compose.resource.MapResourceRequest){}[0]
+    final fun rewriteUrl(org.maplibre.compose.resource/MapResourceRequest): kotlin/String? // org.maplibre.compose.resource/MapRequestRules.rewriteUrl|rewriteUrl(org.maplibre.compose.resource.MapResourceRequest){}[0]
+    final fun toString(): kotlin/String // org.maplibre.compose.resource/MapRequestRules.toString|toString(){}[0]
+
+    final class Builder { // org.maplibre.compose.resource/MapRequestRules.Builder|null[0]
+        final fun addHeaders(kotlin/String, kotlin.collections/Map<kotlin/String, kotlin/String>, kotlin.collections/Set<org.maplibre.compose.resource/MapResourceKind> = ...) // org.maplibre.compose.resource/MapRequestRules.Builder.addHeaders|addHeaders(kotlin.String;kotlin.collections.Map<kotlin.String,kotlin.String>;kotlin.collections.Set<org.maplibre.compose.resource.MapResourceKind>){}[0]
+        final fun addQueryParameters(kotlin/String, kotlin.collections/Map<kotlin/String, kotlin/String>, kotlin.collections/Set<org.maplibre.compose.resource/MapResourceKind> = ...) // org.maplibre.compose.resource/MapRequestRules.Builder.addQueryParameters|addQueryParameters(kotlin.String;kotlin.collections.Map<kotlin.String,kotlin.String>;kotlin.collections.Set<org.maplibre.compose.resource.MapResourceKind>){}[0]
+    }
+
+    final object Companion { // org.maplibre.compose.resource/MapRequestRules.Companion|null[0]
+        final val Empty // org.maplibre.compose.resource/MapRequestRules.Companion.Empty|{}Empty[0]
+            final fun <get-Empty>(): org.maplibre.compose.resource/MapRequestRules // org.maplibre.compose.resource/MapRequestRules.Companion.Empty.<get-Empty>|<get-Empty>(){}[0]
+    }
+}
+
 final class org.maplibre.compose.resource/MapResourceLoadRequest { // org.maplibre.compose.resource/MapResourceLoadRequest|null[0]
     final val kind // org.maplibre.compose.resource/MapResourceLoadRequest.kind|{}kind[0]
         final fun <get-kind>(): org.maplibre.compose.resource/MapResourceKind // org.maplibre.compose.resource/MapResourceLoadRequest.kind.<get-kind>|<get-kind>(){}[0]
@@ -2747,6 +2791,8 @@ final class org.maplibre.compose.sources/CustomVectorTileSourceOptions { // org.
 final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compose.sources/GeoJsonOptions|null[0]
     constructor <init>(org.maplibre.compose.sources/GeoJsonOptions = ..., kotlin/Function1<org.maplibre.compose.sources/GeoJsonOptions.Builder, kotlin/Unit>) // org.maplibre.compose.sources/GeoJsonOptions.<init>|<init>(org.maplibre.compose.sources.GeoJsonOptions;kotlin.Function1<org.maplibre.compose.sources.GeoJsonOptions.Builder,kotlin.Unit>){}[0]
 
+    final val attributionHtml // org.maplibre.compose.sources/GeoJsonOptions.attributionHtml|{}attributionHtml[0]
+        final fun <get-attributionHtml>(): kotlin/String? // org.maplibre.compose.sources/GeoJsonOptions.attributionHtml.<get-attributionHtml>|<get-attributionHtml>(){}[0]
     final val buffer // org.maplibre.compose.sources/GeoJsonOptions.buffer|{}buffer[0]
         final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.buffer.<get-buffer>|<get-buffer>(){}[0]
     final val cluster // org.maplibre.compose.sources/GeoJsonOptions.cluster|{}cluster[0]
@@ -2773,6 +2819,7 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
     final fun component1(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component1|component1(){}[0]
     final fun component10(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component10|component10(){}[0]
     final fun component11(): kotlin/Boolean // org.maplibre.compose.sources/GeoJsonOptions.component11|component11(){}[0]
+    final fun component13(): kotlin/String? // org.maplibre.compose.sources/GeoJsonOptions.component13|component13(){}[0]
     final fun component2(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component2|component2(){}[0]
     final fun component3(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.component3|component3(){}[0]
     final fun component4(): kotlin/Float // org.maplibre.compose.sources/GeoJsonOptions.component4|component4(){}[0]
@@ -2802,6 +2849,9 @@ final class org.maplibre.compose.sources/GeoJsonOptions { // org.maplibre.compos
     }
 
     final class Builder { // org.maplibre.compose.sources/GeoJsonOptions.Builder|null[0]
+        final var attributionHtml // org.maplibre.compose.sources/GeoJsonOptions.Builder.attributionHtml|{}attributionHtml[0]
+            final fun <get-attributionHtml>(): kotlin/String? // org.maplibre.compose.sources/GeoJsonOptions.Builder.attributionHtml.<get-attributionHtml>|<get-attributionHtml>(){}[0]
+            final fun <set-attributionHtml>(kotlin/String?) // org.maplibre.compose.sources/GeoJsonOptions.Builder.attributionHtml.<set-attributionHtml>|<set-attributionHtml>(kotlin.String?){}[0]
         final var buffer // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer|{}buffer[0]
             final fun <get-buffer>(): kotlin/Int // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer.<get-buffer>|<get-buffer>(){}[0]
             final fun <set-buffer>(kotlin/Int) // org.maplibre.compose.sources/GeoJsonOptions.Builder.buffer.<set-buffer>|<set-buffer>(kotlin.Int){}[0]
@@ -4201,6 +4251,9 @@ final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeas
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeasures$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ScaleBarMeasures$stableprop|#static{}org_maplibre_compose_overlay_ScaleBarMeasures$stableprop[0]
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop|#static{}org_maplibre_compose_overlay_ZoomButtonsDefaults$stableprop[0]
 final val org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop // org.maplibre.compose.overlay/org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop|#static{}org_maplibre_compose_overlay_ZoomButtonsStyle$stableprop[0]
+final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRule$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRule$stableprop|#static{}org_maplibre_compose_resource_MapRequestRule$stableprop[0]
+final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules$stableprop|#static{}org_maplibre_compose_resource_MapRequestRules$stableprop[0]
+final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules_Builder$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules_Builder$stableprop|#static{}org_maplibre_compose_resource_MapRequestRules_Builder$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoadRequest$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop[0]
 final val org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop|#static{}org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop[0]
@@ -4674,6 +4727,9 @@ final fun org.maplibre.compose.overlay/rememberPlacedTowardsState(androidx.compo
 final fun org.maplibre.compose.resource/MapRequestInterceptor(kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin/String?> = ..., kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin.collections/Map<kotlin/String, kotlin/String>> = ...): org.maplibre.compose.resource/MapRequestInterceptor // org.maplibre.compose.resource/MapRequestInterceptor|MapRequestInterceptor(kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.String?>;kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.collections.Map<kotlin.String,kotlin.String>>){}[0]
 final fun org.maplibre.compose.resource/MapResourceProvider(kotlin/Function1<org.maplibre.compose.resource/MapResourceRequest, kotlin/Boolean>, kotlin.coroutines/SuspendFunction1<org.maplibre.compose.resource/MapResourceLoadRequest, org.maplibre.compose.resource/MapResourceLoad>): org.maplibre.compose.resource/MapResourceProvider // org.maplibre.compose.resource/MapResourceProvider|MapResourceProvider(kotlin.Function1<org.maplibre.compose.resource.MapResourceRequest,kotlin.Boolean>;kotlin.coroutines.SuspendFunction1<org.maplibre.compose.resource.MapResourceLoadRequest,org.maplibre.compose.resource.MapResourceLoad>){}[0]
 final fun org.maplibre.compose.resource/MapResourceProvider(kotlin/String, kotlin.coroutines/SuspendFunction1<org.maplibre.compose.resource/MapResourceLoadRequest, kotlin/ByteArray>): org.maplibre.compose.resource/MapResourceProvider // org.maplibre.compose.resource/MapResourceProvider|MapResourceProvider(kotlin.String;kotlin.coroutines.SuspendFunction1<org.maplibre.compose.resource.MapResourceLoadRequest,kotlin.ByteArray>){}[0]
+final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRule$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRule$stableprop_getter|org_maplibre_compose_resource_MapRequestRule$stableprop_getter(){}[0]
+final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules$stableprop_getter|org_maplibre_compose_resource_MapRequestRules$stableprop_getter(){}[0]
+final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapRequestRules_Builder$stableprop_getter|org_maplibre_compose_resource_MapRequestRules_Builder$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter|org_maplibre_compose_resource_MapResourceLoadRequest$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter|org_maplibre_compose_resource_MapResourceLoad_Bytes$stableprop_getter(){}[0]
 final fun org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter(): kotlin/Int // org.maplibre.compose.resource/org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter|org_maplibre_compose_resource_MapResourceLoad_Failed$stableprop_getter(){}[0]

@@ -376,6 +376,9 @@ internal interface StyleBinding {
     provider: VectorTileProvider,
   ): StyleCommand
 
+  /** Requests new data for intersecting tiles. GL JS reloads the whole source. */
+  fun invalidateCustomVectorSourceBounds(sourceId: String, bounds: BoundingBox)
+
   /** Requests new data for one tile. GL JS reloads the whole source. */
   fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)
 

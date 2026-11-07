@@ -517,6 +517,10 @@ internal class GlJsStyleBinding(
     }
   }
 
+  override fun invalidateCustomVectorSourceBounds(sourceId: String, bounds: BoundingBox) {
+    reloadCustomSource(sourceId)
+  }
+
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
     reloadCustomSource(sourceId)
   }
