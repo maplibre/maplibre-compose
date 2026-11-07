@@ -83,8 +83,6 @@ class MlnFfiStylePresentationTest {
                 }
                 .definition(),
               Anchor.Top,
-              null,
-              null,
             ),
           ),
           emptyList(),
@@ -172,8 +170,6 @@ class MlnFfiStylePresentationTest {
                   }
                   .definition(),
               anchor = Anchor.Top,
-              onClick = null,
-              onLongClick = null,
             ),
           ),
         images = emptyList(),

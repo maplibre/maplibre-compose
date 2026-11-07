@@ -136,7 +136,7 @@ class LoadedStyleResourceMutationTest {
   private fun layerRevision(vararg layers: TestLayer, sources: List<GeoJsonSource> = emptyList()) =
     StyleSnapshot(
       sources = sources.map { it.definition() },
-      layers = layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top, null, null) },
+      layers = layers.map { StyleSnapshot.Layer(it.definition(), Anchor.Top) },
       images = emptyList(),
     )
 

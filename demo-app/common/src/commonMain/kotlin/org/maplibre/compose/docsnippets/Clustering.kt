@@ -98,15 +98,17 @@ fun Clustering() {
       id = "earthquake-clusters",
       source = earthquakes,
       filter = feature.has("point_count"),
-      onClick = { features ->
-        val cluster = features.first()
-        scope.launch {
-          val handle = mapState.style.sources[earthquakes] ?: return@launch
-          val zoom = handle.getClusterExpansionZoom(cluster) ?: return@launch
-          val center = (cluster.geometry as? Point)?.coordinates ?: return@launch
-          mapState.animateCamera(CameraUpdate(center = center, zoom = zoom))
+      interactions = {
+        onClick { event ->
+          val cluster = event.hits.first().feature
+          scope.launch {
+            val handle = mapState.style.sources[earthquakes] ?: return@launch
+            val zoom = handle.getClusterExpansionZoom(cluster) ?: return@launch
+            val center = (cluster.geometry as? Point)?.coordinates ?: return@launch
+            mapState.animateCamera(CameraUpdate(center = center, zoom = zoom))
+          }
+          ClickResult.Consume
         }
-        ClickResult.Consume
       },
     )
     // #endregion zoom-on-click

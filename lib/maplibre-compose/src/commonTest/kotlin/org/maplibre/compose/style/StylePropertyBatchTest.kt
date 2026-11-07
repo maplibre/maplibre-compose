@@ -91,7 +91,7 @@ class StylePropertyBatchTest {
   private fun revision(vararg layers: LayerDefinition): StyleSnapshot =
     StyleSnapshot(
       sources = emptyList(),
-      layers = layers.map { StyleSnapshot.Layer(it, Anchor.Top, null, null) },
+      layers = layers.map { StyleSnapshot.Layer(it, Anchor.Top) },
       images = emptyList(),
     )
 
