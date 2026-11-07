@@ -258,6 +258,12 @@ internal constructor(
   override val asMutable: MutableCustomVectorTileSourceHandle?
     get() = super.asMutable as? MutableCustomVectorTileSourceHandle
 
+  override fun invalidateBounds(bounds: BoundingBox) {
+    mutationOperation("a bounds invalidation") {
+      style.invalidateCustomVectorSourceBounds(id, bounds)
+    }
+  }
+
   override fun invalidateTile(tile: TileCoordinate) {
     mutationOperation("a tile invalidation") { style.invalidateCustomVectorSourceTile(id, tile) }
   }

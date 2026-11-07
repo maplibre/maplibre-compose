@@ -32,6 +32,8 @@ import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 class CustomVectorTileSourceTest {
 
@@ -79,6 +81,43 @@ class CustomVectorTileSourceTest {
 
       assertTrue(requests.isNotEmpty())
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())
+    }
+  }
+
+  @Test
+  fun invalidating_bounds_requests_the_mvt_provider_again(): MapTestResult = runMapTest {
+    val requests = RecordingList<TileCoordinate>()
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BlackStyle)
+      val style = assertNotNull(fixture.style)
+      val source =
+        CustomVectorTileSource(
+          SourceId,
+          CustomVectorTileSourceOptions {
+            minZoom = 0
+            maxZoom = 0
+          },
+        ) { tile ->
+          requests += tile
+          PointMvtTile
+        }
+      fixture.state.style.sources.add(source)
+      val layer = TestLayer("custom-vector-points", "circle", source)
+      layer.sourceLayer = SourceLayer
+      style.install(layer)
+      fixture.pumpUntil("the custom MVT provider to be asked for its tile") {
+        requests.isNotEmpty()
+      }
+      fixture.settle()
+      val answered = requests.size
+
+      val handle = assertIs<CustomVectorTileSourceHandle>(fixture.state.style.sources[SourceId])
+      handle.invalidateBounds(
+        BoundingBox(southwest = Position(-10.0, -10.0), northeast = Position(10.0, 10.0)),
+      )
+
+      fixture.pumpUntil("the invalidated tile to be requested again") { requests.size > answered }
+      assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.toList().last())
     }
   }
 
