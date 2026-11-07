@@ -8,7 +8,9 @@ import androidx.compose.runtime.Immutable
  * Platform settings are available in source sets whose targets support them. The camera projection
  * is available on Android, iOS, and desktop.
  *
- * @property maximumFps Caps how often the map renders. Null uses the display refresh rate.
+ * @property maximumFps Caps how often the map renders. Null uses the display refresh rate. On the
+ *   macOS Kotlin/Native target, that is the refresh rate of the main display, the one with the menu
+ *   bar, even when the map's window is on another display.
  * @property tileLod How the map chooses tile zoom when the camera is pitched.
  * @property debug Overlays that show how the map renders.
  */

@@ -110,7 +110,11 @@ internal constructor(
 
   private var active by mutableStateOf(true)
 
-  /** Whether rendering is enabled. Style composition continues while inactive. */
+  /**
+   * Whether rendering is enabled. Style composition continues while inactive. An inactive
+   * presentation lets go of its layer but keeps its renderer and tiles, so the map shows again
+   * without reloading when it becomes active.
+   */
   public var isActive: Boolean
     get() = active
     set(value) {
@@ -219,7 +223,8 @@ internal constructor(
           CoroutineExceptionHandler { _, error -> postAppleMain { fail(error) } },
       )
     this.scope = scope
-    // Only the standalone recomposer uses this clock. Metal drawables pace the renderer itself.
+    // Only the standalone recomposer uses this clock. A display-linked frame pacer paces the
+    // renderer.
     lateinit var clock: BroadcastFrameClock
     clock = BroadcastFrameClock {
       scope.launch {
