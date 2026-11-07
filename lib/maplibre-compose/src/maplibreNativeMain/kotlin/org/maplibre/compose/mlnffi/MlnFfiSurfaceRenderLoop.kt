@@ -32,6 +32,11 @@ internal const val MaxRenderRecoveryAttempts = 3
  * A failure that is not recoverable, or a recoverable one after [MaxRenderRecoveryAttempts]
  * rebuilds, is terminal: the controller releases its surface, reports the failure through
  * [onTerminalFailure], and ignores later surfaces, resizes, and activation changes.
+ *
+ * When [retainsSessionAcrossSurfaces], the renderer's session outlives each surface: losing the
+ * surface or becoming inactive only releases the session's target through
+ * [MlnFfiMapRenderer.onTargetLost], and the next surface replaces it. Only closing or a failure
+ * ends the session.
  */
 internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   protected val renderer: MlnFfiMapRenderer,
@@ -40,6 +45,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   private val platformName: String,
   maximumFps: Int?,
   followsFrameClock: Boolean = false,
+  private val retainsSessionAcrossSurfaces: Boolean = false,
 ) : MlnFfiMapHostSession {
   /** A queued render-thread action that can be removed before it starts. */
   fun interface ScheduledAction {
@@ -103,7 +109,7 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   private var recoveryAttempts = 0
 
   /** Records [maximumFps] for the delay before the next frame. */
-  fun setMaximumFps(maximumFps: Int?) {
+  open fun setMaximumFps(maximumFps: Int?) {
     schedule(Duration.ZERO) {
       checkRenderThread()
       if (closed || this.maximumFps == maximumFps) return@schedule
@@ -122,14 +128,21 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
       this.active = active
       cancelFrame()
       try {
-        // Retiring the session cancels a parked demand before it can draw while inactive.
+        // Retiring the session cancels a parked demand before it can draw while inactive. A
+        // retained session only lets go of its target, and the next frame gives it back.
         if (surface != null) {
           if (active) {
-            rendererAttached = true
-            renderer.onSurfaceAvailable(this)
+            if (!rendererAttached) {
+              rendererAttached = true
+              renderer.onSurfaceAvailable(this)
+            }
           } else if (rendererAttached) {
-            renderer.onSurfaceLost(this)
-            rendererAttached = false
+            if (retainsSessionAcrossSurfaces) {
+              renderer.onTargetLost(this)
+            } else {
+              renderer.onSurfaceLost(this)
+              rendererAttached = false
+            }
           }
         }
         if (active) requestFrameOnRenderThread()
@@ -164,11 +177,15 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     checkRenderThread()
     if (closed || terminalFailure) return
     try {
-      detachSurface()
+      if (retainsSessionAcrossSurfaces) {
+        // The session keeps rendering into the previous surface until a frame replaces it.
+        surface?.let(::releaseSurface)
+        surface = null
+      } else detachSurface()
       surface = create()
       this.extent = extent
       generation++
-      if (active) {
+      if (active && !rendererAttached) {
         rendererAttached = true
         renderer.onSurfaceAvailable(this)
       }
@@ -199,18 +216,33 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
   }
 
   /**
-   * Makes the renderer let go of the surface, then releases it. Throws when either step fails, and
-   * then keeps the surface so a later call can retry.
+   * Handles the platform taking the surface away. A retained session only lets go of the surface,
+   * and otherwise, or after a terminal failure, this works as [detachSurface].
+   */
+  protected fun loseSurface() {
+    checkRenderThread()
+    if (!retainsSessionAcrossSurfaces || terminalFailure) return detachSurface()
+    cancelFrame()
+    val current = surface ?: return
+    if (rendererAttached) renderer.onTargetLost(this)
+    releaseSurface(current)
+    surface = null
+    extent = MapExtent.Empty
+  }
+
+  /**
+   * Makes the renderer close its session, then releases the surface. Throws when either step fails,
+   * and then keeps the surface so a later call can retry.
    */
   protected fun detachSurface() {
     checkRenderThread()
     cancelFrame()
-    val current = surface ?: return
     // The render session names this surface, so it must be closed before the surface is freed.
     if (rendererAttached) {
       renderer.onSurfaceLost(this)
       rendererAttached = false
     }
+    val current = surface ?: return
     releaseSurface(current)
     surface = null
     extent = MapExtent.Empty
@@ -301,8 +333,10 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
       when (renderer.render(this, frame)) {
         is MlnFfiFrameResult.Rendered -> {
           pacer.rendered(start)
-          requestFrameOnRenderThread()
+          // A parked demand needs the next pass. Other sessions wake the host for each frame.
+          if (frameDemands == MlnFfiFrameDemands.Parked) requestFrameOnRenderThread()
         }
+
         MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()
         MlnFfiFrameResult.AwaitUpdate -> Unit
       }

@@ -5188,6 +5188,15 @@ final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Scr
 final val org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop|#static{}org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop[0]
 
 // Targets: [apple]
+final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop[0]
+
+// Targets: [apple]
+final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop[0]
+
+// Targets: [apple]
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop[0]
 
 // Targets: [apple]
@@ -5298,6 +5307,15 @@ final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_Scr
 
 // Targets: [apple]
 final fun org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop_getter(): kotlin/Int // org.maplibre.compose.map/org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop_getter|org_maplibre_compose_map_TileLodAlgorithm_ScreenCenter_Builder$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameDemands_OnRedraw$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter(){}[0]
+
+// Targets: [apple]
+final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(){}[0]

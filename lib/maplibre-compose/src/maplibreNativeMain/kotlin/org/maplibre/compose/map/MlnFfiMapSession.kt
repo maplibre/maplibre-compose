@@ -246,6 +246,8 @@ internal class MlnFfiMapSession(
     presentation.onSurfaceLost(session)
   }
 
+  override fun onTargetLost(session: MlnFfiMapHostSession) = presentation.releaseTarget(session)
+
   override fun render(
     host: MlnFfiMapHostSession,
     frame: MlnFfiMapFrame,

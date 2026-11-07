@@ -164,8 +164,17 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   companion object {
     private const val EGL_OPENGL_ES3_BIT = 0x00000040
 
+    /** The process's default EGL display, which EGL initializes once however often it's asked. */
+    private val defaultDisplay: EGLDisplay by lazy {
+      val display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+      check(display != EGL14.EGL_NO_DISPLAY) { "EGL display is unavailable" }
+      val version = IntArray(2)
+      check(EGL14.eglInitialize(display, version, 0, version, 1)) { "Could not initialize EGL" }
+      display
+    }
+
     fun create(): AndroidEglTestRenderDriver {
-      val display = AndroidEglDisplay.default
+      val display = defaultDisplay
       eglCheck(display, EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API), "bind the OpenGL ES API")
       return AndroidEglTestRenderDriver(display, chooseConfig(display))
     }

@@ -80,6 +80,14 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
    * via [onSurfaceAvailable].
    */
   fun onSurfaceLost(session: MlnFfiMapHostSession) {}
+
+  /**
+   * Called when the host's surface went away while [session] stays, such as when the app goes to
+   * the background. The renderer lets go of the surface and keeps its render session, so the next
+   * surface the host offers reuses the session's renderer and tiles. Hosts that do not retain their
+   * render session across surfaces call [onSurfaceLost] instead.
+   */
+  fun onTargetLost(session: MlnFfiMapHostSession) {}
 }
 
 /** A graphics failure for which rebuilding the render session can produce a usable later frame. */
