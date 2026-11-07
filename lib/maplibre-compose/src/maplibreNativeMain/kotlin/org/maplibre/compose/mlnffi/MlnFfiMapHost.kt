@@ -2,6 +2,7 @@ package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.nativeffi.FramePacerHandle
 
 /** Pixel-aligned destination for a completed render target in a Compose draw scope. */
 internal data class MlnFfiMapDestination(
@@ -40,6 +41,27 @@ internal sealed interface MlnFfiMapFrameAcquisition {
   data object NotReady : MlnFfiMapFrameAcquisition
 }
 
+/** How a render session's frames are demanded. */
+internal sealed interface MlnFfiFrameDemands {
+  /**
+   * Each frame pass parks one demand that waits for the next map update, and the host schedules the
+   * next pass when a frame result arrives.
+   */
+  data object Parked : MlnFfiFrameDemands
+
+  /**
+   * [pacer] demands frames at display refreshes. Frame passes only take frame results. A pass that
+   * finds another pacer than the session's gives the session the new one.
+   */
+  class Paced(val pacer: FramePacerHandle) : MlnFfiFrameDemands
+
+  /**
+   * The session's redraw wake asks the host for a frame pass, which demands one frame. The host
+   * schedules the pass at its next display frame.
+   */
+  data object OnRedraw : MlnFfiFrameDemands
+}
+
 /** The map session's view of its host, handed to [MlnFfiMapRenderer.onSurfaceAvailable]. */
 internal interface MlnFfiMapHostSession {
   /** Logical host closure rejects a delayed surface offer before physical teardown finishes. */
@@ -47,9 +69,12 @@ internal interface MlnFfiMapHostSession {
 
   val backends: RenderBackendPair
 
-  /** Whether this host services caller-driver work in its display-paced frame passes. */
-  val servicesDriverWorkOnFrame: Boolean
-    get() = false
+  /**
+   * Who demands the frames of a render session attached to this host. Read on the renderer thread
+   * at every frame pass.
+   */
+  val frameDemands: MlnFfiFrameDemands
+    get() = MlnFfiFrameDemands.Parked
 
   /** Asks the host to schedule another frame. Safe to call from any thread; requests coalesce. */
   fun requestFrame()

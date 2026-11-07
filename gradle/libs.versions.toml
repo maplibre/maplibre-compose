@@ -7,10 +7,6 @@ android-compileSdk = "37"
 # The Build-Tools release the current AGP consumes. Read by
 # .mise/bin/sync-android-packages, not by Gradle.
 android-buildTools = "36.0.0"
-# Build the JNI shim in lib/maplibre-compose-runtime-vulkan-android. Read by
-# .mise/bin/sync-android-packages too.
-android-ndk = "30.0.16248370"
-android-cmake = "4.1.2"
 android-minSdk = "24"
 # Wear Compose requires API 25.
 android-wearMinSdk = "25"

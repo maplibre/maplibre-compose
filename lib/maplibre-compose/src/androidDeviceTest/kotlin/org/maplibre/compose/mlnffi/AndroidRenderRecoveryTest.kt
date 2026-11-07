@@ -122,7 +122,8 @@ class AndroidRenderRecoveryTest {
       assertFalse(teardown.isAlive, "Surface teardown did not finish")
       controller.onRenderThread {
         assertEquals(0, renderer.frames)
-        assertEquals(1, renderer.losses)
+        assertEquals(0, renderer.losses)
+        assertEquals(1, renderer.targetLosses, "A lost surface must keep the renderer's session")
         assertEquals(0, renderer.failures.size)
       }
     }
@@ -141,10 +142,8 @@ class AndroidRenderRecoveryTest {
         draw(controller, renderer)
         controller.onRenderThread {
           assertEquals(if (attempt == 3) 1 else 0, renderer.failures.size)
-          assertEquals(
-            1 + minOf(attempt + 1, 3) + if (recreateSurface) attempt else 0,
-            renderer.attachments,
-          )
+          // A new surface keeps the session, so only recovery attaches the renderer again.
+          assertEquals(1 + minOf(attempt + 1, 3), renderer.attachments)
         }
         if (recreateSurface && attempt < 3) {
           controller.onRenderThread { controller.surfaceDestroyed() }
@@ -214,6 +213,7 @@ class AndroidRenderRecoveryTest {
     var nextError: Throwable? = null
     var lossError: Throwable? = null
     var losses = 0
+    var targetLosses = 0
     var alwaysFail = false
     var result: MlnFfiFrameResult = MlnFfiFrameResult.Rendered()
     private var completedDemand = false
@@ -240,6 +240,12 @@ class AndroidRenderRecoveryTest {
     override fun onSurfaceLost(session: MlnFfiMapHostSession) {
       losses++
       lossError?.let { throw it }
+    }
+
+    override fun onTargetLost(session: MlnFfiMapHostSession) {
+      targetLosses++
+      // The next surface gets a frame of its own.
+      completedDemand = false
     }
 
     override fun onSurfaceChanged(extent: MapExtent) {

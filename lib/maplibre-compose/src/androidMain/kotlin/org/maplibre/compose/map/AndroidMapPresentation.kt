@@ -34,6 +34,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.mlnffi.AndroidFramePacing
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurfaceController
 import org.maplibre.compose.mlnffi.MapRenderBackend
 
@@ -46,10 +47,13 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
  *
  * Style content composes with the [Context] and [Configuration] given here and the density of the
  * attached Surface. UI composables and view-dependent locals are not available in style content.
- * Style content and camera operations work while no Surface is attached. Style composition and
- * camera animations update at the refresh rate of the phone display, and at about 60 Hz while that
- * display is off. No frames are produced until the style can be presented, so show your own loading
- * content on the Surface until then.
+ * Style content and camera operations work while no Surface is attached. The map, style
+ * composition, and camera animations update at the refresh rate of the phone display, and at about
+ * 60 Hz while that display is off, as on an Android Auto car screen. No frames are produced until
+ * the style can be presented, so show your own loading content on the Surface until then.
+ *
+ * The map keeps its renderer and loaded tiles while no Surface is attached and while [lifecycle] is
+ * stopped, so the next Surface shows the map again without reloading it.
  *
  * Pass gestures with the [MapState] methods, such as [MapState.panBy].
  *
@@ -89,6 +93,8 @@ public class AndroidMapPresentation(
   private var binding: SurfaceBinding? by mutableStateOf(null)
   private var active by mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
   private var controller: AndroidMlnFfiSurfaceController? = null
+  /** The display frames that pace map rendering. Read when a style can first be presented. */
+  internal var vsync: AndroidVsync = ChoreographerVsync
   private var composition: PresentationComposition? = null
   private var closed = false
   private val lifecycleObserver = LifecycleEventObserver { _, event ->
@@ -155,7 +161,8 @@ public class AndroidMapPresentation(
   /**
    * Presents on [surface] until the returned binding closes, replacing the current binding.
    *
-   * Close the binding before releasing the Surface. Closing waits for rendering to stop using it.
+   * Close the binding when the Surface goes away, such as in `onSurfaceDestroyed`. The map stops
+   * presenting to the Surface, and you can release it once the binding is closed.
    *
    * @param width The width in physical pixels.
    * @param height The height in physical pixels.
@@ -230,7 +237,8 @@ public class AndroidMapPresentation(
   internal fun detach(binding: SurfaceBinding) {
     checkMainThread()
     if (this.binding !== binding) return
-    // Synchronous, so the caller can release the Surface only when this returns successfully.
+    // Releases the render session's target before returning. The session keeps its own reference
+    // to the Surface's window, so the caller can release the Surface right after.
     controller?.surfaceDestroyed()
     this.binding = null
   }
@@ -282,7 +290,16 @@ public class AndroidMapPresentation(
     val maximumFps = options.renderOptions.maximumFps
     val controller =
       remember(session) {
-        AndroidMlnFfiSurfaceController(session, backend, logger, maximumFps) { error ->
+        AndroidMlnFfiSurfaceController(
+          session,
+          backend,
+          logger,
+          maximumFps,
+          // Car screens keep showing the map while the phone display, and so its Choreographer, is
+          // off, which a frame pacer would wait for.
+          pacing = AndroidFramePacing.RedrawClock,
+          vsync = vsync,
+        ) { error ->
           mainHandler.post { fail(error) }
         }
       }
@@ -316,7 +333,7 @@ public class AndroidMapPresentation(
 
   /**
    * The map's use of one Surface. Update the physical size and density together when they change.
-   * Close the binding before releasing the Surface. A closed or replaced binding ignores updates.
+   * Close the binding when the Surface goes away. A closed or replaced binding ignores updates.
    */
   @MainThread
   public class SurfaceBinding
@@ -335,7 +352,9 @@ public class AndroidMapPresentation(
     public fun update(width: Int, height: Int, density: Float): Unit =
       presentation.updateSurface(this, width, height, density)
 
-    /** Waits for rendering to stop using the Surface. */
+    /**
+     * Stops presenting to the Surface. The map keeps its renderer and tiles for the next binding.
+     */
     override fun close(): Unit = presentation.detach(this)
   }
 }
