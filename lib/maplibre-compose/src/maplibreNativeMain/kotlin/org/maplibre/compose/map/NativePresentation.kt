@@ -66,8 +66,9 @@ import org.maplibre.nativeffi.WglContextDescriptor
  * or its own display clock demand the frames, as [MlnFfiFrameDemands] describes. Borrowed textures
  * stay acquired until the host has finished reading them.
  *
- * A host that presents to a [PlatformWindowTarget] can keep its session when its window goes away:
- * [releaseTarget] lets go of the window, and the next frame gives the session the host's next one.
+ * A host that presents to a [PlatformWindowTarget] or a [MetalSurfaceTarget] can keep its session
+ * when its window or layer goes away: [releaseTarget] lets go of it, and the next frame gives the
+ * session the host's next one.
  */
 internal class NativePresentation(
   var backend: MapRenderBackend,
@@ -206,14 +207,13 @@ internal class NativePresentation(
     }
 
     /**
-     * Renderer thread. Lets the session go of its window and keeps the session, its renderer, and
-     * its tiles for the host's next window. Only a [PlatformWindowTarget] session gets here.
-     *
-     * The session keeps its own reference to the window, but Android's `SurfaceView` destroys the
-     * window's surface once `surfaceDestroyed` returns, and Android 8.0 crashes if the session
-     * still draws into it then. So this waits until the session has stopped, as the FFI's own
-     * Android example does. A session that can't let go of its window is released whole, and the
-     * next window attaches a new one.
+     * Renderer thread. Lets the session go of its target and keeps the session, its renderer, and
+     * its tiles for the host's next target. The host may destroy the target once this returns, so
+     * it waits until the session has stopped using it. That holds for a Metal layer, and for an
+     * Android window too: the session keeps its own reference to the window, but `SurfaceView`
+     * destroys the window's surface once `surfaceDestroyed` returns, and Android 8.0 crashes if the
+     * session still draws into it then. The FFI's own Android example waits too. A session that
+     * can't let go of its target is released whole, and the next target attaches a new one.
      */
     fun releaseTarget() {
       val current = session ?: return
@@ -223,7 +223,7 @@ internal class NativePresentation(
       try {
         await(current, current.releaseTarget())
       } catch (error: MaplibreException) {
-        logger?.d(error) { "The render session could not release its window; releasing it" }
+        logger?.d(error) { "The render session could not release its target; releasing it" }
         closeSession()
       }
     }
@@ -273,6 +273,10 @@ internal class NativePresentation(
   internal var retargetCount: Int = 0
     private set
 
+  @Volatile
+  internal var resizeCount: Int = 0
+    private set
+
   /** Renderer-thread state, read by tests. */
   @Volatile
   internal var hasRenderedAFrame: Boolean = false
@@ -316,11 +320,19 @@ internal class NativePresentation(
     }
   }
 
-  /** The host [session] lost its window but stays. Its render session waits for the next window. */
+  /**
+   * The host [session] lost its target but stays. Its render session waits for the next target.
+   * Once this returns, the host may destroy the old target.
+   */
   fun releaseTarget(session: MlnFfiMapHostSession) {
     val attachment =
       stateLock.withLock { rendererAttachment?.takeIf { it.host === session } } ?: return
-    attachment.host.withRendererAccess { attachment.releaseTarget() }
+    try {
+      // A session releases its target only after every acquired frame.
+      attachment.host.completeConsumerAccess()
+    } finally {
+      attachment.host.withRendererAccess { attachment.releaseTarget() }
+    }
   }
 
   suspend fun resume() {
@@ -505,15 +517,27 @@ internal class NativePresentation(
     if (!canRender() || attachment.releaseRequested) return false
     val attached = attachment.target
     val live = attachment.session
-    if (
-      !attachment.targetReleased &&
-        attached?.generation == frame.target.generation &&
-        attached.extent == extent &&
-        live != null
-    )
-      return true
+    val sameTarget =
+      live != null && !attachment.targetReleased && attached?.generation == frame.target.generation
+    if (sameTarget && attached.extent == extent) return true
 
     attachment.ready = false
+    if (
+      sameTarget &&
+        attached.extent.scaleFactor == extent.scaleFactor &&
+        frame.target is MetalSurfaceTarget
+    ) {
+      // A Metal session resizes its layer itself, keeping the same layer.
+      try {
+        live.discarding.resize(extent.toLogicalSize())
+      } catch (error: MaplibreException) {
+        throw sessionFailed(live, error)
+      }
+      resizeCount++
+      attachment.target = frame.target
+      onAttached()
+      return true
+    }
     // A renderer compiles its shaders for one pixel ratio, so a scale-factor change needs a new
     // one.
     val retargeted =

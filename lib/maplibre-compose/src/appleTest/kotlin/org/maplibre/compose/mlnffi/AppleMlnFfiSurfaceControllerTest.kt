@@ -3,6 +3,9 @@ package org.maplibre.compose.mlnffi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
@@ -36,7 +39,7 @@ class AppleMlnFfiSurfaceControllerTest {
 
       controller.close()
       controller.awaitClosed()
-      assertEquals(listOf("available", "resized", "lost"), renderer.events)
+      assertEquals(listOf("available", "resized", "released", "lost"), renderer.events)
     }
   }
 
@@ -89,7 +92,8 @@ class AppleMlnFfiSurfaceControllerTest {
           captureProjection: Boolean,
         ) = MlnFfiFrameResult.AwaitUpdate
 
-        override fun onSurfaceLost(session: MlnFfiMapHostSession) {
+        // Losing the layer releases only the kept session's target.
+        override fun onTargetLost(session: MlnFfiMapHostSession) {
           throw expected
         }
 
@@ -128,7 +132,7 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   @Test
-  fun completed_frames_rearm_until_surface_loss() = runAppleSurfaceTest {
+  fun frame_passes_wait_for_frame_wakes_until_surface_loss() = runAppleSurfaceTest {
     val frames = MutableStateFlow(0)
     val renderer =
       object : MlnFfiMapRenderer {
@@ -148,11 +152,16 @@ class AppleMlnFfiSurfaceControllerTest {
     val controller = AppleMlnFfiSurfaceController(renderer, null, onFailure = { throw it })
     try {
       val layer = attachLayer(controller)
+      withTimeout(5_000L) { frames.first { it >= 1 } }
+      controller.awaitActions()
+      // The frame pacer demands frames, so a rendered frame does not queue another pass by itself.
+      assertEquals(1, frames.value, "A frame pass ran without a frame wake")
+      controller.requestFrame()
       withTimeout(5_000L) { frames.first { it >= 2 } }
       controller.surfaceDestroyed(layer).await().getOrThrow()
-      val framesAtLoss = frames.value
+      controller.requestFrame()
       controller.awaitActions()
-      assertEquals(framesAtLoss, frames.value, "A frame rendered after surface loss")
+      assertEquals(2, frames.value, "A frame rendered after surface loss")
     } finally {
       controller.close()
       controller.awaitClosed()
@@ -160,23 +169,53 @@ class AppleMlnFfiSurfaceControllerTest {
   }
 
   @Test
-  fun inactive_surfaces_release_the_session_and_resume_on_the_same_layer() = runAppleSurfaceTest {
+  fun a_frame_rate_change_replaces_the_frame_pacer() = runAppleSurfaceTest {
+    val controller =
+      AppleMlnFfiSurfaceController(RecordingRenderer(), null, onFailure = { throw it })
+    try {
+      assertNull(controller.framePacer, "The pacer waits for the first layer")
+      attachLayer(controller)
+      val first = assertNotNull(controller.framePacer)
+      controller.setMaximumFps(30)
+      controller.awaitActions()
+      val second = assertNotNull(controller.framePacer)
+      assertNotSame(first, second)
+      assertTrue(first.isClosed, "The replaced pacer was not released")
+      controller.close()
+      controller.awaitClosed()
+      assertNull(controller.framePacer)
+      assertTrue(second.isClosed, "Closing did not release the pacer")
+    } finally {
+      controller.close()
+    }
+  }
+
+  @Test
+  fun inactive_surfaces_keep_the_session_and_resume_on_the_same_layer() = runAppleSurfaceTest {
     val renderer = RecordingRenderer()
     val controller = AppleMlnFfiSurfaceController(renderer, null, onFailure = { throw it })
     try {
       val layer = attachLayer(controller)
       controller.setActive(false)
       controller.awaitActions()
-      assertEquals(listOf("available", "resized", "lost"), renderer.events)
+      assertEquals(listOf("available", "resized", "released"), renderer.events)
       controller.setActive(true)
       controller.awaitActions()
-      assertEquals(listOf("available", "resized", "lost", "available"), renderer.events)
+      // The kept session takes its layer back at the next frame pass.
+      assertEquals(listOf("available", "resized", "released"), renderer.events)
       controller.surfaceDestroyed(layer).await().getOrThrow()
-      assertEquals("lost", renderer.events.last())
+      assertEquals("released", renderer.events.last())
+      controller.surfaceLayoutChanged(CAMetalLayer(), Extent)
+      controller.awaitActions()
+      assertEquals(
+        listOf("available", "resized", "released", "released", "resized"),
+        renderer.events,
+      )
     } finally {
       controller.close()
       controller.awaitClosed()
     }
+    assertEquals("lost", renderer.events.last(), "Closing did not release the kept session")
   }
 
   private fun assertRecoveryLimit(replaceLayer: Boolean) =
@@ -190,10 +229,8 @@ class AppleMlnFfiSurfaceControllerTest {
         renderer.awaitFrameOrFailure()
         controller.withRendererAccess {
           assertEquals(if (attempt == 3) 1 else 0, renderer.failures.size)
-          assertEquals(
-            1 + minOf(attempt + 1, 3) + if (replaceLayer) attempt else 0,
-            renderer.attachments,
-          )
+          // A new layer keeps the session, so only recovery attaches the renderer again.
+          assertEquals(1 + minOf(attempt + 1, 3), renderer.attachments)
         }
         if (replaceLayer && attempt < 3) {
           controller.surfaceDestroyed(layer).await().getOrThrow()
@@ -263,6 +300,11 @@ class AppleMlnFfiSurfaceControllerTest {
       rendered = false
     }
 
+    override fun onTargetLost(session: MlnFfiMapHostSession) {
+      // The next layer gets a frame of its own.
+      rendered = false
+    }
+
     override fun render(
       host: MlnFfiMapHostSession,
       frame: MlnFfiMapFrame,
@@ -290,6 +332,10 @@ class AppleMlnFfiSurfaceControllerTest {
 
     override fun onSurfaceChanged(extent: MapExtent) {
       events += "resized"
+    }
+
+    override fun onTargetLost(session: MlnFfiMapHostSession) {
+      events += "released"
     }
 
     override fun onSurfaceLost(session: MlnFfiMapHostSession) {

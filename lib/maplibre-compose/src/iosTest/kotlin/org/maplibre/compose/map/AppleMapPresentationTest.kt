@@ -151,6 +151,9 @@ class AppleMapPresentationTest {
 
             override fun onSurfaceLost(session: MlnFfiMapHostSession) = onLost()
 
+            // Losing the layer releases only the kept session's target.
+            override fun onTargetLost(session: MlnFfiMapHostSession) = onLost()
+
             override fun render(
               host: MlnFfiMapHostSession,
               frame: MlnFfiMapFrame,
@@ -248,6 +251,41 @@ class AppleMapPresentationTest {
       window.addSubview(view)
       view.layoutIfNeeded()
       assertNull(presentation.failure)
+    } finally {
+      view.removeFromSuperview()
+    }
+  }
+
+  @Test
+  fun inactivity_resizes_and_window_changes_keep_the_render_session() = withFixture { f ->
+    val presentation = f.present()
+    val window = UIWindow(frame = CGRectMake(0.0, 0.0, 320.0, 240.0))
+    val view = MaplibreMapView(presentation, CGRectMake(0.0, 0.0, 160.0, 120.0))
+    fun native() = (f.state.currentMapAttachment?.adapter as? MlnFfiMapSession)?.presentation
+    fun rendering() = native()?.readySession() != null
+    try {
+      window.addSubview(view)
+      view.layoutIfNeeded()
+      f.await { rendering() }
+      val native = assertNotNull(native())
+      assertEquals(1, native.attachCount)
+
+      presentation.isActive = false
+      f.await { !rendering() }
+      presentation.isActive = true
+      f.await { rendering() }
+      assertEquals(1, native.retargetCount, "reactivation should give the session its layer back")
+
+      view.setFrame(CGRectMake(0.0, 0.0, 80.0, 60.0))
+      view.layoutIfNeeded()
+      f.await { native.resizeCount == 1 && rendering() }
+
+      view.removeFromSuperview()
+      f.await { !rendering() }
+      window.addSubview(view)
+      view.layoutIfNeeded()
+      f.await { native.retargetCount == 2 && rendering() }
+      assertEquals(1, native.attachCount, "the map should have kept its one render session")
     } finally {
       view.removeFromSuperview()
     }
