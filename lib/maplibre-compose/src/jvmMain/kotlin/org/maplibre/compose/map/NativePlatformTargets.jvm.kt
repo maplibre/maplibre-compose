@@ -9,6 +9,7 @@ import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
+import org.maplibre.nativeffi.AcquiredFrameHandle
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.NewRenderSession
 import org.maplibre.nativeffi.RenderSessionAttachOptions
@@ -20,6 +21,8 @@ import org.maplibre.nativeffi.attachVulkanSurface
 import org.maplibre.nativeffi.setMetalBorrowedTextureTarget
 import org.maplibre.nativeffi.setMetalSurfaceTarget
 import org.maplibre.nativeffi.setVulkanBorrowedTextureTarget
+import org.maplibre.nativeffi.withMetalTexture
+import org.maplibre.nativeffi.withVulkanTexture
 
 internal actual fun attachPlatformTarget(
   map: MapHandle,
@@ -45,6 +48,16 @@ internal actual fun replacePlatformTarget(
     is VulkanSurfaceTarget -> session.resize(extent.toFfiExtent())
     is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
     is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))
+    else -> error("Unsupported platform target: $target")
+  }
+
+internal actual fun acquiredPlatformSlot(
+  frame: AcquiredFrameHandle,
+  target: MlnFfiRenderTarget,
+): Int =
+  when (target) {
+    is VulkanImageTarget -> frame.withVulkanTexture { it.slot.toInt() }
+    is MetalTextureTarget -> frame.withMetalTexture { it.slot.toInt() }
     else -> error("Unsupported platform target: $target")
   }
 

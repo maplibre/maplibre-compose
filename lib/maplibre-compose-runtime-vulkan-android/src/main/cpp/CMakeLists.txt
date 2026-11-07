@@ -7,6 +7,10 @@ add_library(maplibre_compose_vulkan SHARED vulkan_context.cpp jni_handles_test.c
 target_compile_features(maplibre_compose_vulkan PRIVATE cxx_std_20)
 target_compile_definitions(
   maplibre_compose_vulkan
-  PRIVATE VK_USE_PLATFORM_ANDROID_KHR=1)
+  PRIVATE VK_USE_PLATFORM_ANDROID_KHR=1
+          # Hardware buffer import runs only on API levels that provide it.
+          __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
+target_compile_options(maplibre_compose_vulkan PRIVATE
+                       -Werror=unguarded-availability)
 
 target_link_libraries(maplibre_compose_vulkan PRIVATE android log vulkan)

@@ -41,7 +41,7 @@ private constructor(
   override fun target(generation: Long): OpenGlTextureTarget =
     OpenGlTextureTarget(
       context = context.handles,
-      textureName = textureName,
+      textureNames = listOf(textureName),
       textureTarget = GL_TEXTURE_2D,
       format = GL_RGBA8,
       origin = TextureOrigin.BottomLeft,
