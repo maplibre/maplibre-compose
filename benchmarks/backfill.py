@@ -503,12 +503,9 @@ def measure(args):
             args.release, args.local, args.url
         ):
             for kind, path in apks.items():
-                # An installed build signed with another key refuses the update.
-                installed = device("install", "-r", str(path), check=False)
-                if not installed.endswith("Success"):
-                    device("uninstall", manifest["apks"][kind]["package"], check=False)
-                    device("install", str(path))
-                device(*runner.android_compile_args(manifest["apks"][kind]["package"]))
+                package = manifest["apks"][kind]["package"]
+                runner.android_install(device.adb, path, package)
+                runner.android_compile(device.adb, path, package)
             plan = [
                 e for e in manifest["plan"] if not args.case or e["case"] in args.case
             ]
