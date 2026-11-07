@@ -4,15 +4,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.log2
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineDispatcher
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.GestureMomentum
 import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.MapInputAttachment
 import org.maplibre.compose.interaction.internal.TapFamily
@@ -93,7 +94,8 @@ internal class RecordingGestureTarget(private val state: MapState) :
   override fun onGestureStarted(): CameraInputToken =
     state.gestureAuthority.acquire(this).also { startedCount++ }
 
-  override fun onGestureEnded(token: CameraInputToken) = finish(token, cancelled = false)
+  override fun onGestureEnded(token: CameraInputToken, momentum: GestureMomentum?) =
+    finish(token, cancelled = false)
 
   override fun cancelGesture(token: CameraInputToken) = finish(token, cancelled = true)
 
@@ -111,8 +113,12 @@ internal class RecordingGestureTarget(private val state: MapState) :
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) =
     command(gestureToken) { moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat()) }
 
+  /** Scales and rotations move the camera that [getCameraPosition] reads, as the engine would. */
   override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) =
-    command(gestureToken) { scaleCalls += ScaleCall(scale, anchor) }
+    command(gestureToken) {
+      scaleCalls += ScaleCall(scale, anchor)
+      lastCameraPosition = lastCameraPosition.copy(zoom = lastCameraPosition.zoom + log2(scale))
+    }
 
   override fun rotateAndPitchBy(
     bearingDelta: Double,
@@ -120,7 +126,15 @@ internal class RecordingGestureTarget(private val state: MapState) :
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
     feedback: Boolean,
-  ) = command(gestureToken) { rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor) }
+  ) =
+    command(gestureToken) {
+      rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor)
+      lastCameraPosition =
+        lastCameraPosition.copy(
+          bearing = lastCameraPosition.bearing + bearingDelta,
+          pitch = lastCameraPosition.pitch + pitchDelta,
+        )
+    }
 
   override suspend fun fitBoundsAwaitingTransition(
     fit: BoxZoomFit,
@@ -149,17 +163,6 @@ internal class RecordingGestureTarget(private val state: MapState) :
     gestureToken: CameraInputToken,
     anchor: DpOffset?,
   ) = rotateAndPitchBy(bearingDelta, pitchDelta, anchor, gestureToken)
-
-  override suspend fun snapBearingAwaitingTransition(
-    snapping: BearingSnapping,
-    duration: Duration,
-    gestureToken: CameraInputToken,
-  ) =
-    command(gestureToken) {
-      snapping.delta(getCameraPosition().bearing)?.let {
-        rotateCalls += RotateCall(it, 0.0, null)
-      }
-    }
 
   var clickFamilies = setOf(TapFamily.Tap, TapFamily.LongPress, TapFamily.SecondaryClick)
   val deliveredTapFamilies = mutableListOf<TapFamily>()

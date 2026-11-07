@@ -114,7 +114,8 @@ internal sealed class SingleDrag(
     token: CameraInputToken?,
   )
 
-  abstract fun momentum(sample: GesturePointerSample): PointerContinuation?
+  /** How fast the drag moved the camera at release. */
+  abstract fun momentum(sample: GesturePointerSample): ReleaseVelocity?
 
   open fun release(sample: GesturePointerSample, session: GestureInputSession?) {}
 
@@ -123,9 +124,6 @@ internal sealed class SingleDrag(
   protected fun releaseVelocity(): Velocity = velocity.calculateVelocity()
 
   protected fun dp(pixels: Float): Double = pixels.toDouble() / context.density.density
-
-  protected val cameraSettings: CameraSettings
-    get() = context.options.camera.settings
 
   class Pan(context: DragContext, first: PointerInputChange, afterContactChange: Boolean) :
     SingleDrag(
@@ -145,11 +143,9 @@ internal sealed class SingleDrag(
       token: CameraInputToken?,
     ) = context.target.inputPanBy(dp(delta.x), dp(delta.y), gestureToken = token)
 
-    override fun momentum(sample: GesturePointerSample): PointerContinuation? {
-      val tuning = cameraSettings.pan.momentum.takeIf { it.enabled } ?: return null
+    override fun momentum(sample: GesturePointerSample): ReleaseVelocity {
       val velocity = releaseVelocity()
-      val fling = GestureMath.fling(dp(velocity.x), dp(velocity.y), tuning) ?: return null
-      return PointerContinuation(pan = fling)
+      return ReleaseVelocity(pan = Offset(dp(velocity.x).toFloat(), dp(velocity.y).toFloat()))
     }
   }
 
@@ -178,15 +174,8 @@ internal sealed class SingleDrag(
         gestureToken = token,
       )
 
-    override fun momentum(sample: GesturePointerSample): PointerContinuation? {
-      if (!cameraSettings.pitch.enabled) return null
-      val tuning = cameraSettings.pitch.momentum.takeIf { it.enabled } ?: return null
-      val velocity = releaseVelocity()
-      val pitch =
-        GestureMath.pitchVelocity(dp(velocity.y) * settings.pitchDegreesPerDp, tuning)
-          ?: return null
-      return PointerContinuation(pitch = pitch)
-    }
+    override fun momentum(sample: GesturePointerSample): ReleaseVelocity =
+      ReleaseVelocity(pitch = dp(releaseVelocity().y) * settings.pitchDegreesPerDp)
   }
 
   /** Draws a box and, on release, fits the camera to it. */
@@ -216,7 +205,7 @@ internal sealed class SingleDrag(
       token: CameraInputToken?,
     ) = context.boxZoom.move(sample.screenOffset)
 
-    override fun momentum(sample: GesturePointerSample): PointerContinuation? = null
+    override fun momentum(sample: GesturePointerSample): ReleaseVelocity? = null
 
     override fun release(sample: GesturePointerSample, session: GestureInputSession?) {
       context.boxZoom.move(sample.screenOffset)
@@ -276,12 +265,11 @@ internal sealed class SingleDrag(
       appliedDelta = targetDelta
     }
 
-    override fun momentum(sample: GesturePointerSample): PointerContinuation? {
-      val tuning = cameraSettings.zoom.momentum.takeIf { it.enabled } ?: return null
-      val velocity = releaseVelocity()
-      val scale = GestureMath.scaleVelocity(zoomDelta(velocity.y.toDouble()), tuning) ?: return null
-      return PointerContinuation(scale = scale, scaleAnchor = binding.anchor.location(sample))
-    }
+    override fun momentum(sample: GesturePointerSample): ReleaseVelocity =
+      ReleaseVelocity(
+        zoom = zoomDelta(releaseVelocity().y.toDouble()),
+        zoomAnchor = binding.anchor.location(sample),
+      )
 
     private fun zoomDelta(pixels: Double): Double =
       GestureMath.quickZoomDelta(

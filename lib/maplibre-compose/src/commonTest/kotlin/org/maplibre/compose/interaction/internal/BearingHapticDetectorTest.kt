@@ -3,16 +3,16 @@ package org.maplibre.compose.interaction.internal
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.BearingHapticNotch
-import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.MapInteractions
 
 class BearingHapticDetectorTest {
   private fun north() =
     BearingHapticDetector(
-      listOf(BearingHapticNotch(BearingTargets.at(0.0), HapticFeedbackType.SegmentTick)),
+      listOf(BearingHapticNotch(360.0, 0.0, HapticFeedbackType.SegmentTick)),
     )
 
   @Test
@@ -38,12 +38,9 @@ class BearingHapticDetectorTest {
     val detector =
       BearingHapticDetector(
         listOf(
-          BearingHapticNotch(BearingTargets.at(32.0), HapticFeedbackType.ContextClick),
-          BearingHapticNotch(BearingTargets.evenlySpaced(4, 32.0), HapticFeedbackType.SegmentTick),
-          BearingHapticNotch(
-            BearingTargets.evenlySpaced(24, 32.0),
-            HapticFeedbackType.SegmentFrequentTick,
-          ),
+          BearingHapticNotch(360.0, 32.0, HapticFeedbackType.ContextClick),
+          BearingHapticNotch(90.0, 32.0, HapticFeedbackType.SegmentTick),
+          BearingHapticNotch(15.0, 32.0, HapticFeedbackType.SegmentFrequentTick),
         ),
       )
     assertEquals(HapticFeedbackType.ContextClick, detector.update(28.0, 34.0, 0.milliseconds))
@@ -73,20 +70,38 @@ class BearingHapticDetectorTest {
       camera {
         rotate {
           snapping { enabled = false }
-          haptics { notch(BearingTargets.at(0.0)) }
+          haptics { notch(spacing = 360.0) }
         }
       }
     }
     assertEquals(false, north.camera.settings.rotate.snapping.enabled)
     val other =
-      MapInteractions(north) { camera { rotate { haptics { notch(BearingTargets.at(32.0)) } } } }
+      MapInteractions(north) { camera { rotate { haptics { notch(360.0, offset = 32.0) } } } }
     assertEquals(
-      listOf(BearingHapticNotch(BearingTargets.at(32.0), HapticFeedbackType.SegmentTick)),
+      listOf(BearingHapticNotch(360.0, 32.0, HapticFeedbackType.SegmentTick)),
       other.camera.settings.rotate.haptics,
     )
     assertEquals(
       emptyList(),
       MapInteractions(north) { camera { rotate { haptics {} } } }.camera.settings.rotate.haptics,
     )
+  }
+
+  @Test
+  fun notches_lie_every_spacing_from_the_offset_within_one_turn() {
+    assertEquals(listOf(2.0, 92.0, 182.0, 272.0), BearingHapticNotch(90.0, -358.0, Tick).bearings())
+    assertEquals(listOf(0.0, 100.0, 200.0, 300.0), BearingHapticNotch(100.0, 0.0, Tick).bearings())
+    for (spacing in listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY)) {
+      assertFailsWith<IllegalArgumentException> {
+        MapInteractions { camera { rotate { haptics { notch(spacing) } } } }
+      }
+    }
+    assertFailsWith<IllegalArgumentException> {
+      MapInteractions { camera { rotate { haptics { notch(90.0, offset = Double.NaN) } } } }
+    }
+  }
+
+  private companion object {
+    val Tick = HapticFeedbackType.SegmentTick
   }
 }

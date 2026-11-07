@@ -336,9 +336,10 @@ class MapPlatformTransformTest {
       assertEquals(4, fixture.target.scaleCalls.size)
       assertEquals(completedBefore, fixture.target.endedCount)
       frame(0)
-      frame(600)
+      frame(2000)
+      // Four 0.01-level steps, then a glide from 0.5 levels per second with the default friction.
       val zoom = fixture.target.scaleCalls.sumOf { kotlin.math.ln(it.scale) / kotlin.math.ln(2.0) }
-      assertEquals(direction * (0.04 + 0.075), zoom, 1e-5)
+      assertEquals(direction * (0.04 + (0.5 - 0.01) * 0.14 / kotlin.math.ln(2.0)), zoom, 1e-5)
       assertTrue(fixture.target.scaleCalls.all { it.anchor == sample(0).screenOffset })
       assertEquals(completedBefore + 1, fixture.target.endedCount)
       fixture.input.cancel()
@@ -401,20 +402,28 @@ class MapPlatformTransformTest {
   }
 
   @Test
-  fun scale_momentum_can_finish_while_the_host_pan_remains_open() = runTest {
-    val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
-    fixture.input.onInput(PointerEventType.PanStart, sample(0))
-    fixture.input.onInput(PointerEventType.PanMove, sample(20), panDelta = DpOffset(10.dp, 5.dp))
-    fixture.pinch()
-    frame(0)
-    frame(600)
-    assertEquals(0, fixture.target.endedCount)
-    assertTrue(fixture.target.scaleCalls.size > 4)
-    fixture.input.onInput(PointerEventType.PanEnd, sample(700))
-    runCurrent()
-    assertEquals(1, fixture.target.endedCount)
-    assertEquals(listOf(Offset(10f, 5f)), fixture.target.moveCalls)
-    fixture.input.cancel()
+  fun scale_momentum_continues_once_a_host_pan_that_ends_with_it_ends() = runTest {
+    for (panEnd in listOf(90L, 700L)) {
+      val fixture = Fixture(backgroundScope, InputConfiguration.Standard)
+      val ended = fixture.target.endedCount
+      fixture.input.onInput(PointerEventType.PanStart, sample(0))
+      fixture.input.onInput(PointerEventType.PanMove, sample(20), panDelta = DpOffset(10.dp, 5.dp))
+      fixture.pinch()
+      frame(0)
+      frame(600)
+      assertEquals(ended, fixture.target.endedCount)
+      assertEquals(4, fixture.target.scaleCalls.size)
+      fixture.input.onInput(PointerEventType.PanEnd, sample(panEnd))
+      frame(700)
+      frame(3000)
+      if (panEnd == 90L) assertTrue(fixture.target.scaleCalls.size > 4, "the release lost its zoom")
+      else assertEquals(4, fixture.target.scaleCalls.size, "a stale release glided")
+      assertEquals(ended + 1, fixture.target.endedCount)
+      assertEquals(listOf(Offset(10f, 5f)), fixture.target.moveCalls)
+      fixture.input.cancel()
+      fixture.target.scaleCalls.clear()
+      fixture.target.moveCalls.clear()
+    }
   }
 
   @Test

@@ -222,14 +222,7 @@ internal class KeyInput(
       session
         ?: run {
           lateinit var created: GestureInputSession
-          created =
-            GestureInputSession(
-              scope,
-              target,
-              animationDuration = settings.scaledAnimationDuration(),
-            ) {
-              if (session === created) cancel()
-            }
+          created = GestureInputSession(scope, target) { if (session === created) cancel() }
           created.also { session = it }
         }
 

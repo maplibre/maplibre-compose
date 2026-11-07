@@ -58,6 +58,7 @@ class PlatformScaleCancellationTest {
           assertEquals(8, map.target.scaleCalls.size)
           frame(900)
           frame(1500)
+          frame(2500)
           assertTrue(map.target.scaleCalls.size > 8, "normal release must still have momentum")
           assertEquals(2, map.target.endedCount)
         }
