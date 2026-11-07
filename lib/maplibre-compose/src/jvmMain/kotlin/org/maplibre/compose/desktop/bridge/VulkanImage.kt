@@ -91,7 +91,6 @@ private constructor(
       image = NativeHandle(image),
       imageView = NativeHandle(view),
       format = format,
-      initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       finalLayout = finalLayout,
       extent = extent,
       generation = generation,

@@ -93,6 +93,6 @@ internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Un
   fun cancelAnchor() {
     val current = anchor.also { anchor = null } ?: return
     current.transition.continuation.cancel(CancellationException("The anchor viewport changed"))
-    current.transition.map.discarding.cancelCameraTransition(current.transition.id)
+    current.transition.map.discarding.cancelCameraTransitionsWithId(current.transition.id)
   }
 }

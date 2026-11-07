@@ -152,7 +152,7 @@ internal constructor(
     get() = super.asMutable as? MutableGeoJsonSourceHandle
 
   internal fun setData(data: GeoJsonData) {
-    definitionOperation { style.submitGeoJsonData(id, data, options) }
+    definitionOperation { style.submitGeoJsonData(id, data) }
   }
 
   override fun isCluster(feature: Feature<*, JsonObject?>): Boolean =

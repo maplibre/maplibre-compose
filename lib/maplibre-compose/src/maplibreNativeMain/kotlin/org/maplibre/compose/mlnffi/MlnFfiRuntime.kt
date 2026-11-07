@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.compose.util.throwCleanupFailures
+import org.maplibre.nativeffi.Completion
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.RuntimeEvent
 import org.maplibre.nativeffi.RuntimeEventHandler
@@ -82,14 +83,15 @@ internal class MlnFfiRuntime(
    * later ones. Its completion handlers run on main at that point. [completion] itself completes on
    * a native thread, so main can see it before those events.
    */
-  fun <T> inEventOrder(completion: Deferred<T>): Deferred<T> {
+  fun <T> inEventOrder(completion: Completion<T>): Deferred<T> {
     val ordered = CompletableDeferred<T>()
+    val result = completion.asDeferred()
     // The binding completes [completion] inside native's completion callback, which runs after the
     // event callbacks that posted the command's events, so this post follows theirs.
-    completion.invokeOnCompletion { error ->
+    result.invokeOnCompletion { error ->
       completeOnMain {
         if (error != null) ordered.completeExceptionally(error)
-        else ordered.complete(completion.getCompleted())
+        else ordered.complete(result.getCompleted())
       }
     }
     return ordered

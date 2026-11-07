@@ -21,7 +21,7 @@ class MlnFfiCameraFitTest {
       val fitted = CompletableDeferred<CameraOptions>()
       val query =
         async(start = CoroutineStart.UNDISPATCHED) {
-          fixture.session.fitCamera(map, 0.0, 0.0, null, DpPadding.Zero) { fitted }
+          fixture.session.fitCamera(map, 0.0, 0.0, null, DpPadding.Zero) { fitted.await() }
         }
       assertFalse(query.isCompleted)
 

@@ -41,7 +41,7 @@ internal class SourceInstallation(
         require(previousDefinition.options == definition.options) {
           "GeoJSON source options cannot change without replacing source '$id'"
         }
-        style.submitGeoJsonData(id, definition.data, definition.options)
+        style.submitGeoJsonData(id, definition.data)
       }
       previousDefinition is SourceDefinition.Image && definition is SourceDefinition.Image -> {
         val previous = previousDefinition

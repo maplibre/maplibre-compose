@@ -9,11 +9,12 @@ import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLogBridge
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
-import org.maplibre.compose.mlnffi.reportFailure
+import org.maplibre.nativeffi.MaplibreException
 import org.maplibre.nativeffi.ResourceProvider
 import org.maplibre.nativeffi.RuntimeEventHandler
 import org.maplibre.nativeffi.RuntimeHandle
 import org.maplibre.nativeffi.RuntimeOptions
+import org.maplibre.nativeffi.Status
 
 /**
  * A MapLibre runtime together with its resource provider. Provider-owned request handles remain
@@ -43,6 +44,22 @@ private constructor(
 
   companion object {
     /**
+     * Creates a runtime on [cacheFile], or with its cache in memory when MapLibre can't open or
+     * create that file, so a bad cache location costs persistence rather than the map.
+     */
+    private suspend fun createRuntime(cacheFile: Path, getLogger: () -> MapLog?): RuntimeHandle =
+      try {
+        RuntimeHandle.create(RuntimeOptions(cachePath = cacheFile.toString())).await()
+      } catch (error: MaplibreException) {
+        if (error.status != Status.INVALID_ARGUMENT) throw error
+        getLogger()?.w(error) {
+          "Could not open the MapLibre cache database $cacheFile; the cache and offline packs " +
+            "stay in memory until the runtime closes"
+        }
+        RuntimeHandle.create(RuntimeOptions(cachePath = "")).await()
+      }
+
+    /**
      * Creates a runtime and everything that hangs off it, or throws having released whatever it got
      * as far as. [what] names the runtime in log lines.
      */
@@ -61,10 +78,7 @@ private constructor(
         .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
       MlnFfiLogBridge.ensureInstalled()
-      val runtime =
-        RuntimeHandle.create(
-          RuntimeOptions(cachePath = cacheFile.toString()),
-        )
+      val runtime = createRuntime(cacheFile, getLogger)
       try {
         eventHandler?.let { runtime.setEventHandler(it).await() }
       } catch (error: Throwable) {
@@ -90,9 +104,7 @@ private constructor(
       return try {
         // Installed with the runtime rather than with the map. Runtime work runs in submission
         // order, so nothing can request a resource before the provider that serves it exists.
-        runtime
-          .setResourceProvider(ResourceProvider(callback = provider::handle))
-          .reportFailure(getLogger(), "install the resource provider")
+        runtime.discarding.setResourceProvider(ResourceProvider(callback = provider::handle))
         runtime.installRequestInterceptor(resourceConfig)
         getLogger()?.i { "Created the $what" }
         owner

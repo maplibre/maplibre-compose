@@ -13,7 +13,6 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
@@ -199,11 +198,7 @@ internal class RecordingStyleBinding(
   /** The GeoJSON data each install applied, in order, keyed by source. */
   val installedGeoJson: MutableMap<String, MutableList<GeoJsonData>> = mutableMapOf()
 
-  override fun submitGeoJsonData(
-    sourceId: String,
-    data: GeoJsonData,
-    fallbackOptions: GeoJsonOptions,
-  ) {
+  override fun submitGeoJsonData(sourceId: String, data: GeoJsonData) {
     requireCurrent()
     installedGeoJson.getOrPut(sourceId) { mutableListOf() } += data
   }

@@ -4,8 +4,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlinx.serialization.json.JsonObject
+import kotlin.test.assertNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -62,29 +61,21 @@ class MlnFfiConversionsTest {
   }
 
   @Test
-  fun cluster_conversion_types_only_cluster_id_and_preserves_dollar_prefixed_properties() {
-    val feature =
+  fun a_cluster_id_reads_from_any_numeric_shape() {
+    fun clusterId(value: JsonPrimitive) =
       GeoJsonFeature(
-        geometry = GeometryCollection(emptyList()),
-        properties =
-          buildJsonObject {
-            put("cluster_id", 42)
-            put("\$source", "caller-source")
-            put("\$state", "caller-state")
-            put("name", "cluster")
-          },
-        id = null,
-      )
+          geometry = GeometryCollection(emptyList()),
+          properties = buildJsonObject { put("cluster_id", value) },
+          id = null,
+        )
+        .clusterIdOrNull()
 
-    val converted = requireNotNull(feature.toFfiClusterFeature()).toJsonElement() as JsonObject
-    val properties = assertIs<JsonObject>(converted["properties"])
-
-    val clusterId = assertIs<JsonPrimitive>(properties["cluster_id"])
-    assertFalse(clusterId.isString)
-    assertEquals("42", clusterId.content)
-    assertEquals(JsonPrimitive("caller-source"), properties["\$source"])
-    assertEquals(JsonPrimitive("caller-state"), properties["\$state"])
-    assertEquals(JsonPrimitive("cluster"), properties["name"])
+    assertEquals(42u, clusterId(JsonPrimitive(42)))
+    assertEquals(42u, clusterId(JsonPrimitive("42")))
+    assertEquals(42u, clusterId(JsonPrimitive(42.0)))
+    assertNull(clusterId(JsonPrimitive(-1)))
+    assertNull(clusterId(JsonPrimitive(1.5)))
+    assertNull(clusterId(JsonPrimitive("cluster")))
   }
 
   private fun queriedFeature(

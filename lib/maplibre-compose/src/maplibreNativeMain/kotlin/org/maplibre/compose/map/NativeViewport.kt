@@ -83,7 +83,7 @@ internal class NativeViewport {
   ) : MlnFfiMapFrameProjection {
     override val anchor: MlnFfiMapPresentationAnchor
       get() {
-        val padding = checkNotNull(projection.getCamera().padding)
+        val padding = projection.getCamera().camera.padding
         return MlnFfiMapPresentationAnchor(
           ((extent.physicalWidth + (padding.left - padding.right) * extent.scaleFactor) / 2)
             .toInt(),

@@ -16,9 +16,10 @@ public expect class PlatformMapScope
  * prevent retention. The callback runs synchronously.
  *
  * Native platforms suspend until a map is presented, then run [block] on the runtime's main
- * dispatcher. A native map runs each command or query in call order and returns a `Deferred` that
- * completes once it has run, so [block] submits work without waiting for it. Web requires an
- * attached surface. Cancelling before [block] starts prevents it from running.
+ * dispatcher. A native map runs each command or query in call order and returns a `Completion` that
+ * completes once it has run, so [block] submits work without waiting for it. Wait for a
+ * `Completion` with `await()` after [block] returns. Web requires an attached surface. Cancelling
+ * before [block] starts prevents it from running.
  *
  * The map is a maplibre-native-ffi `MapHandle` on Native platforms and a MapLibre GL JS `Map` on
  * web. Those engine types may change in any minor release, so this function also requires opt-in to

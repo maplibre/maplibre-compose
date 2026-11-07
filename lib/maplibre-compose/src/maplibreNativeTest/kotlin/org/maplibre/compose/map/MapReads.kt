@@ -6,14 +6,14 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.maplibre.nativeffi.BoundOptions
 import org.maplibre.nativeffi.Camera
+import org.maplibre.nativeffi.CameraBounds
 import org.maplibre.nativeffi.ImageStretch
 import org.maplibre.nativeffi.LatLng
 import org.maplibre.nativeffi.LogicalExtent
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.MapSnapshot
-import org.maplibre.nativeffi.MapTileOptions
+import org.maplibre.nativeffi.MapTileSettings
 import org.maplibre.nativeffi.ProjectionMode
 import org.maplibre.nativeffi.StyleImageInfo
 import org.maplibre.nativeffi.StyleLayerInfo
@@ -36,12 +36,12 @@ internal suspend fun MapHandle.snapshotAfterCommands(): MapSnapshot {
 /** The logical size after every command submitted before this read. */
 internal suspend fun MapHandle.size(): LogicalExtent = snapshotAfterCommands().view.extent
 
-internal suspend fun MapHandle.tileOptions(): MapTileOptions = snapshotAfterCommands().tile
+internal suspend fun MapHandle.tileOptions(): MapTileSettings = snapshotAfterCommands().tile
 
 internal suspend fun MapHandle.projectionMode(): ProjectionMode =
   snapshotAfterCommands().view.projectionMode
 
-internal suspend fun MapHandle.bounds(): BoundOptions = snapshotAfterCommands().bounds
+internal suspend fun MapHandle.bounds(): CameraBounds = snapshotAfterCommands().bounds
 
 internal val MapHandle.isFullyLoaded: Boolean
   get() = getSnapshot().fullyLoaded
@@ -127,7 +127,7 @@ internal fun ComposeUiTest.waitUntilStyleLayers(
       if (condition(answered.getCompleted().map { it.id })) return@waitUntil true
       query = null
     }
-    if (query == null) query = session.mapForTest?.listStyleLayers()
+    if (query == null) query = session.mapForTest?.listStyleLayers()?.asDeferred()
     false
   }
 }

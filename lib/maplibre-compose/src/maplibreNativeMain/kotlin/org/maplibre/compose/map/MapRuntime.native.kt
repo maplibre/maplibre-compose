@@ -17,7 +17,8 @@ internal constructor(
   /**
    * The ambient resource cache and offline-region database path. Null selects a `maplibre-cache.db`
    * file in the platform's cache directory for this application, resolved when the runtime is
-   * created.
+   * created. When MapLibre can't open or create the file, the runtime logs a warning and keeps the
+   * cache and offline packs in memory, so they last only until the runtime closes.
    */
   // Exposes kotlinx-io Path, which is not yet stable.
   @ExperimentalMaplibreComposeApi public val cacheFile: Path?,

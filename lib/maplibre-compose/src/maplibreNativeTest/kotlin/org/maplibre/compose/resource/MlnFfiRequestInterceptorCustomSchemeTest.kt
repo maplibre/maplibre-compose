@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.unusedLoopbackPort
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.runMapTest
@@ -49,6 +50,31 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
       headerUrls.none { it.endsWith("?again") },
       "the rewrite was applied twice: $headerUrls",
     )
+  }
+
+  @Test
+  fun a_url_the_interceptor_keeps_is_still_sent() = runMapTest {
+    val styleUrl = "http://127.0.0.1:${unusedLoopbackPort()}/style.json"
+    val headerUrls = RecordingList<String>()
+    val fixture =
+      BridgeMapFixture.create(
+        resourceConfig =
+          MapResourceConfig(
+            interceptor =
+              MapRequestInterceptor(
+                rewriteUrl = { null },
+                headers = { request ->
+                  headerUrls += request.url
+                  emptyMap()
+                },
+              ),
+          ),
+      )
+    fixture.use {
+      it.session.setBaseStyle(BaseStyle.Uri(styleUrl))
+      // Native asks for headers only for a request it sends, after the URL transform answered.
+      it.awaitUntil("the kept URL to be sent") { styleUrl in headerUrls.toList() }
+    }
   }
 
   private companion object {

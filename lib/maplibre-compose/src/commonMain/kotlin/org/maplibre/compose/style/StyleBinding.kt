@@ -344,12 +344,11 @@ internal interface StyleBinding {
   /**
    * Submits immutable [data] to the current installation of [sourceId].
    *
-   * The binding owns preparation and ordering. A newer submission supersedes older pending data.
-   * Native preparation uses the source's applied options, or [fallbackOptions] if those options are
-   * unavailable. Preparation runs on a worker; native tiling policy does not change submission
-   * ordering or make callers wait.
+   * The binding owns preparation and ordering. A newer submission supersedes older pending data,
+   * and the engine prepares the data with the options the source was added with. Preparation runs
+   * off the caller's thread and doesn't make callers wait.
    */
-  fun submitGeoJsonData(sourceId: String, data: GeoJsonData, fallbackOptions: GeoJsonOptions)
+  fun submitGeoJsonData(sourceId: String, data: GeoJsonData)
 
   /**
    * Adds a custom geometry source that obtains feature tiles from [provider]. Removal or style

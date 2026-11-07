@@ -135,7 +135,6 @@ internal class FakeMlnFfiMapHost(
             image = NativeHandle(100 + generation),
             imageView = NativeHandle(200 + generation),
             format = 37,
-            initialLayout = 0,
             finalLayout = 1,
             extent = extent,
             generation = generation,

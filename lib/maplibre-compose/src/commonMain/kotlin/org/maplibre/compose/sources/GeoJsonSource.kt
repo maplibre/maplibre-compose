@@ -134,10 +134,12 @@ public sealed interface GeoJsonData {
  *
  * @property lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @property synchronousTiling Whether native engines generate requested tiles during the update
- *   pass instead of scheduling separate tile work. This can make small, frequently updated sources
- *   appear sooner, at the cost of more work during the update. Source updates still return without
- *   waiting for native work. Android, iOS, and desktop honor this option. The browser ignores it.
+ * @property synchronousTiling Whether native engines prepare each data update, and build its tiles,
+ *   before they run the map commands that follow it, so the new data shows in the next frame.
+ *   Without it, the engine prepares data in the background and shows it once ready. This can make
+ *   small, frequently updated sources appear sooner, but large data then delays later camera and
+ *   style changes. Source updates still return without waiting. Android, iOS, and desktop honor
+ *   this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions

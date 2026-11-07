@@ -65,8 +65,8 @@ internal val EmptyCorners: List<Position> = List(4) { Position(0.0, 0.0) }
 /**
  * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
  *
- * `latLngBoundsForCamera` hulls only the top-left and bottom-right corners, so it misses parts of
- * the viewport whenever the camera is rotated or pitched. Unproject all four corners instead.
+ * A rotated or pitched viewport is no rectangle on the map, so the visible region needs each
+ * corner, not the axis-aligned hull that `latLngBoundsForCamera` answers.
  *
  * The projection freezes its transform when it is created, so this answers for that transform on
  * any thread that holds the projection open.
