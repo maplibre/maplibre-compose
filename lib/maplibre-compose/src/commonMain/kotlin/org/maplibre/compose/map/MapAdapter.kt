@@ -118,6 +118,13 @@ internal interface MapAdapter {
    */
   fun getViewport(): Viewport?
 
+  /**
+   * Whether the engine reports a camera change in progress, such as an animated transition or a
+   * gesture the engine holds. Answers from the same engine state as [getViewport], so a read made
+   * from a camera event describes the camera that event left.
+   */
+  fun isCameraMoving(): Boolean
+
   fun setRenderSettings(value: RenderOptions)
 
   fun setTileLodSettings(value: TileLodOptions)

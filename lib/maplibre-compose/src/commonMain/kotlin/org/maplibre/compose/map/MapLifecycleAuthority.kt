@@ -166,8 +166,8 @@ internal class MapLifecycleAuthority(
     owner.attachmentAuthority.seedPresentationViewport(token, adapter)
   }
 
-  fun endCurrentPresentationCameraChange(adapter: MapAdapter) = postToMain {
-    owner.attachmentAuthority.endCameraChange(adapter)
+  fun synchronizeCurrentPresentationCameraMotion(adapter: MapAdapter) = postToMain {
+    owner.attachmentAuthority.synchronizeCameraMotion(adapter)
   }
 
   fun acceptsAdapter(adapter: MapAdapter): Boolean = !isClosed && this.adapter === adapter

@@ -7,7 +7,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
@@ -807,7 +806,7 @@ internal constructor(
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
   private var gestureActiveState: Boolean by mutableStateOf(false)
-  private var activeCameraChanges: Int by mutableIntStateOf(0)
+  private var engineMovingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.None)
   private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
@@ -824,7 +823,7 @@ internal constructor(
     get() = viewportState
 
   val isCameraMoving: Boolean
-    get() = gestureActiveState || activeCameraChanges > 0
+    get() = gestureActiveState || engineMovingState
 
   val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
@@ -944,20 +943,13 @@ internal constructor(
     engagedState = engaged
   }
 
-  // TODO: read whether the camera is still changing from the native map snapshot, and drop this
-  // count, once https://github.com/maplibre/maplibre-native-ffi/issues/958 reports it.
-  internal fun cameraChangeStarted() {
-    activeCameraChanges++
-    if (!gestureActiveState) moveReasonState = CameraMoveReason.Programmatic
-  }
-
-  internal fun cameraChangeEnded() {
-    // Native ends each command separately. An inset update can end while a zoom is still moving.
-    activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0)
-  }
-
-  internal fun abandonCameraChanges() {
-    activeCameraChanges = 0
+  /**
+   * Records whether the engine reports a camera change in progress. [started] marks the event that
+   * began a change, which belongs to the program unless a gesture holds the camera.
+   */
+  internal fun setEngineMoving(moving: Boolean, started: Boolean = false) {
+    engineMovingState = moving
+    if (started && !gestureActiveState) moveReasonState = CameraMoveReason.Programmatic
   }
 
   internal fun invalidate() {
@@ -966,7 +958,7 @@ internal constructor(
     validState = false
     viewportState = null
     gestureActiveState = false
-    activeCameraChanges = 0
+    engineMovingState = false
     engagedState = false
   }
 
@@ -1048,9 +1040,10 @@ internal constructor(
     get() = currentMapAttachment?.viewport
 
   /**
-   * Returns true while a gesture holds the camera or an engine camera change is in flight. During a
-   * drag the gesture stays active across every camera change the engine reports, so the value stays
-   * true for the whole drag.
+   * Returns true while a gesture holds the camera or the engine reports that the camera is still
+   * changing, such as during an animated transition or momentum. During a drag the gesture stays
+   * active across every camera change the engine reports, so the value stays true for the whole
+   * drag.
    */
   public val isCameraMoving: Boolean
     get() = currentMapAttachment?.isCameraMoving == true

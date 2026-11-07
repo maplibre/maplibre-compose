@@ -207,12 +207,13 @@ internal class GlJsMapSession(
     if (this.surface !== surface) return
     // The map's context belongs to the surface, so it cannot outlive it.
     if (map != null) {
-      // The replacement keeps the presentation, and the destroyed map emits no `moveend`. A
-      // gesture that ends while the replacement is attaching cannot report, so its fact is
-      // withdrawn here; a gesture that continues re-reports on its next camera command.
+      // The replacement keeps the presentation, and the destroyed map emits no `moveend`, so the
+      // camera's motion is read again once it is gone. A gesture that ends while the replacement
+      // is attaching cannot report, so its fact is withdrawn here; a gesture that continues
+      // re-reports on its next camera command.
       activeGestureToken = null
       reportGestureActive(false)
-      lifecycleAuthority.endCurrentPresentationCameraChange(this)
+      lifecycleAuthority.synchronizeCurrentPresentationCameraMotion(this)
       this.surface = null
       invalidateStyleBinding()
       destroyMap()
@@ -1046,6 +1047,8 @@ internal class GlJsMapSession(
       if (extent.isEmpty) return@withMap null
       map.readViewport(extent.width.toDouble(), extent.height.toDouble(), viewportInsets)
     }
+
+  override fun isCameraMoving(): Boolean = withMap(false) { it.isMoving() }
 
   override fun setRenderSettings(value: RenderOptions) {
     renderSettings = value

@@ -120,11 +120,15 @@ internal class MapAttachmentAuthority(
     lifecycle.requireMain()
     val accepted =
       when (event) {
-        is MapEvent.CameraMoveStarted ->
-          synchronizeCamera(adapter)?.also { it.cameraChangeStarted() } != null
-        MapEvent.CameraMoved -> synchronizeCamera(adapter) != null
+        is MapEvent.CameraMoveStarted,
+        MapEvent.CameraMoved,
         is MapEvent.CameraMoveEnded ->
-          synchronizeCamera(adapter)?.also { it.cameraChangeEnded() } != null
+          synchronizeCamera(adapter)?.also {
+            it.setEngineMoving(
+              adapter.isCameraMoving(),
+              started = event is MapEvent.CameraMoveStarted,
+            )
+          } != null
         is MapEvent.FrameRendered -> lifecycle.acceptsPresentation(adapter)
         MapEvent.StyleLoaded,
         is MapEvent.StyleLoadFailed,
@@ -135,10 +139,15 @@ internal class MapAttachmentAuthority(
     if (accepted) eventsFlow.tryEmit(event)
   }
 
-  /** Reports whether a gesture holds the camera of [adapter]. */
+  /**
+   * Reports whether a gesture holds the camera of [adapter]. A gesture can end without a camera
+   * event, so its end reads the engine's motion again.
+   */
   internal fun setGestureActive(adapter: MapAdapter, active: Boolean) {
     lifecycle.requireMain()
-    presentedAttachment(adapter)?.setGestureActive(active)
+    val attachment = presentedAttachment(adapter) ?: return
+    attachment.setGestureActive(active)
+    if (!active) attachment.setEngineMoving(adapter.isCameraMoving())
   }
 
   /** Reports the engagement of the input node over [adapter]. */
@@ -147,10 +156,10 @@ internal class MapAttachmentAuthority(
     presentedAttachment(adapter)?.setEngaged(engaged)
   }
 
-  /** Ends camera changes that the engine behind [adapter] will never finish. */
-  internal fun endCameraChange(adapter: MapAdapter) {
+  /** Reads whether the engine behind [adapter] is changing the camera, outside a camera event. */
+  internal fun synchronizeCameraMotion(adapter: MapAdapter) {
     lifecycle.requireMain()
-    presentedAttachment(adapter)?.abandonCameraChanges()
+    presentedAttachment(adapter)?.setEngineMoving(adapter.isCameraMoving())
   }
 
   private fun presentedAttachment(adapter: MapAdapter): MapAttachment? =
