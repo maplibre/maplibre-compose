@@ -11,7 +11,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -118,6 +120,12 @@ class CameraInputIntegrationTest {
         fixture.gestures.inputRotateAndPitchBy(10.0, 0.0, gestureToken = input.token)
         fixture.pumpUntil("a haptic crossing after applied rotation") { ticks.isNotEmpty() }
         assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
+        // Haptics drop a tick within 50 ms of the last one. With animations off, as under Android
+        // instrumentation, the settle is instant, so wait out that window before releasing.
+        val firstTick = TimeSource.Monotonic.markNow()
+        fixture.pumpUntil("the haptic repeat window to pass") {
+          firstTick.elapsedNow() > 100.milliseconds
+        }
         fixture.gestures.inputRotateAndPitchBy(
           -10.0,
           0.0,
