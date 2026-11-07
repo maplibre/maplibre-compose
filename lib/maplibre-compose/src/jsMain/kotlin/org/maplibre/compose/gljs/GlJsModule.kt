@@ -68,6 +68,9 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun isStyleLoaded(): Boolean
 
+  /** Whether a camera animation or one of the map's own gesture handlers is moving the camera. */
+  fun isMoving(): Boolean
+
   fun isSourceLoaded(id: String): Boolean
 
   /** Reloads the loaded or errored tiles of [sourceId] whose canonical IDs are in [tileIds]. */

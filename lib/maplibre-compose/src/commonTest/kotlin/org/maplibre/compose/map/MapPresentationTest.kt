@@ -39,6 +39,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
@@ -2050,6 +2051,47 @@ class MapPresentationTest {
   }
 
   @Test
+  fun camera_motion_follows_what_the_engine_reports_at_each_camera_event() {
+    val fixture = presentationFixture()
+    val authority = fixture.state.attachmentAuthority
+    val adapter = fixture.adapter
+
+    adapter.cameraMoving = true
+    authority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = true))
+    assertTrue(fixture.state.isCameraMoving)
+    assertEquals(CameraMoveReason.Programmatic, fixture.state.cameraMoveReason)
+
+    // An immediate change, such as an inset update, ends while the animation still moves.
+    authority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+    authority.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
+    assertTrue(fixture.state.isCameraMoving)
+
+    // GL JS starts a replacement ease with the same ID without ending the first one.
+    authority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = null))
+    adapter.cameraMoving = false
+    authority.onEvent(adapter, MapEvent.CameraMoveEnded(animated = true))
+    assertFalse(fixture.state.isCameraMoving)
+    fixture.close()
+  }
+
+  @Test
+  fun a_gesture_that_ends_without_a_camera_event_reads_the_engine_motion_again() {
+    val fixture = presentationFixture()
+    val authority = fixture.state.attachmentAuthority
+    val adapter = fixture.adapter
+
+    authority.setGestureActive(adapter, true)
+    adapter.cameraMoving = true
+    authority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+    adapter.cameraMoving = false
+    authority.setGestureActive(adapter, false)
+
+    assertFalse(fixture.state.isCameraMoving)
+    assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
+    fixture.close()
+  }
+
+  @Test
   fun inline_queries_reject_results_from_a_detached_presentation() = runTest {
     val queries: List<suspend (MapState) -> Any?> =
       listOf(
@@ -2372,6 +2414,7 @@ internal open class PresentationTestAdapter(
   var presentationWasVisibleWhileConfiguring = false
   var viewportReads = 0
   var currentViewport: Viewport? = null
+  var cameraMoving = false
   val boundsFit = CompletableDeferred<Unit>()
   val queryStarted = CompletableDeferred<Unit>()
   private var queryResult = CompletableDeferred<List<Feature<Geometry, JsonObject?>>>()
@@ -2481,6 +2524,8 @@ internal open class PresentationTestAdapter(
     // An engine renders its viewport with the camera it holds.
     return currentViewport?.copy(cameraPosition = lastCameraPosition)
   }
+
+  override fun isCameraMoving(): Boolean = cameraMoving
 
   override fun setRenderSettings(value: RenderOptions) = Unit
 
