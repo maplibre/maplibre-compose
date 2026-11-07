@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -212,6 +214,82 @@ class StyleNodeImageTest {
     val ready = snapshots.last()
     assertFalse(ready.imagesPending)
     assertEquals(1, ready.images.size)
+    root.close()
+  }
+
+  @Test
+  fun a_resolved_image_does_not_rebuild_layers_that_do_not_use_it() = runTest {
+    val red = painter(Color.Red)
+    val blue = painter(Color.Blue)
+    val blueReady = CompletableDeferred<Unit>()
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        prepareImage = { request ->
+          if (request == blue) blueReady.await()
+          content(if (request == blue) 2 else 1)
+        },
+        publish = { snapshots += it },
+      )
+    var redResolutions = 0
+    val redLayer =
+      LayerNode(TestLayer("red", "fill", null).definition(), Anchor.Top).apply {
+        imageProperties =
+          mapOf(
+            StyleProperty("paint", "fill-pattern") to
+              LayerProperty<ImageValue>(setOf(red)) {
+                redResolutions++
+                JsonPrimitive(it.getValue(red))
+              },
+          )
+      }
+    root.children += listOf(redLayer, imageLayer("blue", blue))
+    root.commit()
+    runCurrent()
+    val beforeBlue = snapshots.last()
+    assertTrue(beforeBlue.imagesPending)
+    assertEquals(1, redResolutions)
+
+    blueReady.complete(Unit)
+    runCurrent()
+    val afterBlue = snapshots.last()
+    assertFalse(afterBlue.imagesPending)
+    assertSame(beforeBlue.layers.first(), afterBlue.layers.first())
+    assertEquals(1, redResolutions)
+    root.close()
+  }
+
+  @Test
+  fun a_changed_definition_rebuilds_the_layer_snapshot() = runTest {
+    val snapshots = mutableListOf<StyleSnapshot>()
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        prepareImage = { content(1) },
+        publish = { snapshots += it },
+      )
+    val layer = imageLayer("layer", painter(Color.Red))
+    root.children += layer
+    root.commit()
+    runCurrent()
+    val before = snapshots.last().layers.single()
+
+    layer.definition =
+      TestLayer("layer", "fill", null)
+        .apply { paint("fill-opacity", const(0.5f).asLayerProperty()) }
+        .definition()
+    root.commit()
+    runCurrent()
+    val after = snapshots.last().layers.single()
+    assertNotSame(before, after)
+    assertEquals(JsonPrimitive(0.5f), paint(snapshots.last())["fill-opacity"])
+    assertEquals(
+      (before.definition.value["paint"] as JsonObject)["fill-pattern"],
+      paint(snapshots.last())["fill-pattern"],
+    )
     root.close()
   }
 
