@@ -242,6 +242,22 @@ class MapCameraTransitionTest {
     }
 
   @Test
+  fun padding_that_leaves_no_room_fails_every_bounds_fit_without_moving(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.startAtOrigin()
+        val before = it.session.getCameraPosition()
+        val fit = CameraFit(fitPadding = DpPadding(left = 10_000.dp, right = 10_000.dp))
+
+        assertFailsWith<IllegalStateException> { it.state.cameraForBounds(Bounds, fit) }
+        assertFailsWith<IllegalStateException> { it.state.fitCameraToBounds(Bounds, fit) }
+        assertFailsWith<IllegalStateException> { it.state.animateCameraToBounds(Bounds, fit) }
+        it.pump(frames = 2)
+        assertEquals(before, it.session.getCameraPosition(), "a failed fit moved the camera")
+      }
+    }
+
+  @Test
   fun a_pitched_bounds_query_uses_destination_padding(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtOrigin()

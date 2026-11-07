@@ -818,11 +818,10 @@ internal class GlJsMapSession(
   ) {
     if (guard?.isValid() == false) return
     cameraTransitions.releasePending()
+    val camera = cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
     onMap { map ->
       if (guard?.isValid() == false) return@onMap
-      map.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)?.let {
-        map.jumpTo(it.toJumpToOptions())
-      }
+      map.jumpTo(camera.toJumpToOptions())
     }
   }
 
@@ -880,11 +879,8 @@ internal class GlJsMapSession(
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    awaitCameraRelease(guard = guard) { map ->
-      map.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)?.let {
-        map.animateTo(it.toCameraUpdate(), animation)
-      }
-    }
+    val camera = cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+    awaitCameraRelease(guard = guard) { map -> map.animateTo(camera.toCameraUpdate(), animation) }
   }
 
   private fun MaplibreMap.animateTo(update: CameraUpdate, animation: CameraAnimation) {

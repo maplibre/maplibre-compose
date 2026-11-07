@@ -1152,7 +1152,8 @@ internal constructor(
    * those change before applying it.
    *
    * @param fit Sets the camera orientation and padding used for the fit.
-   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds.
+   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds, such as
+   *   when the padding leaves no room for them.
    */
   public suspend fun cameraForBounds(
     boundingBox: BoundingBox,
@@ -1209,6 +1210,8 @@ internal constructor(
    * accepted input, or detaching cancels this call.
    *
    * @param fit See [cameraForBounds].
+   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds, such as
+   *   when the padding leaves no room for them. The camera does not move.
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
@@ -1313,6 +1316,8 @@ internal constructor(
    * of zero jumps to fit [boundingBox].
    *
    * @param fit See [cameraForBounds].
+   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds, such as
+   *   when the padding leaves no room for them. The camera does not move.
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
