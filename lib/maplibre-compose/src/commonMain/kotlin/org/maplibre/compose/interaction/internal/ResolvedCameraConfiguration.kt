@@ -2,8 +2,6 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import org.maplibre.compose.interaction.BearingHapticNotch
-import org.maplibre.compose.interaction.BearingSnapping
-import org.maplibre.compose.interaction.BearingTargets
 
 internal enum class CameraComponent {
   Pan,
@@ -19,7 +17,7 @@ internal data class CameraConfiguration(
 
 internal data class CameraSettings(
   val pan: PanCameraConfiguration = PanCameraConfiguration(),
-  val zoom: VelocityCameraConfiguration = VelocityCameraConfiguration(),
+  val zoom: ZoomCameraConfiguration = ZoomCameraConfiguration(),
   val rotate: RotateCameraConfiguration = RotateCameraConfiguration(),
   val pitch: PitchCameraConfiguration = PitchCameraConfiguration(),
 ) {
@@ -34,23 +32,25 @@ internal data class CameraSettings(
 
 internal data class PanCameraConfiguration(
   val enabled: Boolean = true,
-  val momentum: PanMomentum = PanMomentum(),
+  val momentum: Momentum = Momentum(true, PlatformPanDecay),
 )
 
-internal data class VelocityCameraConfiguration(
+internal data class ZoomCameraConfiguration(
   val enabled: Boolean = true,
-  val momentum: VelocityMomentum = VelocityMomentum(),
+  val momentum: Momentum = Momentum(true, MomentumDefaults.ZoomFriction),
+  val snapping: Snapping = MomentumDefaults.ZoomSnapping,
 )
 
 internal data class PitchCameraConfiguration(
   val enabled: Boolean = true,
-  val momentum: PitchMomentum = PitchMomentum(),
+  val momentum: Momentum = Momentum(true, MomentumDefaults.PitchFriction),
+  val snapping: Snapping = MomentumDefaults.PitchSnapping,
 )
 
 internal data class RotateCameraConfiguration(
   val enabled: Boolean = true,
-  val momentum: VelocityMomentum = VelocityMomentum(),
-  val snapping: BearingSnapping = BearingSnapping(),
+  val momentum: Momentum = Momentum(true, MomentumDefaults.BearingFriction),
+  val snapping: Snapping = MomentumDefaults.BearingSnapping,
   val haptics: List<BearingHapticNotch> =
-    listOf(BearingHapticNotch(BearingTargets.at(0.0), HapticFeedbackType.SegmentTick)),
+    listOf(BearingHapticNotch(360.0, 0.0, HapticFeedbackType.SegmentTick)),
 )

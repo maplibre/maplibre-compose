@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
@@ -28,7 +29,6 @@ internal class PointerPairGesture(
   touchSlopPx: Float,
 ) {
   private val settings = options.bindings.transform
-  private val camera = options.camera
   private val pan =
     settings.pan.takeIf { options.camera.settings.pan.enabled && it.matches(initialInput) }
   private val pinch =
@@ -123,70 +123,46 @@ internal class PointerPairGesture(
 
   fun cancel() = recognition.cancel()
 
-  fun end(): PointerContinuation? {
-    val continuation = if (token?.acceptsCommands == true) continuation() else null
+  /** Ends recognition and returns how fast each recognized component moved at release. */
+  fun end(): ReleaseVelocity? {
+    val release = if (token?.acceptsCommands == true) release() else null
     recognition.cancel()
-    return continuation
+    return release
   }
 
-  private fun continuation(): PointerContinuation? {
+  private fun release(): ReleaseVelocity? {
     val velocity = recognition.velocity()
     val panVelocity = velocity.centroid
+    fun recognized(component: CameraComponent) = component in recognition.active
 
-    val panFling =
-      pan
-        ?.takeIf { CameraComponent.Pan in recognition.active }
-        ?.let { camera.settings.pan.momentum.takeIf { it.enabled } }
-        ?.let {
-          GestureMath.fling(
-            (panVelocity.x / density.density).toDouble(),
-            (panVelocity.y / density.density).toDouble(),
-            it,
-          )
-        }
+    fun Double.moving() = takeIf { it.isFinite() && it != 0.0 }
 
-    val scale =
-      pinch
-        ?.takeIf { CameraComponent.Zoom in recognition.active }
-        ?.let { camera.settings.zoom.momentum.takeIf { it.enabled } }
-        ?.let {
-          GestureMath.scaleVelocity(
-            velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0) *
-              settings.zoom.zoomScale,
-            it,
-          )
-        }
-
-    val rotation =
-      rotate
-        ?.takeIf { CameraComponent.Rotate in recognition.active }
-        ?.let { camera.settings.rotate.momentum.takeIf { it.enabled } }
-        ?.let {
-          GestureMath.rotationVelocity(
-            -velocity.rotation * settings.rotate.rotationScale,
-            it,
-          )
-        }
-
+    val pan =
+      Offset(panVelocity.x / density.density, panVelocity.y / density.density).takeIf {
+        pan != null && recognized(CameraComponent.Pan) && it != Offset.Zero
+      }
+    val zoom =
+      (velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0) *
+          settings.zoom.zoomScale)
+        .takeIf { pinch != null && recognized(CameraComponent.Zoom) }
+        ?.moving()
+    val bearing =
+      (-velocity.rotation * settings.rotate.rotationScale)
+        .takeIf { rotate != null && recognized(CameraComponent.Rotate) }
+        ?.moving()
     val pitch =
-      shove
-        ?.takeIf { CameraComponent.Pitch in recognition.active }
-        ?.let { camera.settings.pitch.momentum.takeIf { it.enabled } }
-        ?.let {
-          GestureMath.pitchVelocity(
-            panVelocity.y / density.density * settings.pitch.pitchDegreesPerDp,
-            it,
-          )
-        }
+      (panVelocity.y / density.density * settings.pitch.pitchDegreesPerDp)
+        .takeIf { shove != null && recognized(CameraComponent.Pitch) }
+        ?.moving()
 
-    if (panFling == null && scale == null && rotation == null && pitch == null) return null
-    return PointerContinuation(
-      panFling,
-      scale,
-      rotation,
-      pitch,
-      centroid.takeIf { settings.zoom.anchor == GestureAnchor.Input },
-      centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
+    if (pan == null && zoom == null && bearing == null && pitch == null) return null
+    return ReleaseVelocity(
+      pan = pan,
+      zoom = zoom,
+      bearing = bearing,
+      pitch = pitch,
+      zoomAnchor = centroid.takeIf { settings.zoom.anchor == GestureAnchor.Input },
+      bearingAnchor = centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
     )
   }
 }

@@ -6,14 +6,16 @@ import androidx.compose.ui.unit.DpOffset
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
-/** Host pans keep their supplied inertia; host scales use the configured zoom release momentum. */
+/**
+ * Host pans keep their supplied inertia; host scales use the configured zoom release momentum. The
+ * momentum continues the gesture once every component has ended, if the last one ended with the
+ * scale.
+ */
 internal class PlatformTransformSession(
   private val target: CameraInputTarget,
   private val options: InputConfiguration,
@@ -28,7 +30,8 @@ internal class PlatformTransformSession(
   private var scaleChanges = 0
   private var lastScaleTime = 0L
   private var scaleAnchor: DpOffset? = null
-  private var scaleMomentum: Job? = null
+  private var release: ReleaseVelocity? = null
+  private var releaseTime = 0L
   private var continuationSession: GestureInputSession? = null
   val isActive: Boolean
     get() = components.isNotEmpty()
@@ -71,7 +74,7 @@ internal class PlatformTransformSession(
       routing.suppressed.remove(kind)
       if (!components.remove(kind)) return false
       if (kind == Kind.Scale) finishScale(sample)
-      finishIfIdle()
+      finishIfIdle(sample)
       return true
     }
 
@@ -95,7 +98,7 @@ internal class PlatformTransformSession(
       routing.suppressed += kind
       components.remove(kind)
       if (kind == Kind.Scale) resetScale()
-      finishIfIdle()
+      finishIfIdle(sample)
       return false
     }
 
@@ -155,8 +158,7 @@ internal class PlatformTransformSession(
   }
 
   private fun resetScale() {
-    scaleMomentum?.cancel()
-    scaleMomentum = null
+    release = null
     scaleVelocity.resetTracking()
     zoomLevels = 0.0
     scaleChanges = 0
@@ -168,25 +170,17 @@ internal class PlatformTransformSession(
     if (scaleChanges < 2) return
     // Compose's pointer velocity tracker treats a release more than 40 ms after movement as
     // stopped. Do not insert an artificial stationary sample into the scale velocity fit.
-    if (sample.uptimeMillis < lastScaleTime || sample.uptimeMillis - lastScaleTime > 40L) return
-    val momentum =
-      GestureMath.scaleVelocity(
-        scaleVelocity.calculateVelocity(pointerInput = false).x.toDouble(),
-        options.camera.settings.zoom.momentum,
-      ) ?: return
-    val session = checkNotNull(burst.session)
-    val anchor = scaleAnchor
-    continuationSession = session
-    scaleMomentum =
-      session.scope.launch {
-        animateDecelerating(momentum.duration) { fraction ->
-          target.inputScaleBy(
-            zoomLevelsToScale(momentum.zoomDelta * fraction),
-            anchor,
-            gestureToken = session.token,
-          )
-        }
-      }
+    if (
+      sample.uptimeMillis < lastScaleTime ||
+        sample.uptimeMillis - lastScaleTime > ReleaseWindowMillis
+    )
+      return
+    releaseTime = sample.uptimeMillis
+    release =
+      ReleaseVelocity(
+        zoom = scaleVelocity.calculateVelocity(pointerInput = false).x.toDouble(),
+        zoomAnchor = scaleAnchor,
+      )
   }
 
   private fun retainAuthority(): Boolean {
@@ -195,9 +189,12 @@ internal class PlatformTransformSession(
     return false
   }
 
-  private fun finishIfIdle() {
+  private fun finishIfIdle(sample: GesturePointerSample) {
     if (components.isNotEmpty()) return
-    burst.end()
+    // A scale that stopped well before the gesture ended has no speed left to continue.
+    val momentum = release?.takeIf { sample.uptimeMillis - releaseTime <= ReleaseWindowMillis }
+    release = null
+    continuationSession = burst.end(momentum)?.takeIf { momentum != null }
   }
 
   fun cancel() {
@@ -209,3 +206,6 @@ internal class PlatformTransformSession(
     resetScale()
   }
 }
+
+/** Compose's pointer velocity tracker treats a release this long after movement as stopped. */
+private const val ReleaseWindowMillis = 40L

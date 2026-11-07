@@ -25,7 +25,6 @@ import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
-import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
@@ -51,7 +50,7 @@ class CameraInputTest {
   fun haptics_survive_new_samples_but_pending_feedback_is_cancelled_on_takeover() =
     cameraTest { _, target ->
       val options = MapInteractions {
-        camera { rotate { haptics { notch(BearingTargets.at(0.0)) } } }
+        camera { rotate { haptics { notch(spacing = 360.0) } } }
       }
       target.updateConfiguration(options)
       val ticks = mutableListOf<HapticFeedbackType>()

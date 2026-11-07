@@ -2,8 +2,6 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlin.coroutines.ContinuationInterceptor
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -23,7 +21,6 @@ internal class GestureInputSession(
   private val parent: CoroutineScope,
   private val target: CameraInputTarget,
   val token: CameraInputToken = target.onGestureStarted(),
-  private val animationDuration: Duration = 300.milliseconds,
   onHaptic: ((HapticFeedbackType) -> Unit)? = null,
   private val onCancelled: () -> Unit = {},
 ) {
@@ -36,9 +33,10 @@ internal class GestureInputSession(
     token.registerJob(work)
     if (feedback != null && onHaptic != null) {
       token.setHapticFeedback { feedback.trySend(it) }
-      scope.launch {
+      // Outside [work], whose children [end] waits for: feedback lasts through the momentum.
+      parent.launch {
         for (type in feedback) {
-          if (token.acceptsCommands) onHaptic(type)
+          if (token.acceptsFeedback) onHaptic(type)
         }
       }
     }
@@ -58,26 +56,32 @@ internal class GestureInputSession(
     }
   }
 
-  /** Finish response work, then end input and wait for its camera events. */
-  fun end() {
+  /**
+   * Finishes response work, then ends input with the momentum that [release] starts and the snaps
+   * of the parts the input changed, and waits for them and the input's camera events. An engine
+   * that [CameraInputTarget.runsMomentum] continues the gesture itself; otherwise the momentum runs
+   * here, frame by frame, before the input ends.
+   */
+  fun end(release: ReleaseVelocity? = null) {
     if (ending || work.isCancelled) return
     ending = true
-    feedback?.close()
     parent.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
         work.children.toList().joinAll()
         if (work.isCancelled) return@launch
-        withContext(scope.coroutineContext) {
-          token.bearingSnapping?.let {
-            target.snapBearingAwaitingTransition(it, animationDuration, token)
-          }
+        val momentum = token.momentum(release)
+        if (momentum != null && !target.runsMomentum) {
+          withContext(scope.coroutineContext) { target.runMomentum(momentum, token) }
+          target.onGestureEnded(token)
+        } else {
+          target.onGestureEnded(token, momentum)
         }
-        target.onGestureEnded(token)
         withContext(NonCancellable) { token.awaitCompletion() }
       } catch (error: Throwable) {
         cancel()
         throw error
       } finally {
+        feedback?.close()
         work.complete()
       }
     }

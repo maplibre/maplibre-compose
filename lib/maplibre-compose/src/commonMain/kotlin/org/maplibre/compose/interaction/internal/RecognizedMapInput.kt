@@ -1,11 +1,11 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.isSpecified
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.inputPanBy
@@ -14,7 +14,7 @@ import org.maplibre.compose.interaction.MapInteractions
 
 /**
  * Applies gestures that a host recognized itself, in logical pixels, under the map's camera
- * authority. Each call is one complete gesture; a fling continues until its animation ends or newer
+ * authority. Each call is one complete gesture; a fling continues until its momentum ends or newer
  * input cancels it.
  */
 internal class RecognizedMapInput(
@@ -57,18 +57,15 @@ internal class RecognizedMapInput(
     discreteGesture { target.inputScaleBy(factor, anchor, gestureToken = it) }
   }
 
+  /** A release at [velocity], in dp per second, with the pan's momentum. */
   fun fling(velocity: DpOffset) {
     velocity.requireFinite()
     cancelCamera()
     target.observeInput()
     target.interruptCamera()
-    val tuning = currentInteractions().camera.settings.pan.momentum.takeIf { it.enabled } ?: return
-    val fling =
-      GestureMath.fling(velocity.x.value.toDouble(), velocity.y.value.toDouble(), tuning) ?: return
     val active = GestureInputSession(scope, target)
     session = active
-    active.scope.launch { target.animateFling(fling, active.token) }
-    active.end()
+    active.end(ReleaseVelocity(pan = Offset(velocity.x.value, velocity.y.value)))
   }
 
   fun click(offset: DpOffset) {

@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.interaction.BearingSnapping
+import org.maplibre.compose.interaction.internal.GestureMomentum
 import org.maplibre.spatialk.geojson.Position
 
 /** Camera operations used by built-in map controls. Screen distances are dp. */
@@ -27,13 +27,6 @@ internal interface CameraInputTarget {
     gestureToken: CameraInputToken,
   )
 
-  /** Selects a target after earlier movement, under the same camera token. */
-  suspend fun snapBearingAwaitingTransition(
-    snapping: BearingSnapping,
-    duration: Duration,
-    gestureToken: CameraInputToken,
-  )
-
   val isGestureReady: Boolean
 
   /** Revokes accepted commands and submits backend cancellation. */
@@ -47,7 +40,18 @@ internal interface CameraInputTarget {
   /** The token identifies this gesture's camera calls, so one ending late cannot close a newer. */
   fun onGestureStarted(): CameraInputToken
 
-  fun onGestureEnded(token: CameraInputToken)
+  /**
+   * Whether the engine continues a gesture with [onGestureEnded]'s momentum. Otherwise the input
+   * layer runs the momentum frame by frame before it ends the gesture.
+   */
+  val runsMomentum: Boolean
+    get() = false
+
+  /**
+   * Ends [token]'s input. A target that [runsMomentum] continues the gesture with [momentum] and
+   * completes [token] when the momentum ends or something stops it.
+   */
+  fun onGestureEnded(token: CameraInputToken, momentum: GestureMomentum? = null)
 
   /** Jumps the camera. */
   fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken? = null)

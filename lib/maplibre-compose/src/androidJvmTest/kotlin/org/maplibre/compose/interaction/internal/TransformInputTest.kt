@@ -380,7 +380,7 @@ class TransformInputTest {
   }
 
   @Test
-  fun pan_and_pinch_release_follow_the_same_animation_progress() {
+  fun pan_and_pinch_release_each_glide_to_their_own_end() {
     fixture.runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -405,19 +405,19 @@ class TransformInputTest {
         waitForIdle()
         val partialPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
         val partialZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
-        mainClock.advanceTimeBy(600)
+        mainClock.advanceTimeBy(3000)
         waitForIdle()
         val totalPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
         val totalZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
         assertTrue(partialPan > 0.0 && partialPan < totalPan)
         assertTrue(partialZoom > 0.0 && partialZoom < totalZoom)
-        assertEquals(partialZoom / totalZoom, partialPan / totalPan, 1e-5)
         val completedMoves = target.moveCalls.size
         val completedScales = target.scaleCalls.size
-        mainClock.advanceTimeBy(600)
+        mainClock.advanceTimeBy(1000)
         waitForIdle()
         assertEquals(completedMoves, target.moveCalls.size)
         assertEquals(completedScales, target.scaleCalls.size)
+        assertEquals(1, target.endedCount)
       } finally {
         mainClock.autoAdvance = true
       }
@@ -425,7 +425,7 @@ class TransformInputTest {
   }
 
   @Test
-  fun a_continued_pan_settles_with_the_previous_pinch_momentum() {
+  fun a_continued_pan_keeps_the_previous_pinch_momentum() {
     fixture.runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -454,13 +454,12 @@ class TransformInputTest {
         waitForIdle()
         val partialPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
         val partialZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
-        mainClock.advanceTimeBy(600)
+        mainClock.advanceTimeBy(3000)
         waitForIdle()
         val totalPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
         val totalZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
         assertTrue(partialPan > 0.0 && partialPan < totalPan, "continued pan lost momentum")
         assertTrue(partialZoom > 0.0 && partialZoom < totalZoom, "new pan discarded zoom momentum")
-        assertEquals(partialZoom / totalZoom, partialPan / totalPan, 1e-5)
       } finally {
         mainClock.autoAdvance = true
       }
@@ -518,7 +517,7 @@ class TransformInputTest {
     fixture.runRecognitionTest(
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
-          camera { pan { momentum { minimumSpeedDpPerSecond = 1.0 } } }
+          camera { pan { momentum { friction { minSpeed = 1.0 } } } }
           bindings {
             drag {
               enabled = true
@@ -562,7 +561,7 @@ class TransformInputTest {
     fixture.runRecognitionTest(
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
-          camera { pan { momentum { minimumSpeedDpPerSecond = 1.0 } } }
+          camera { pan { momentum { friction { minSpeed = 1.0 } } } }
           bindings {
             transform {
               pan {

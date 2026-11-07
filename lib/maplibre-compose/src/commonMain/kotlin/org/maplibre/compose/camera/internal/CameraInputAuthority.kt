@@ -2,20 +2,25 @@ package org.maplibre.compose.camera.internal
 
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlin.time.TimeSource
+import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.interaction.internal.BearingHapticDetector
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
+import org.maplibre.compose.interaction.internal.GestureMomentum
+import org.maplibre.compose.interaction.internal.GlideVelocity
+import org.maplibre.compose.interaction.internal.ReleaseVelocity
+import org.maplibre.compose.interaction.internal.resolveGestureMomentum
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapAttachmentChangedException
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.style.systemAnimatorDurationScale
 
 internal typealias CameraInputToken = CameraInputAuthority.Token
 
@@ -47,6 +52,22 @@ internal class CameraInputAuthority(private val owner: MapState) {
   private var active: CameraInputToken? = null
   private val programmaticJobs = mutableSetOf<Job>()
   private var configuration = CameraConfiguration()
+  private var cancelledGlide: Pair<GlideVelocity, ValueTimeMark>? = null
+
+  /**
+   * Records how fast a gesture's momentum still moved when something stopped it. The next input to
+   * release takes it if that input started before the glide stopped, so a flick that stops a glide
+   * carries it on.
+   */
+  fun glideCancelled(velocity: GlideVelocity) {
+    cancelledGlide = velocity to TimeSource.Monotonic.markNow()
+  }
+
+  private fun takeCancelledGlide(startedAt: ValueTimeMark): GlideVelocity? {
+    val (velocity, cancelledAt) = cancelledGlide ?: return null
+    cancelledGlide = null
+    return velocity.takeIf { cancelledAt >= startedAt }
+  }
 
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
   fun updateConfiguration(value: CameraConfiguration) {
@@ -161,32 +182,59 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private var job: Job? = null
     private val completion = CompletableDeferred<Unit>().also { if (!ready) it.complete(Unit) }
     private val startedComponents = mutableSetOf<CameraComponent>()
-    private var rotated = false
+    private val changedComponents = mutableSetOf<CameraComponent>()
     private var hapticDetector: BearingHapticDetector? = null
     private var onHaptic: ((HapticFeedbackType) -> Unit)? = null
-    private val hapticClock = TimeSource.Monotonic.markNow()
+    private val startedAt = TimeSource.Monotonic.markNow()
 
     fun setHapticFeedback(callback: (HapticFeedbackType) -> Unit) {
       onHaptic = callback
     }
 
-    /** Called after a direct rotation executes. */
+    /** Called after a rotation executes, including one by this input's momentum. */
     fun reportRotation(from: Double, to: Double) {
-      if (!acceptsCommands) return
+      if (!acceptsFeedback) return
       val callback = onHaptic ?: return
       val detector =
         hapticDetector
           ?: BearingHapticDetector(configuration.settings.rotate.haptics).also {
             hapticDetector = it
           }
-      detector.update(from, to, hapticClock.elapsedNow())?.let(callback)
+      detector.update(from, to, startedAt.elapsedNow())?.let(callback)
     }
 
-    val bearingSnapping: BearingSnapping?
+    /**
+     * True from acceptance until completion, including the momentum that continues the input after
+     * it ends, unless newer input or a camera command took over.
+     */
+    val acceptsFeedback: Boolean
       get() =
-        configuration.settings.rotate.snapping.takeIf {
-          acceptsCommands && rotated && it.enabled
-        }
+        active === this &&
+          attachment?.let(owner.attachmentAuthority::isCurrent) == true &&
+          !completion.isCompleted &&
+          status != Status.Cancelled
+
+    /**
+     * The momentum that [release] starts, with the snaps of the parts this input changed. Starts
+     * the parts that will move. Null when nothing moves or settles.
+     */
+    fun momentum(release: ReleaseVelocity?): GestureMomentum? {
+      if (!acceptsCommands) return null
+      return resolveGestureMomentum(
+        configuration.settings,
+        release,
+        takeCancelledGlide(startedAt),
+        changedComponents,
+        ::prepare,
+        systemAnimatorDurationScale(),
+      )
+    }
+
+    /** Records how fast this input's momentum still moved when something stopped it. */
+    fun glideCancelled(velocity: GlideVelocity) {
+      if (attachment?.let(owner.attachmentAuthority::isCurrent) == true)
+        this@CameraInputAuthority.glideCancelled(velocity)
+    }
 
     val acceptsCommands: Boolean
       get() =
@@ -202,7 +250,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     /** Application callbacks may replace this camera operation. */
     fun prepare(component: CameraComponent): Boolean {
       if (!permitted(component)) return false
-      if (component == CameraComponent.Rotate) rotated = true
+      changedComponents += component
       if (startedComponents.add(component)) configuration.onStart[component]?.invoke()
       return permitted(component)
     }

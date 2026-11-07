@@ -1355,8 +1355,9 @@ internal constructor(
   }
 
   /**
-   * Continues a pan at [velocity], in logical pixels per second, until the momentum settles or
-   * newer input interrupts it. Velocities below the momentum threshold are ignored. See [panBy].
+   * Releases a pan at [velocity], in logical pixels per second: the map glides with the pan
+   * momentum in [org.maplibre.compose.interaction.MapInteractions] until it stops or newer input
+   * interrupts it. A release slower than the momentum's minimum speed does not move. See [panBy].
    */
   public fun fling(velocity: DpOffset) {
     recognizedInput?.fling(velocity)

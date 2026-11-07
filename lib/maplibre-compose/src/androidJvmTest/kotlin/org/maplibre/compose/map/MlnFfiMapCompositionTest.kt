@@ -64,6 +64,7 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -428,7 +429,8 @@ class MlnFfiMapCompositionTest {
                 pan {
                   momentum {
                     enabled = withFling
-                    durationScale = 0.25
+                    // A short glide: farther from the center, the tilt stretches its travel.
+                    friction { halfLife = 16.milliseconds }
                   }
                 }
               }

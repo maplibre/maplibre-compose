@@ -58,7 +58,7 @@ import org.maplibre.compose.gljs.isPointOnMapSurface
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.subscribe
-import org.maplibre.compose.interaction.BearingSnapping
+import org.maplibre.compose.interaction.internal.GestureMomentum
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
@@ -1254,7 +1254,9 @@ internal class GlJsMapSession(
       onGestureMap(token) {}
     }
 
-  override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
+  /** GL JS can't take momentum, so the input layer runs it before the gesture ends. */
+  override fun onGestureEnded(token: CameraInputToken, momentum: GestureMomentum?) =
+    finishGesture(token, cancelled = false)
 
   override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
 
@@ -1371,24 +1373,6 @@ internal class GlJsMapSession(
       val before = map.getBearing()
       map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, Duration.ZERO))
       if (feedback && bearingDelta != 0.0) gestureToken?.reportRotation(before, map.getBearing())
-    }
-  }
-
-  override suspend fun snapBearingAwaitingTransition(
-    snapping: BearingSnapping,
-    duration: Duration,
-    gestureToken: CameraInputToken,
-  ) {
-    awaitCameraRelease(gestureToken = gestureToken) { map ->
-      val current = map.getBearing()
-      snapping.delta(current)?.let { delta ->
-        map.easeTo(
-          unsafeJso<EaseToOptions> {
-            bearing = current + delta
-            this.duration = duration.inWholeMilliseconds.toDouble()
-          },
-        )
-      }
     }
   }
 
