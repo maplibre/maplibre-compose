@@ -2,6 +2,7 @@ package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.nativeffi.AcquiredFrameHandle
 import org.maplibre.nativeffi.FramePacerHandle
 
 /** Pixel-aligned destination for a completed render target in a Compose draw scope. */
@@ -31,6 +32,13 @@ internal data class MlnFfiMapFrame(val target: MlnFfiRenderTarget) {
    * consumer finished its GPU reads; false abandons the session before releasing the frame.
    */
   var releaseAfterReads: ((consumerCompleted: Boolean) -> Unit)? = null
+
+  /**
+   * The frame the session acquired, for a host that reads a session-allocated texture from it, as a
+   * ring target needs. It stays valid until [releaseAfterReads] runs. The host must not release it
+   * itself.
+   */
+  var acquiredFrame: AcquiredFrameHandle? = null
 }
 
 /** The explicit outcome of asking a host for a frame. */
@@ -57,7 +65,8 @@ internal sealed interface MlnFfiFrameDemands {
 
   /**
    * The session's redraw wake asks the host for a frame pass, which demands one frame. The host
-   * schedules the pass at its next display frame.
+   * schedules the pass at its next display frame, and the session has one demand at a time, so the
+   * host's own clock paces rendering.
    */
   data object OnRedraw : MlnFfiFrameDemands
 }
@@ -104,6 +113,10 @@ internal interface MlnFfiMapHostSession {
 internal interface MlnFfiMapHost : AutoCloseable {
   val backends: RenderBackendPair
 
+  /** See [MlnFfiMapHostSession.frameDemands]. */
+  val frameDemands: MlnFfiFrameDemands
+    get() = MlnFfiFrameDemands.Parked
+
   /**
    * Resizes the host's render target, called before the next [acquireFrame] whenever the extent
    * changed. A host that cannot resize in place reallocates and reports a new
@@ -135,6 +148,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
 
   /** Releases ownership that was not transferred to the consumer, including on failure. */
   fun releaseFrame(frame: MlnFfiMapFrame) {
+    frame.acquiredFrame = null
     frame.releaseAfterReads?.invoke(true)
     frame.releaseAfterReads = null
   }

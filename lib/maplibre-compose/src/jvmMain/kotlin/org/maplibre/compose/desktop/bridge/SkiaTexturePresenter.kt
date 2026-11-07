@@ -56,6 +56,9 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
     presenters.remove(key)?.close()
   }
 
+  /** [forget] for the texture [target] names. */
+  fun forgetTexture(target: T) = forget(wrapper.key(target))
+
   /** Drops every Skia wrapper. */
   fun closeAll() {
     val all = presenters.values.toList()
@@ -92,12 +95,18 @@ internal class SkiaTexturePresenter<T>(private val wrapper: SkiaTextureWrapper<T
         currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
         image = currentSurface.makeImageSnapshot()
       }
-      // prepare preserved this snapshot before releasing the texture. A parked demand may be
-      // writing that texture now, so redraw the snapshot until another acquired frame arrives.
+      // prepare preserves this snapshot before it releases the frame. MapLibre may be writing the
+      // texture after that, so redraw the snapshot until another acquired frame arrives.
       val image = image ?: return false
       canvas.drawImageRect(
         image = image,
-        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+        // A session-allocated ring rounds its size up, so its texture can be a pixel larger than
+        // the map. Crop that pixel rather than scale the map into the destination.
+        src =
+          Rect.makeWH(
+            minOf(image.width, destination.width).toFloat(),
+            minOf(image.height, destination.height).toFloat(),
+          ),
         dst =
           Rect.makeLTRB(
             destination.left.toFloat(),

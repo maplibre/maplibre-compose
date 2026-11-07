@@ -8,6 +8,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.mlnffi.DxgiSharedTextureRingTarget
+import org.maplibre.compose.mlnffi.IoSurfaceRingTarget
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.ProductionBridgeTestRenderDriver
@@ -24,7 +26,10 @@ class SharedTextureMapHostTest {
       first.releaseAfterReads = { releases++ }
       driver.completeProducerAccess(first)
       driver.releaseFrame(first)
-      assertTrue(driver.present(first.target))
+      // A ring the session allocates has no texture to draw until the session acquires a frame.
+      val lent =
+        first.target !is IoSurfaceRingTarget && first.target !is DxgiSharedTextureRingTarget
+      if (lent) assertTrue(driver.present(first.target))
       assertEquals(0, releases, "Drawing must not let native write the sampled texture")
 
       val next =
@@ -35,7 +40,7 @@ class SharedTextureMapHostTest {
       assertEquals(1, releases, "Replacement must finish the previous frame's reads")
       next.releaseAfterReads = { releases++ }
       driver.completeProducerAccess(next)
-      assertTrue(driver.present(next.target))
+      if (lent) assertTrue(driver.present(next.target))
       assertEquals(1, releases)
     } finally {
       driver.close()
@@ -97,6 +102,31 @@ class SharedTextureMapHostTest {
     textures.releaseAll()
     assertEquals(listOf("second", "first"), released)
     assertEquals(emptyList(), textures.all)
+  }
+
+  @Test
+  fun a_ring_texture_view_stays_until_compose_draws_another_after_its_slot_changes() {
+    val released = mutableListOf<String>()
+    val opened = mutableListOf<String>()
+    val views = RingTextures<String> { released += it }
+    fun open(slot: Int, texture: Long) =
+      views.getOrOpen(slot, texture) { "$slot:$texture".also { opened += it } }
+
+    assertEquals("0:10", open(0, 10))
+    assertEquals("1:11", open(1, 11))
+    assertEquals("0:10", open(0, 10))
+    assertEquals(listOf("0:10", "1:11"), opened, "Each texture opens once")
+
+    // The session resized its ring: slot 0 names a new texture, while Compose still shows 0:10.
+    views.retireAll()
+    assertEquals("0:20", open(0, 20))
+    views.releaseRetired(except = "0:10")
+    assertEquals(listOf("1:11"), released)
+    views.releaseRetired(except = "0:20")
+    assertEquals(listOf("1:11", "0:10"), released)
+
+    views.releaseAll()
+    assertEquals(listOf("1:11", "0:10", "0:20"), released)
   }
 
   @Test

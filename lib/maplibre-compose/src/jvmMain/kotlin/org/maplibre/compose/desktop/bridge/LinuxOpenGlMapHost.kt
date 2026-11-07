@@ -57,6 +57,9 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
+// TODO: render into a ring the session allocates once the FFI offers one that Compose's GLX context
+// can import, such as opaque file descriptors for EXT_memory_object_fd. Its dmabuf ring needs EGL.
+// https://github.com/maplibre/maplibre-native-ffi/issues/1755
 internal class LinuxOpenGlMapHost(
   presentationHost: OpenGlPresentationHost,
   producer: MapRenderBackend = MapRenderBackend.Vulkan,

@@ -3,44 +3,28 @@ package org.maplibre.compose.desktop.bridge
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.DesktopComposeMapPresentationHost
-import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
-import org.maplibre.compose.mlnffi.MlnFfiMapFrame
-import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 
 /**
- * What every desktop host shares: MapLibre renders on [rendererThread] into a texture of type [T]
- * that Compose then draws through a context of type [C].
+ * A desktop host that allocates the texture MapLibre renders into, for producers that cannot
+ * allocate a ring Compose can read. MapLibre renders into a texture of type [T] that Compose then
+ * draws through a context of type [C].
  *
  * Subclasses allocate textures in [acquireFrame] and hand them to [textures]. This class draws
- * them, releases each once Compose has drawn a newer generation, and tears everything down in
- * [close]: textures first, then the producer contexts on the renderer thread, then the thread.
+ * them, and releases each once Compose has drawn a newer generation.
  */
+// TODO: lend MapLibre a ring of two or more textures, so that it renders the next frame while
+// Compose samples the current one. Today the texture Compose draws is copied before MapLibre writes
+// it again. Measure the benefit with benchmarks first.
 internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
-  protected val presentationHost: DesktopComposeMapPresentationHost<C>,
-  final override val backends: RenderBackendPair,
+  presentationHost: DesktopComposeMapPresentationHost<C>,
+  backends: RenderBackendPair,
   rendererThreadName: String,
-) : MlnFfiMapHost {
-  protected val producer: MapRenderBackend
-    get() = backends.producer
-
-  protected val rendererThread = MapRendererThread(rendererThreadName)
-  // TODO: replace the CPU wait with GPU consumer synchronization and a two-texture ring so
-  // rendering overlaps sampling. Measure the benefit with benchmarks first.
-  protected val frameCompletion = ComposeFrameCompletion()
+) : DesktopMapHost<C>(presentationHost, backends, rendererThreadName) {
   protected val textures = SharedTextures<T> { release(it) }
-
-  /**
-   * Runs [action] with exclusive access to Compose's context, or returns null while Compose has
-   * none. With OpenGL, the context is current.
-   */
-  protected fun <R> withComposeContext(action: (C) -> R): R? = presentationHost.withContext(action)
-
-  /** Drops what belonged to Compose's previous context, after Compose replaced it. */
-  protected abstract fun contextReplaced()
 
   /** Draws [texture], the texture of [generation], and returns whether anything was drawn. */
   protected abstract fun present(
@@ -53,48 +37,6 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
 
   /** Frees [texture] once Compose will not draw it again. */
   protected abstract fun release(texture: T)
-
-  /** Releases every texture and the Skia wrappers around them, for [close]. */
-  protected abstract fun closeTextures()
-
-  /** Closes the producer's contexts after their textures are gone. Runs on the renderer thread. */
-  protected abstract fun closeProducers()
-
-  /** Wraps each action MapLibre runs on the renderer thread. */
-  protected open fun <R> onRendererThread(action: () -> R): R = action()
-
-  /** [withComposeContext], after waiting for Compose to finish reading the shared texture. */
-  protected fun <R> withPreparedContext(action: (C) -> R): R? = withComposeContext { context ->
-    frameCompletion.prepare(context.skiaContext, ::contextReplaced)
-    action(context)
-  }
-
-  override fun <R> withProducerAccess(frame: MlnFfiMapFrame, action: () -> R): R =
-    withRendererAccess(action)
-
-  override fun <R> withRendererAccess(action: () -> R): R = rendererThread.run {
-    onRendererThread(action)
-  }
-
-  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post {
-    onRendererThread(action)
-  }
-
-  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    presentationHost.onGpuThread {
-      frame.releaseAfterReads?.let(frameCompletion::holdFrame)
-      frame.releaseAfterReads = null
-    }
-  }
-
-  final override fun completeConsumerAccess() {
-    var completed = false
-    try {
-      completed = withPreparedContext {} != null
-    } finally {
-      if (!completed) presentationHost.onGpuThread { frameCompletion.abandon() }
-    }
-  }
 
   final override fun draw(
     scope: DrawScope,
@@ -109,26 +51,6 @@ internal abstract class SharedTextureMapHost<C : ComposeGpuContext, T : Any>(
       if (drew) textures.releaseRetired(except = target.generation)
       drew
     } ?: false
-  }
-
-  final override fun close() {
-    try {
-      try {
-        completeConsumerAccess()
-      } finally {
-        try {
-          presentationHost.onGpuThread { frameCompletion.abandon() }
-        } finally {
-          closeTextures()
-        }
-      }
-    } finally {
-      try {
-        rendererThread.run(::closeProducers)
-      } finally {
-        rendererThread.close()
-      }
-    }
   }
 }
 

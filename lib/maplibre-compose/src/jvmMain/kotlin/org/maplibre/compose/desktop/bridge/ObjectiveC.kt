@@ -54,6 +54,24 @@ internal object ObjectiveC {
     return JNI.invokePPPP(receiver, selector, argument, implementation(receiver, selector))
   }
 
+  fun sendPointer(
+    receiver: Long,
+    selectorName: String,
+    first: Long,
+    second: Long,
+    third: Long,
+  ): Long {
+    val selector = selector(selectorName)
+    return JNI.invokePPPPPP(
+      receiver,
+      selector,
+      first,
+      second,
+      third,
+      implementation(receiver, selector),
+    )
+  }
+
   fun sendClassPointer(className: String, selectorName: String): Long =
     sendPointer(cls(className), selectorName)
 

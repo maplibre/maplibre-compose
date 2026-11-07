@@ -5,6 +5,7 @@ import kotlin.jvm.JvmInline
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.nativeffi.OpenGlClientApi
 import org.maplibre.nativeffi.OpenGlContextOwnership
+import org.maplibre.nativeffi.VulkanDeviceHandle
 
 /**
  * A borrowed pointer address or 64-bit Vulkan handle. The host owns the resource; MapLibre Compose
@@ -126,6 +127,42 @@ internal data class MetalSurfaceTarget(
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
     get() = MapRenderBackend.Metal
+}
+
+/**
+ * A ring of `IOSurface`s that the session allocates and renders into on [device]. The host reads
+ * each frame's surface from the frame the session acquired, and resizes the ring through the
+ * session, so a new [generation] means a new device.
+ */
+@Immutable
+internal data class IoSurfaceRingTarget(
+  /** `id<MTLDevice>` the session renders with, the one the host reads the surfaces with. */
+  val device: NativeHandle,
+  /** How many surfaces the ring has. */
+  val bufferCount: Int,
+  override val extent: MapExtent,
+  override val generation: Long,
+) : MlnFfiRenderTarget {
+  override val backend: MapRenderBackend
+    get() = MapRenderBackend.Metal
+}
+
+/**
+ * A ring of DXGI shared textures that the session allocates and renders into with [device]. The
+ * host opens each frame's shared handle from the frame the session acquired, and resizes the ring
+ * through the session, so a new [generation] means a new device.
+ */
+@Immutable
+internal data class DxgiSharedTextureRingTarget(
+  /** The Vulkan device the session renders with, on the GPU the host reads the textures with. */
+  val device: VulkanDeviceHandle,
+  /** How many textures the ring has. */
+  val textureCount: Int,
+  override val extent: MapExtent,
+  override val generation: Long,
+) : MlnFfiRenderTarget {
+  override val backend: MapRenderBackend
+    get() = MapRenderBackend.Vulkan
 }
 
 /** Platform context handles MapLibre needs to render into an OpenGL target. */

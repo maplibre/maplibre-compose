@@ -7,6 +7,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RgbaPixel
@@ -41,14 +42,50 @@ class DesktopGpuBridgeTest {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(255, 0, 0, 255)) == true
       }
       val session = assertNotNull(fixture.session.readySession())
-      assertEquals(1u, session.getSnapshot().acquiredFrameCount)
+      fixture.awaitUntil("the host to hold only the frame it shows") {
+        session.getSnapshot().acquiredFrameCount == 1u
+      }
       fixture.loadStyle(background("#0000ff"))
       fixture.awaitUntil("blue after releasing the red frame") {
         fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 0, 255, 255)) == true
       }
-      assertEquals(1u, session.getSnapshot().acquiredFrameCount)
+      // A ring host releases the red frame at its next frame, once Compose has drawn blue.
+      fixture.awaitUntil("the host to release the frame it no longer shows") {
+        session.getSnapshot().acquiredFrameCount == 1u
+      }
       fixture.loseSurface()
       assertTrue(session.isClosed || session.getSnapshot().acquiredFrameCount == 0u)
+    }
+  }
+
+  @Test
+  fun a_session_ring_renders_the_next_frame_while_the_host_holds_the_shown_one() = runMapTest {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(background("#ff0000"))
+      fixture.awaitUntil("the red frame") {
+        fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(255, 0, 0, 255)) == true
+      }
+      if (!fixture.sessionRingTarget) {
+        FfiTestPlatform.skip("This backend renders into a texture the host lends")
+      }
+      val session = assertNotNull(fixture.session.readySession())
+      fixture.awaitUntil("the host to hold only the red frame") {
+        session.getSnapshot().acquiredFrameCount == 1u
+      }
+      fixture.renderingPaused = true
+      fixture.loadStyle(background("#0000ff"))
+      // Each frame keeps the shown frame acquired, and demands the next one into another texture.
+      fixture.awaitUntil("a frame rendered while the red one stays acquired") {
+        fixture.frame() is MlnFfiFrameResult.Rendered
+      }
+      assertEquals(2u, session.getSnapshot().acquiredFrameCount)
+      fixture.renderingPaused = false
+      fixture.awaitUntil("blue") {
+        fixture.tryReadPixel(32, 32)?.isNear(RgbaPixel(0, 0, 255, 255)) == true
+      }
+      fixture.awaitUntil("the host to release the frames it no longer shows") {
+        session.getSnapshot().acquiredFrameCount == 1u
+      }
     }
   }
 

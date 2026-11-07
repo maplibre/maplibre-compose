@@ -146,6 +146,12 @@ private constructor(
   private val frameRequested = AtomicBoolean(true)
   private var frameExtent: MapExtent? = null
   private var surfaceTarget = false
+
+  /** Whether the last frame rendered into a ring of textures that the session allocated. */
+  @Volatile
+  var sessionRingTarget = false
+    private set
+
   // Written on the renderer thread and read on main.
   @Volatile private var renderFailure: Throwable? = null
   // Recoverable frame failures since the last rendered frame.
@@ -171,6 +177,7 @@ private constructor(
     object : MlnFfiMapHostSession {
       override val isClosed = false
       override val backends: RenderBackendPair = driver.backends
+      override val frameDemands = driver.frameDemands
 
       override fun requestFrame() {
         frameRequested.store(true)
@@ -295,6 +302,8 @@ private constructor(
         is PlatformWindowTarget -> true
         else -> false
       }
+    sessionRingTarget =
+      frame.target is IoSurfaceRingTarget || frame.target is DxgiSharedTextureRingTarget
     return try {
       driver
         .withProducerAccess(frame) { session.render(hostSession, frame, captureProjection) }

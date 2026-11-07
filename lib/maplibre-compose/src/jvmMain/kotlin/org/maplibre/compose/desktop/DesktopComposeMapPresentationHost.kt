@@ -4,6 +4,8 @@ package org.maplibre.compose.desktop
 
 import org.maplibre.compose.desktop.bridge.AngleGl
 import org.maplibre.compose.desktop.bridge.Direct3D12MapHost
+import org.maplibre.compose.desktop.bridge.DxgiSharedTextureRingMapHost
+import org.maplibre.compose.desktop.bridge.IoSurfaceRingMapHost
 import org.maplibre.compose.desktop.bridge.LinuxOpenGlMapHost
 import org.maplibre.compose.desktop.bridge.MetalMapHost
 import org.maplibre.compose.desktop.bridge.WindowsAngleMapHost
@@ -75,7 +77,8 @@ internal class MetalPresentationHost(
     },
   ) {
   override fun createMapHost(producer: MapRenderBackend): MlnFfiMapHost =
-    MetalMapHost(this, producer)
+    if (producer == MapRenderBackend.Metal) IoSurfaceRingMapHost(this)
+    else MetalMapHost(this, producer)
 }
 
 internal class Direct3D12PresentationHost(
@@ -92,7 +95,8 @@ internal class Direct3D12PresentationHost(
     },
   ) {
   override fun createMapHost(producer: MapRenderBackend): MlnFfiMapHost =
-    Direct3D12MapHost(this, producer)
+    if (producer == MapRenderBackend.Vulkan) DxgiSharedTextureRingMapHost(this)
+    else Direct3D12MapHost(this)
 }
 
 internal class OpenGlPresentationHost(

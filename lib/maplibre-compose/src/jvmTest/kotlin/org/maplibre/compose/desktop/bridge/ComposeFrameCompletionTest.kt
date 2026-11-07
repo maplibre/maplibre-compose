@@ -33,6 +33,47 @@ class ComposeFrameCompletionTest {
   }
 
   @Test
+  fun a_ring_keeps_the_shown_frame_until_compose_has_drawn_a_newer_one() {
+    ProductionBridgeTestRenderDriver.create().use { driver ->
+      driver.withComposeContext { context ->
+        val completion = ComposeFrameCompletion()
+        val released = mutableListOf<String>()
+        fun prepare(keepNewest: Boolean = true) =
+          completion.prepare(context.skiaContext, keepNewest) {
+            error("The context did not change")
+          }
+        fun hold(name: String) = completion.holdFrame { completed ->
+          assertTrue(completed)
+          released += name
+        }
+
+        prepare()
+        hold("first")
+        completion.frameRecorded {}
+        prepare()
+        assertEquals(emptyList(), released, "Compose still shows the newest frame")
+
+        hold("second")
+        prepare()
+        assertEquals(emptyList(), released, "Compose still shows the first frame")
+        hold("third")
+        assertEquals(listOf("second"), released, "Compose never read the second frame")
+
+        completion.frameRecorded {}
+        prepare()
+        assertEquals(listOf("second", "first"), released)
+        assertTrue(completion.hasFrame, "Compose reads the third frame from its texture")
+
+        // A resize releases every frame.
+        prepare(keepNewest = false)
+        assertEquals(listOf("second", "first", "third"), released)
+        assertFalse(completion.hasFrame)
+        completion.abandon()
+      }
+    }
+  }
+
+  @Test
   fun a_replaced_context_releases_the_old_frame_before_preparing_the_new_context() {
     ProductionBridgeTestRenderDriver.create().use { first ->
       ProductionBridgeTestRenderDriver.create().use { second ->

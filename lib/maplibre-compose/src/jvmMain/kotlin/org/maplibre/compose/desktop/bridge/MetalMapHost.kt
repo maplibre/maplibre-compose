@@ -19,10 +19,14 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 
-/** All map producers share Metal allocation, presentation, and frame ownership. */
+/**
+ * Bridges MapLibre's Vulkan (MoltenVK) or OpenGL (ANGLE) rendering into Compose's Metal context.
+ * The host allocates a Metal texture on Compose's device, and the producer imports it. The Metal
+ * producer renders into a ring the session allocates instead; see [IoSurfaceRingMapHost].
+ */
 internal class MetalMapHost(
   presentationHost: MetalPresentationHost,
-  producer: MapRenderBackend = MapRenderBackend.Metal,
+  producer: MapRenderBackend = MapRenderBackend.Vulkan,
 ) :
   SharedTextureMapHost<MetalComposeGpuContext, MetalMapHost.SharedTexture>(
     presentationHost,
@@ -38,6 +42,12 @@ internal class MetalMapHost(
   private var device = NativeHandle(0)
   private var vulkan: VulkanDevice? = null
   private var angle: DesktopEglContext? = null
+
+  init {
+    require(producer != MapRenderBackend.Metal) {
+      "A Metal map renders into a ring the session allocates"
+    }
+  }
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition =
     withPreparedContext { context ->
@@ -70,19 +80,14 @@ internal class MetalMapHost(
         generation,
       )
     try {
-      return when (producer) {
-        MapRenderBackend.Metal -> SharedTexture(presentation, presentation) {}
-        MapRenderBackend.Vulkan -> {
-          val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
-          val imported = context.importMetalTexture(texture, extent)
-          SharedTexture(imported.target(generation), presentation, imported::close)
-        }
-        MapRenderBackend.OpenGl -> {
-          val context = angle ?: DesktopEglContext.create(device.address).also { angle = it }
-          val imported = context.createImportedTexture(texture, extent)
-          SharedTexture(imported.target(generation), presentation, imported::close)
-        }
+      if (producer == MapRenderBackend.Vulkan) {
+        val context = vulkan ?: VulkanDevice.forMetalDevice(device.address).also { vulkan = it }
+        val imported = context.importMetalTexture(texture, extent)
+        return SharedTexture(imported.target(generation), presentation, imported::close)
       }
+      val context = angle ?: DesktopEglContext.create(device.address).also { angle = it }
+      val imported = context.createImportedTexture(texture, extent)
+      return SharedTexture(imported.target(generation), presentation, imported::close)
     } catch (error: Throwable) {
       MetalTexture.dispose(texture.address)
       throw error
@@ -170,7 +175,7 @@ internal class MetalMapHost(
  */
 internal object MetalTexture {
   private const val MTLTextureType2D = 2L
-  private const val MTLPixelFormatBGRA8Unorm = 80L
+  const val MTLPixelFormatBGRA8Unorm = 80L
   private const val MTLTextureUsageShaderRead = 1L
   private const val MTLTextureUsageRenderTarget = 4L
   private const val MTLStorageModePrivate = 2L
@@ -189,27 +194,54 @@ internal object MetalTexture {
         }
       }
 
-      val descriptor = ObjectiveC.allocInit("MTLTextureDescriptor")
-      try {
-        ObjectiveC.sendVoid(descriptor, "setTextureType:", MTLTextureType2D)
-        ObjectiveC.sendVoid(descriptor, "setPixelFormat:", MTLPixelFormatBGRA8Unorm)
-        ObjectiveC.sendVoid(descriptor, "setWidth:", width.toLong())
-        ObjectiveC.sendVoid(descriptor, "setHeight:", height.toLong())
-        ObjectiveC.sendVoid(
-          descriptor,
-          "setUsage:",
-          MTLTextureUsageShaderRead or MTLTextureUsageRenderTarget,
-        )
+      withDescriptor(width, height) { descriptor ->
         ObjectiveC.sendVoid(descriptor, "setStorageMode:", MTLStorageModePrivate)
         val texture = ObjectiveC.sendPointer(device, "newTextureWithDescriptor:", descriptor)
         if (texture == 0L) {
           throw MlnFfiHostException("Metal texture allocation returned null")
         }
         texture
-      } finally {
-        ObjectiveC.release(descriptor)
       }
     }
+
+  /**
+   * Makes a texture on [device] that reads and writes the BGRA `IOSurfaceRef` [surface] of [width]
+   * by [height] pixels. The texture keeps the surface's memory alive, and the caller owns it.
+   */
+  fun wrapIoSurface(device: Long, surface: Long, width: Int, height: Int): Long =
+    ObjectiveC.autoreleasePool().use {
+      withDescriptor(width, height) { descriptor ->
+        val texture =
+          ObjectiveC.sendPointer(
+            device,
+            "newTextureWithDescriptor:iosurface:plane:",
+            descriptor,
+            surface,
+            0L,
+          )
+        if (texture == 0L) throw MlnFfiHostException("Metal could not wrap the IOSurface")
+        texture
+      }
+    }
+
+  /** A BGRA descriptor that a render target and a shader can both use. */
+  private fun <T> withDescriptor(width: Int, height: Int, action: (Long) -> T): T {
+    val descriptor = ObjectiveC.allocInit("MTLTextureDescriptor")
+    try {
+      ObjectiveC.sendVoid(descriptor, "setTextureType:", MTLTextureType2D)
+      ObjectiveC.sendVoid(descriptor, "setPixelFormat:", MTLPixelFormatBGRA8Unorm)
+      ObjectiveC.sendVoid(descriptor, "setWidth:", width.toLong())
+      ObjectiveC.sendVoid(descriptor, "setHeight:", height.toLong())
+      ObjectiveC.sendVoid(
+        descriptor,
+        "setUsage:",
+        MTLTextureUsageShaderRead or MTLTextureUsageRenderTarget,
+      )
+      return action(descriptor)
+    } finally {
+      ObjectiveC.release(descriptor)
+    }
+  }
 
   fun dispose(texture: Long) {
     ObjectiveC.autoreleasePool().use { ObjectiveC.release(texture) }
