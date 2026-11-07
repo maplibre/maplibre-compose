@@ -53,10 +53,10 @@
   },
   // Digests are required on a bump; dprint reports the one it got.
   "plugins": [
-    "npm:@dprint/exec@0.8.0/plugin.json@9d6234ea05810c775f388c2a4cce82b9116b69294b65e0e1e9d64f1446283ef3",
+    "npm:@dprint/exec@0.9.0/plugin.json@d4f708dc00798b51013ca4e7c26a86656bfb31e7255cdcde28a487f86813e34d",
     "https://plugins.dprint.dev/sargunv/ktfmt-0.65.0.json@d355d4440dda00c0e315b5c39669f417bcfa76b64b68591fa1818f7a1f6b1005",
-    "npm:@dprint/ruff@0.11.3@106a85368aaa0f979dbe6af240a80e31cab035a77520d11fc34eecf0d7790f70",
-    "npm:@dprint/oxc@0.48.0@df41021ac038f6f34e39012425eef6247573f049203f0e6541120855e1c04082",
+    "npm:@dprint/ruff@0.12.1@8b5361bfef8eae042d159a4bf9d46dc77417399333f36fe18032f63d5dc28b6c",
+    "npm:@dprint/oxc@0.49.1@4562e3e70a208e88894db98c5a5370de5aad2be4077e430b73f9d7ca6c53298d",
     "npm:dprint-plugin-markup@0.27.6@2bc0cd38720ff3ce4418a7b1566e161c2193fbecf1969d61d77f09c4dfef5171",
   ],
 }

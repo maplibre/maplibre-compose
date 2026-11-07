@@ -31,7 +31,7 @@ runs:
       if: runner.os == 'Windows'
       uses: jakoch/install-vulkan-sdk-action@d17de7e2f5e50efb5d2123efed18497d3c58c533 # v1.7.0
       with:
-        vulkan_version: 1.4.363.0
+        vulkan_version: 1.4.363.1
         cache: true
         stripdown: true
         # dzn is an ICD, not the vulkan-1.dll loader that LWJGL opens.
