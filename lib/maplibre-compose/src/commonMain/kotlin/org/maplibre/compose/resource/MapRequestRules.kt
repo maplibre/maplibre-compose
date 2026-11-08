@@ -12,8 +12,8 @@ import org.maplibre.compose.util.formatToString
  * matches a pattern.
  *
  * Use it instead of writing a [MapRequestInterceptor] when the values stay the same while the
- * runtime is open, such as an API key. MapLibre Native applies the rules itself and runs no
- * application code for each request. The browser applies the same rules in the same way.
+ * runtime is open, such as an API key. The rules apply without calling your code for each request,
+ * and work the same on every platform.
  *
  * Query parameter rules and header rules are two separate lists. In each list, only the first rule
  * that matches a request applies; a request that no rule matches is unchanged. Header rules match
