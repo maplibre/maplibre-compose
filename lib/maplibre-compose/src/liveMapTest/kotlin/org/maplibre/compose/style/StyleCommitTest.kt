@@ -90,8 +90,7 @@ class StyleCommitTest {
 
   private class Fixture(private val scope: TestScope) : AutoCloseable {
     val revisions = mutableListOf<StyleSnapshot>()
-    val root =
-      StyleNode(RecordingStyleBinding(), scope.backgroundScope, publish = { revisions += it })
+    val root = StyleNode(RecordingStyleBinding(), scope.backgroundScope)
     private val clock = BroadcastFrameClock()
     private val recomposer = Recomposer(scope.backgroundScope.coroutineContext + clock)
     private val composition = Composition(MapNodeApplier(root), recomposer)
@@ -101,15 +100,19 @@ class StyleCommitTest {
     }
 
     fun setContent(content: @Composable () -> Unit) {
-      composition.setContent {
-        CompositionLocalProvider(
-          LocalDensity provides Density(1f),
-          LocalLayoutDirection provides LayoutDirection.Ltr,
-        ) {
-          StyleContent(root, content)
+      try {
+        composition.setContent {
+          CompositionLocalProvider(
+            LocalDensity provides Density(1f),
+            LocalLayoutDirection provides LayoutDirection.Ltr,
+          ) {
+            StyleContent(root, content)
+          }
         }
+      } finally {
+        scope.runCurrent()
+        root.takeRevision()?.let(revisions::add)
       }
-      scope.runCurrent()
     }
 
     fun frame() {
@@ -117,6 +120,7 @@ class StyleCommitTest {
       scope.runCurrent()
       clock.sendFrame(0L)
       scope.runCurrent()
+      root.takeRevision()?.let(revisions::add)
     }
 
     override fun close() {

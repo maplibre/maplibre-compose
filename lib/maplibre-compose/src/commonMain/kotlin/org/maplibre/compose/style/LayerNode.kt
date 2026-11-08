@@ -19,8 +19,7 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
   var onDoubleClick: FeaturesClickHandler? = null
   var hitPadding: Dp = 0.dp
 
-  // Every resolved image republishes all layers, so an unchanged layer reuses its snapshot.
-  private var previous: Previous? = null
+  private var previousDefinition: LayerDefinition? = null
   private var propertyImages = emptyMap<StyleProperty, List<StyleImageDefinition>>()
   val images: List<StyleImageDefinition>
     get() = propertyImages.values.flatten()
@@ -29,24 +28,6 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
     resolved: Map<StyleImageRequest, StyleImageDefinition>,
     resolvedIds: Map<StyleImageRequest, String>,
   ): StyleSnapshot.Layer {
-    val layerImages =
-      imageProperties.values.flatMap { property -> property.images.map { resolved[it] } }
-    previous
-      ?.takeIf {
-        it.definition === definition &&
-          it.imageProperties === imageProperties &&
-          it.snapshot.anchor == anchor &&
-          it.snapshot.onClick == onClick &&
-          it.snapshot.onLongClick == onLongClick &&
-          it.snapshot.onDoubleClick == onDoubleClick &&
-          it.snapshot.hitPadding == hitPadding &&
-          sameInstances(it.images, layerImages)
-      }
-      ?.let {
-        return it.snapshot
-      }
-
-    val previousDefinition = previous?.snapshot?.definition
     val resolvedDefinition =
       if (imageProperties.isEmpty()) {
         propertyImages = emptyMap()
@@ -79,29 +60,17 @@ internal class LayerNode(var definition: LayerDefinition, var anchor: Anchor) : 
         propertyImages = nextImages
         definition.copy(value = JsonObject(value))
       }
-    val snapshot =
-      StyleSnapshot.Layer(
-        resolvedDefinition,
-        anchor,
-        onClick,
-        onLongClick,
-        onDoubleClick,
-        hitPadding,
-        registration,
-      )
-    previous = Previous(definition, imageProperties, layerImages, snapshot)
-    return snapshot
+    previousDefinition = resolvedDefinition
+    return StyleSnapshot.Layer(
+      resolvedDefinition,
+      anchor,
+      onClick,
+      onLongClick,
+      onDoubleClick,
+      hitPadding,
+      registration,
+    )
   }
-
-  private fun sameInstances(a: List<StyleImageDefinition?>, b: List<StyleImageDefinition?>) =
-    a.size == b.size && a.indices.all { a[it] === b[it] }
-
-  private class Previous(
-    val definition: LayerDefinition,
-    val imageProperties: Map<StyleProperty, LayerProperty<*>>,
-    val images: List<StyleImageDefinition?>,
-    val snapshot: StyleSnapshot.Layer,
-  )
 
   override fun toString(): String = "LayerNode(layer=${definition.id}, anchor=$anchor)"
 }

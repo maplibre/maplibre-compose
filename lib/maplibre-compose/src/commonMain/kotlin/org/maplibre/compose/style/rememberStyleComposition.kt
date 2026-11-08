@@ -40,20 +40,20 @@ internal fun rememberStyleComposition(
   DisposableEffect(content, maybeStyle) {
     val style = maybeStyle ?: return@DisposableEffect onDispose {}
     if (!style.isLoaded) return@DisposableEffect onDispose {}
-    val revisions = Channel<StyleSnapshot>(Channel.CONFLATED)
+    val changes = Channel<Unit>(Channel.CONFLATED)
     val rootNode =
       StyleNode(
         style,
         scope,
         replaceableSourceIds,
         replaceableLayerIds,
-        publish = { revisions.trySend(it).getOrThrow() },
+        invalidated = { changes.trySend(Unit).getOrThrow() },
       )
     val composition = Composition(MapNodeApplier(rootNode), compositionContext)
     fun dispose() {
       // Stop declarations first so disposal cannot clear the retained map's content.
       rootNode.close()
-      revisions.cancel()
+      changes.cancel()
       composition.dispose()
     }
     try {
@@ -66,11 +66,10 @@ internal fun rememberStyleComposition(
     }
     val installer = scope.launch {
       try {
-        for (revision in revisions) {
-          if (style.isLoaded) {
-            revisionState.value = revision
-            apply(style, revision)
-          }
+        for (change in changes) {
+          val revision = rootNode.takeRevision() ?: continue
+          revisionState.value = revision
+          apply(style, revision)
         }
       } finally {
         dispose()

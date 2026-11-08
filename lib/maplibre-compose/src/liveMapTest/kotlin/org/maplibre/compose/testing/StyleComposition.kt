@@ -27,7 +27,7 @@ import org.maplibre.compose.util.MaplibreComposable
 /**
  * Composes [content] once against [style] and applies the revision it publishes, then returns
  * [style] with everything the composition installed. With [thenChange], runs it, recomposes, and
- * applies the revision that follows. [onRevision] sees each revision the composition publishes.
+ * applies the revision that follows. [onRevision] sees each revision taken while frames run.
  */
 internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),
@@ -42,15 +42,7 @@ internal suspend fun composeStyle(
   withContext(frameClock) {
     withRunningRecomposer { recomposer ->
       var revision: StyleSnapshot? = null
-      val rootNode =
-        StyleNode(
-          style,
-          imageScope = this,
-          publish = {
-            revision = it
-            onRevision(it)
-          },
-        )
+      val rootNode = StyleNode(style, imageScope = this)
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
       try {
         composition.setContent {
@@ -73,6 +65,10 @@ internal suspend fun composeStyle(
             do {
               if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
               delay(1)
+              rootNode.takeRevision()?.let {
+                revision = it
+                onRevision(it)
+              }
             } while (
               recomposer.hasPendingWork ||
                 revision?.let { !it.imagesPending && awaitRevision(it) } != true

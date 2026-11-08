@@ -227,7 +227,6 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
     return withImageGraphicsContext { graphicsContext ->
       withContext(frameClock) {
         coroutineScope {
-          val revision = CompletableDeferred<StyleSnapshot>()
           val recomposer = Recomposer(currentCoroutineContext())
           val recomposerJob =
             launch(start = CoroutineStart.UNDISPATCHED) {
@@ -239,7 +238,6 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               imageScope = this,
               replaceableSourceIds = ownership.sourceIds,
               replaceableLayerIds = ownership.layerIds,
-              publish = { if (!it.imagesPending) revision.complete(it) },
             )
           val evaluator = Composition(MapNodeApplier(root), recomposer)
           try {
@@ -256,12 +254,14 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
                 )
               }
             }
-            while (!revision.isCompleted) {
+            var revision = root.takeRevision()
+            while (revision == null || revision.imagesPending) {
               // This evaluator has no UI host to deliver writes from painter preparation.
               Snapshot.sendApplyNotifications()
               if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
+              revision = root.takeRevision()
             }
-            revision.await()
+            revision
           } finally {
             root.close()
             evaluator.dispose()
