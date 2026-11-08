@@ -91,9 +91,19 @@ internal abstract class DesktopMapHost<C : ComposeGpuContext>(
     try {
       completed = withPreparedContext {} != null
     } finally {
-      if (!completed) presentationHost.onGpuThread { frameCompletion.abandon() }
+      try {
+        if (!completed) presentationHost.onGpuThread { frameCompletion.abandon() }
+      } finally {
+        presentationHost.onGpuThread(::consumerAccessCompleted)
+      }
     }
   }
+
+  /**
+   * Runs with GPU access once Compose has finished reading frames, before the render session that
+   * rendered them is released or loses its target.
+   */
+  protected open fun consumerAccessCompleted() {}
 
   final override fun close() {
     try {

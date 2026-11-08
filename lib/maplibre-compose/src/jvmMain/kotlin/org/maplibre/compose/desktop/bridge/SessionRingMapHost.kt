@@ -121,6 +121,14 @@ internal abstract class SessionRingMapHost<C : ComposeGpuContext, D : Any, T : A
       drew
     } ?: false
 
+  /**
+   * The session's handles close with it, and a replacement session can reuse their values for new
+   * textures, so views opened from them must not be found again.
+   */
+  override fun consumerAccessCompleted() {
+    ringTextures.retireAll()
+  }
+
   /** The ring's Skia wrappers belong to the replaced context; the textures stay with the device. */
   override fun contextReplaced() {
     presenter.closeAll()
