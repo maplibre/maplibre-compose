@@ -107,6 +107,8 @@ internal class AndroidMlnFfiSurfaceController(
       pacerFps = maximumFps
       // A pacer's rate is fixed. The session stays paced by the old one until the next frame pass
       // gives it the new one.
+      // TODO: change the pacer's rate in place once
+      // https://github.com/maplibre/maplibre-native-ffi/issues/1758 allows it.
       pacer?.release()
       pacer = null
       requestFrame()

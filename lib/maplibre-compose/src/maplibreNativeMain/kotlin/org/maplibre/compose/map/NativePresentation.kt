@@ -211,9 +211,8 @@ internal class NativePresentation(
      *
      * The session keeps its own reference to the window, but Android's `SurfaceView` destroys the
      * window's surface once `surfaceDestroyed` returns, and Android 8.0 crashes if the session
-     * still draws into it then. So this waits until the session has stopped, as the FFI's own
-     * Android example does. A session that can't let go of its window is released whole, and the
-     * next window attaches a new one.
+     * still draws into it then. So this waits until the session has stopped. A session that can't
+     * let go of its window is released whole, and the next window attaches a new one.
      */
     fun releaseTarget() {
       val current = session ?: return
