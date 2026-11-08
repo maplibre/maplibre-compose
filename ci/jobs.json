@@ -68,16 +68,5 @@
     "artifact_glob": "*.tar.gz",
     "artifact_name": "demo-app-desktop-linux-arm64",
     "test_variant": "desktop-linux-arm64"
-  },
-  {
-    "job": "desktop",
-    "variant": "windows-arm64",
-    "unit": "desktop-windows-arm64",
-    "runner": "windows-11-arm",
-    "save_toolchains": "true",
-    "artifact_type": "nsis",
-    "artifact_glob": "*.exe",
-    "artifact_name": "demo-app-desktop-windows-arm64",
-    "test_variant": "desktop-windows-arm64"
   }
 ]
