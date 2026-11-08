@@ -879,8 +879,17 @@ internal class GlJsMapSession(
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    val camera = cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
-    awaitCameraRelease(guard = guard) { map -> map.animateTo(camera.toCameraUpdate(), animation) }
+    // The animation can wait for the first style, so fit the viewport it starts in. A failed fit
+    // fails the caller through the queued command.
+    awaitCameraRelease(guard = guard) { map ->
+      val camera =
+        checkNotNull(
+          map.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding),
+        ) {
+          "The map could not calculate a camera for the bounds"
+        }
+      map.animateTo(camera.toCameraUpdate(), animation)
+    }
   }
 
   private fun MaplibreMap.animateTo(update: CameraUpdate, animation: CameraAnimation) {
