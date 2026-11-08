@@ -23,7 +23,9 @@ data, and layers, which draw that data: roads, water, labels, and so on.
 
 The trailing block of <Api of="rememberMapState" /> declares your own sources
 and layers. The library adds them to the base style. It does not change the
-layers of the base style.
+layers of the base style. To replace the style's light, sky, projection, or
+terrain, pass `styleOverrides`; see
+[Style the map](/maplibre-compose/styling/#override-the-light-and-other-root-objects).
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 

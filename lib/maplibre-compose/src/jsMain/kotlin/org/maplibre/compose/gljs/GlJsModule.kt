@@ -66,6 +66,12 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getProjection(): ProjectionSpecification?
 
+  fun setTerrain(terrain: TerrainSpecification?, options: StyleSetterOptions = definedExternally)
+
+  fun getTerrain(): TerrainSpecification?
+
+  fun queryTerrainElevation(lngLat: LngLat): Double?
+
   fun isStyleLoaded(): Boolean
 
   /** Whether a camera animation or one of the map's own gesture handlers is moving the camera. */

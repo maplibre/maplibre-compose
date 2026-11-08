@@ -13,6 +13,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.UnspecifiedBaseStyle
@@ -71,6 +72,7 @@ private class NativeSnapshotterAdapter(
   override suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
+    styleOverrides: StyleOverrides,
     request: MapSnapshotRequest,
   ): SnapshotPreparation {
     val current = ensureEngine(request)

@@ -25,6 +25,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -43,8 +44,11 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GroundScaleGlobalState
+import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleOverrides
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.groundScale
 import org.maplibre.compose.testing.setImage
 import org.maplibre.spatialk.geojson.Position
@@ -114,6 +118,41 @@ class SnapshotCompositionTest {
       assertNull(imageHandle.asMutable)
       snapshotter.style.sources.add(source)
       snapshotter.style.setImage(imageId, bitmap)
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
+  @Test
+  fun a_capture_renders_the_overrides_its_preparation_used() = runTest {
+    val prepareStarted = CompletableDeferred<Unit>()
+    val releasePrepare = CompletableDeferred<Unit>()
+    val applied = mutableListOf<StyleSnapshot>()
+    val runtime =
+      mapRuntimeForTest(
+        mainDispatcher = testMainDispatcher(),
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ ->
+              prepareStarted.complete(Unit)
+              releasePrepare.await()
+              RecordingStyleBinding()
+            },
+            apply = { applied += it },
+          )
+        },
+      )
+    try {
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) {}
+      val capture = async { snapshotter.capture(DpSize(1.dp, 1.dp)) }
+      prepareStarted.await()
+
+      snapshotter.style.asMutable!!.overrides = StyleOverrides { light = Light() }
+      releasePrepare.complete(Unit)
+      capture.await()
+
+      assertNull(applied.single().overrides.light)
     } finally {
       runtime.close()
       runtime.awaitClosed()

@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import kotlinx.coroutines.CoroutineScope
 import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.internal.StyleOverrideDefinition
 
 /** The committed declarations of one style composition. Engine objects live in the reconciler. */
 internal class StyleNode(
@@ -23,6 +24,7 @@ internal class StyleNode(
   private var committedSources = emptyList<SourceDefinition>()
   private var animatorDurationScale = 1f
   private var fontScale: Float? = null
+  private var overrides = StyleOverrideDefinition()
   private val images = StyleImageRegistry(imageScope, prepareImage, ::publishSnapshot)
   private var closed = false
 
@@ -40,9 +42,11 @@ internal class StyleNode(
     if (closed || !style.isLoaded) return
     val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
     val layerNodes = children.filterIsInstance<LayerNode>()
+    overrides =
+      children.filterIsInstance<StyleOverridesNode>().singleOrNull()?.definition
+        ?: StyleOverrideDefinition()
     val sources =
-      layerNodes
-        .mapNotNull { it.source }
+      (layerNodes.mapNotNull { it.source } + listOfNotNull(overrides.terrainSource))
         .distinct()
         .filter { source ->
           val base = source.id in baseSourceIds
@@ -80,6 +84,7 @@ internal class StyleNode(
         animatorDurationScale = animatorDurationScale,
         fontScale = fontScale,
         imagesPending = images.pending,
+        overrides = overrides,
       )
     images.retain(revision.images)
     if (revision != previous) {
@@ -92,4 +97,8 @@ internal class StyleNode(
 internal class StyleEnvironmentNode : MapNode {
   var animatorDurationScale: Float = 1f
   var fontScale: Float? = null
+}
+
+internal class StyleOverridesNode : MapNode {
+  var definition = StyleOverrideDefinition()
 }

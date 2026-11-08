@@ -37,6 +37,11 @@ internal class RecordingStyleBinding(
   private val refusedLayerProperties: Set<String> = emptySet(),
   /** Layer types whose additions this engine rejects. */
   private val refusedLayerTypes: Set<String> = emptySet(),
+  override val baseLight: JsonObject = JsonObject(emptyMap()),
+  override val baseSky: JsonObject? = null,
+  override val baseProjection: JsonObject = JsonObject(emptyMap()),
+  override val baseTerrain: JsonObject? = null,
+  override val supportsTerrain: Boolean = true,
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
   private val beforeAddImage: ((String) -> Unit)? = null,
@@ -329,7 +334,7 @@ internal class RecordingStyleBinding(
   var placementTransitionsEnabled: Boolean = true
     private set
 
-  val lightProperties: MutableMap<String, JsonElement> = mutableMapOf()
+  val lightProperties: MutableMap<String, JsonElement> = baseLight.toMutableMap()
 
   override suspend fun transition(): TransitionOptions? = transition.takeIf { isLoaded }
 
@@ -362,12 +367,15 @@ internal class RecordingStyleBinding(
   override suspend fun lightProperty(name: String): JsonElement? =
     if (isLoaded) lightProperties[name] else null
 
+  val lightWrites = mutableListOf<JsonObject>()
+
   override fun setLight(light: JsonObject) {
+    lightWrites += light
     lightProperties.clear()
     lightProperties.putAll(light)
   }
 
-  var sky: JsonObject? = null
+  var sky: JsonObject? = baseSky
     private set
 
   override suspend fun skyProperty(name: String): JsonElement? =
@@ -377,11 +385,24 @@ internal class RecordingStyleBinding(
     if (supportsSky) this.sky = sky
   }
 
-  var projection: JsonObject = JsonObject(emptyMap())
+  var projection: JsonObject = baseProjection
     private set
 
   override suspend fun projectionProperty(name: String): JsonElement? =
     if (isLoaded && supportsProjection) projection[name] else null
+
+  var terrain: JsonObject? = baseTerrain
+    private set
+
+  val terrainWrites = mutableListOf<JsonObject?>()
+
+  override fun setTerrain(terrain: JsonObject?) {
+    requireCurrent()
+    if (supportsTerrain) {
+      this.terrain = terrain
+      terrainWrites += terrain
+    }
+  }
 
   override fun setProjection(projection: JsonObject) {
     if (supportsProjection) this.projection = projection
