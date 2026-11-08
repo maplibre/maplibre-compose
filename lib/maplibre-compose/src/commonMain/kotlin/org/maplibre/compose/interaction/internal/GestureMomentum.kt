@@ -332,10 +332,10 @@ private const val PanStepDp = 16.0
 private const val MaxPanSteps = 100
 
 /**
- * Runs [momentum] frame by frame through camera jumps, as MapLibre Native runs it for an engine
- * that can't take it: each part glides on its own, then settles on its snap. Pans move in steps no
- * longer than a drag event's, so a tilted map moves its content the same distance on the screen in
- * every direction. Cancellation reports the speed the glide still had through [token].
+ * Runs [momentum] frame by frame through camera jumps, for an engine that can't take momentum, the
+ * way MapLibre Native runs it: each part glides on its own, then settles on its snap. Pans move in
+ * steps no longer than a drag event's, so a tilted map moves its content the same distance on the
+ * screen in every direction. Cancellation reports the speed the glide still had through [token].
  *
  * A step that bounds or limits hold in place stops its part, which then settles at once, as in
  * MapLibre Native.
