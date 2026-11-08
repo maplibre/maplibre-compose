@@ -209,8 +209,8 @@ internal class GlJsMapSession(
     if (map != null) {
       // The replacement keeps the presentation, and the destroyed map emits no `moveend`, so the
       // camera's motion is read again once it is gone. A gesture that ends while the replacement
-      // is attaching cannot report, so its fact is withdrawn here; a gesture that continues
-      // re-reports on its next camera command.
+      // attaches can't report its end, so it is cleared here; a gesture that continues reports
+      // again on its next camera command.
       activeGestureToken = null
       reportGestureActive(false)
       this.surface = null
