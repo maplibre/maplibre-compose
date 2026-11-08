@@ -35,6 +35,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -152,6 +153,58 @@ class AndroidMapPresentationTest {
         }
       }
     }
+
+  @Test
+  fun stopping_and_replacing_the_surface_keep_the_render_session() = runMapTest {
+    withSurfaceMap { fixture ->
+      fixture.withConsumer(256, 192) { first ->
+        fixture.withConsumer(256, 192) { second ->
+          fixture.onMain { presenter.attachSurface(first.surface, 256, 192, 1f) }
+          first.awaitColor(Red)
+          val presentation = fixture.onMain {
+            (state.currentMapAttachment?.adapter as MlnFfiMapSession).presentation
+          }
+          // Session readiness is not Compose state, so poll it.
+          pollOnMain("the presented session") { presentation.readySession() != null }
+
+          fixture.onMain { lifecycle.currentState = Lifecycle.State.CREATED }
+          pollOnMain("the stopped session to let go of its Surface") {
+            presentation.readySession() == null
+          }
+          fixture.onMain { color = Color.Green }
+          val beforeStart = first.frames
+          fixture.onMain { lifecycle.currentState = Lifecycle.State.STARTED }
+          first.awaitColor(Green, after = beforeStart)
+          val afterStart = presentation.retargetCount
+
+          fixture.onMain { presenter.attachSurface(second.surface, 256, 192, 1f) }
+          second.awaitColor(Green)
+          fixture.onMain { assertNull(presenter.failure) }
+          // The session lets go of its target and takes the next one instead of attaching anew.
+          assertEquals(1, presentation.attachCount)
+          assertEquals(2, presentation.retargetCount, "after start: $afterStart")
+        }
+      }
+    }
+  }
+
+  @Test
+  fun a_car_screen_keeps_rendering_while_the_phone_display_is_off() = runMapTest {
+    withSurfaceMap { fixture ->
+      fixture.withConsumer(256, 192) { consumer ->
+        // Choreographer stops while the phone display is off, even while a car shows the map.
+        fixture.onMain {
+          presenter.vsync = StoppedVsync
+          presenter.attachSurface(consumer.surface, 256, 192, 1f)
+        }
+        consumer.awaitColor(Red)
+        val before = consumer.frames
+        fixture.onMain { color = Color.Green }
+        consumer.awaitColor(Green, after = before)
+        fixture.onMain { assertNull(presenter.failure) }
+      }
+    }
+  }
 
   @Test
   fun recognized_gestures_use_logical_units_and_finish_camera_movement() = runMapTest {
@@ -426,6 +479,16 @@ private suspend fun withSurfaceMap(action: suspend (SurfaceMapFixture) -> Unit) 
     } finally {
       FfiTestPlatform.deleteCacheFile(cache)
     }
+  }
+}
+
+private suspend fun pollOnMain(description: String, condition: () -> Boolean) {
+  try {
+    withTimeout(TimeoutMillis) {
+      while (!withContext(Dispatchers.Main) { condition() }) delay(10)
+    }
+  } catch (error: TimeoutCancellationException) {
+    throw AssertionError("Timed out waiting for $description", error)
   }
 }
 

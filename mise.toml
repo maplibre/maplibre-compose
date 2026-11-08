@@ -539,7 +539,6 @@ task=run
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
-# Publishing builds the Vulkan runtime AAR, which needs the pinned NDK and CMake.
 depends = ["android-sdk-packages"]
 run = ".mise/bin/gradle-with-version snapshot publishToMavenCentral"
 

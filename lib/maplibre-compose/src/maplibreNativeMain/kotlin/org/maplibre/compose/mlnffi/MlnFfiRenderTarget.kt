@@ -44,6 +44,16 @@ internal sealed interface MlnFfiRenderTarget {
   val generation: Long
 }
 
+/**
+ * A platform window that MapLibre presents to with a graphics context that it creates, rendering on
+ * its own worker. A platform source set defines each kind and attaches it through
+ * `attachPlatformTarget`.
+ */
+internal interface PlatformWindowTarget : MlnFfiRenderTarget {
+  /** The platform's window object. A different one needs the session to present to it instead. */
+  val window: Any
+}
+
 /** Vulkan instance and device handles MapLibre needs to render into a Vulkan target. */
 @Immutable
 internal data class VulkanContextHandles(
@@ -76,20 +86,6 @@ internal data class VulkanImageTarget(
   val format: Int,
   /** `VkImageLayout` MapLibre must leave [image] in for the host to consume it. */
   val finalLayout: Int,
-  override val extent: MapExtent,
-  override val generation: Long,
-) : MlnFfiRenderTarget {
-  override val backend: MapRenderBackend
-    get() = MapRenderBackend.Vulkan
-}
-
-/** A `VkSurfaceKHR` MapLibre renders into and presents directly. */
-@Immutable
-internal data class VulkanSurfaceTarget(
-  /** The Vulkan context owning [surface]. */
-  val context: VulkanContextHandles,
-  /** `VkSurfaceKHR`. */
-  val surface: NativeHandle,
   override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
@@ -151,7 +147,7 @@ internal data class EglContextHandles(
   val getProcAddress: NativeHandle,
   /**
    * Whether the session shares this thread with host graphics work. A dedicated session owns the
-   * thread's context, which is the mode an Android surface host uses.
+   * thread's context.
    */
   val ownership: OpenGlContextOwnership = OpenGlContextOwnership.SHARED,
   /**

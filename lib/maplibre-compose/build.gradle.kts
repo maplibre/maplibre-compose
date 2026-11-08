@@ -23,14 +23,7 @@ mavenPublishing {
 }
 
 kotlin {
-  android {
-    namespace = "org.maplibre.compose"
-    optimization {
-      // The Vulkan bridge class is resolved by JNI name.
-      consumerKeepRules.publish = true
-      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
-    }
-  }
+  android { namespace = "org.maplibre.compose" }
 
   iosArm64()
   iosSimulatorArm64()

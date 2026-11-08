@@ -5,7 +5,6 @@ import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.VulkanImageTarget
-import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.nativeffi.Completion
 import org.maplibre.nativeffi.LogicalSize
 import org.maplibre.nativeffi.MapHandle
@@ -21,7 +20,6 @@ import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.VulkanBorrowedTexture
 import org.maplibre.nativeffi.VulkanBorrowedTextureDescriptor
 import org.maplibre.nativeffi.VulkanBorrowedTextureReplacement
-import org.maplibre.nativeffi.VulkanSurfaceDescriptor
 
 internal expect fun attachPlatformTarget(
   map: MapHandle,
@@ -30,6 +28,7 @@ internal expect fun attachPlatformTarget(
   options: RenderSessionAttachOptions,
 ): RenderSessionHandle
 
+/** Gives [session] the window or textures of [target]. */
 internal expect fun replacePlatformTarget(
   session: RenderSessionHandle,
   target: MlnFfiRenderTarget,
@@ -64,13 +63,6 @@ internal fun VulkanImageTarget.toReplacement(extent: MapExtent) =
 
 private fun VulkanImageTarget.toBorrowedTexture() =
   VulkanBorrowedTexture(image = image.address.toULong(), imageView = imageView.address.toULong())
-
-internal fun VulkanSurfaceTarget.toDescriptor(extent: MapExtent) =
-  VulkanSurfaceDescriptor(
-    logicalSize = extent.toLogicalSize(),
-    context = context.toFfi(),
-    surface = surface.address.toULong(),
-  )
 
 internal fun MetalTextureTarget.toDescriptor(extent: MapExtent) =
   MetalBorrowedTextureDescriptor(

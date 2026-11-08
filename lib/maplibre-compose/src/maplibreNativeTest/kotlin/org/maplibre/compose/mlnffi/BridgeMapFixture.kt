@@ -292,7 +292,7 @@ private constructor(
       when (frame.target) {
         is OpenGlSurfaceTarget,
         is MetalSurfaceTarget,
-        is VulkanSurfaceTarget -> true
+        is PlatformWindowTarget -> true
         else -> false
       }
     return try {
