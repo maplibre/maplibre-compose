@@ -24,6 +24,15 @@ drains events inline on main; JS completes through its event handling. Coroutine
 cleanup must not publish an early finish while native camera events are still
 queued.
 
+A session's end carries the release velocities and the snaps of the parts the
+input changed. Native sends them with the END delta, and MapLibre Native runs
+the momentum: the token stays active, so the camera keeps reporting a gesture,
+until the delta's end handler reports that the momentum ended. GL JS can't take
+momentum, so the session runs the same glide and snap frame by frame before it
+finishes. Newer input, a camera command, or a settings change stops the
+momentum, and the speed it still had joins the next release that goes the same
+way.
+
 Two counters distinguish camera replacement from newer input. A programmatic
 camera command becomes stale when another camera operation replaces it. A
 delayed click's camera response also becomes stale after accepted input that

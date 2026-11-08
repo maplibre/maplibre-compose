@@ -7,15 +7,12 @@ import kotlin.math.min
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.BearingHapticNotch
-import org.maplibre.compose.interaction.bearingDelta
 
 /** Engine-applied samples only; one detector belongs to one rotation input session. */
 internal class BearingHapticDetector(notches: List<BearingHapticNotch>) {
   private class Notch(val bearing: Double, val type: HapticFeedbackType, var armed: Boolean = false)
 
-  private val notches = notches.flatMap { group ->
-    group.targets.bearings.map { Notch(it, group.type) }
-  }
+  private val notches = notches.flatMap { group -> group.bearings().map { Notch(it, group.type) } }
   private var initialized = false
   private var lastTick: Duration? = null
 
@@ -48,3 +45,20 @@ internal class BearingHapticDetector(notches: List<BearingHapticNotch>) {
     const val RearmDegrees = 2.0
   }
 }
+
+/**
+ * The bearings every [BearingHapticNotch.spacing] from the offset within one turn, normalized and
+ * without duplicates.
+ */
+internal fun BearingHapticNotch.bearings(): List<Double> =
+  generateSequence(0.0) { it + spacing }
+    .takeWhile { it < 360.0 }
+    .map { normalizeBearing(offset + it) }
+    .distinct()
+    .sorted()
+    .toList()
+
+internal fun normalizeBearing(bearing: Double): Double = ((bearing % 360.0) + 360.0) % 360.0
+
+internal fun bearingDelta(from: Double, to: Double): Double =
+  normalizeBearing(normalizeBearing(to) - normalizeBearing(from) + 180.0) - 180.0

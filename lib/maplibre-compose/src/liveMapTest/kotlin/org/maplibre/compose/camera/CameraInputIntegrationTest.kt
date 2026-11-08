@@ -1,6 +1,7 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -10,23 +11,31 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
-import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession
+import org.maplibre.compose.interaction.internal.Glide
+import org.maplibre.compose.interaction.internal.GlideDecay
+import org.maplibre.compose.interaction.internal.MomentumDefaults
+import org.maplibre.compose.interaction.internal.ReleaseVelocity
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.InputFrameClock
+import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -88,44 +97,51 @@ class CameraInputIntegrationTest {
     }
 
   @Test
-  fun haptic_feedback_tracks_applied_rotation_but_not_momentum_or_settlement(): MapTestResult =
-    runMapTest {
-      coroutineScope {
-        createMapFixture().use { fixture ->
-          fixture.loadStyle(BaseStyle.Empty)
-          fixture.awaitMapReady()
-          fixture.state.gestureAuthority.updateConfiguration(
-            CameraBuilder(CameraConfiguration())
-              .apply {
-                rotate {
-                  snapping()
-                  haptics { notch(BearingTargets.at(0.0)) }
-                }
+  fun haptic_feedback_tracks_applied_rotation_and_its_settlement(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration())
+            .apply {
+              rotate {
+                snapping()
+                haptics { notch(spacing = 360.0) }
               }
-              .build(),
-          )
-          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 355.0))
-          fixture.settle()
-          val ticks = mutableListOf<HapticFeedbackType>()
-          val input = GestureInputSession(this, fixture.gestures, onHaptic = { ticks += it })
-          fixture.gestures.inputRotateAndPitchBy(10.0, 0.0, gestureToken = input.token)
-          fixture.pumpUntil("a haptic crossing after applied rotation") { ticks.isNotEmpty() }
-          assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
-          fixture.gestures.inputRotateAndPitchBy(
-            -10.0,
-            0.0,
-            gestureToken = input.token,
-            feedback = false,
-          )
-          input.end()
-          fixture.awaitWhileRendering("silent momentum and settlement") {
-            input.scope.coroutineContext[Job]!!.join()
-          }
-          assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
-          assertEquals(0.0, fixture.state.cameraPosition.bearing, 1e-6)
+            }
+            .build(),
+        )
+        fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 355.0))
+        fixture.settle()
+        val ticks = mutableListOf<HapticFeedbackType>()
+        val input =
+          GestureInputSession(this + InputFrameClock, fixture.gestures, onHaptic = { ticks += it })
+        fixture.gestures.inputRotateAndPitchBy(10.0, 0.0, gestureToken = input.token)
+        fixture.pumpUntil("a haptic crossing after applied rotation") { ticks.isNotEmpty() }
+        assertEquals(listOf(HapticFeedbackType.SegmentTick), ticks)
+        // Haptics drop a tick within 50 ms of the last one. With animations off, as under Android
+        // instrumentation, the settle is instant, so wait out that window before releasing.
+        val firstTick = TimeSource.Monotonic.markNow()
+        fixture.pumpUntil("the haptic repeat window to pass") {
+          firstTick.elapsedNow() > 100.milliseconds
         }
+        fixture.gestures.inputRotateAndPitchBy(
+          -10.0,
+          0.0,
+          gestureToken = input.token,
+          feedback = false,
+        )
+        input.end()
+        fixture.awaitWhileRendering("settlement onto the notch") {
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        // The silent rotation left the notch, so settling back onto it ticks again.
+        assertEquals(listOf(HapticFeedbackType.SegmentTick, HapticFeedbackType.SegmentTick), ticks)
+        assertEquals(0.0, fixture.state.cameraPosition.bearing, 1e-6)
       }
     }
+  }
 
   @Test
   fun rotation_settles_after_queued_movement_and_momentum_preserving_other_components():
@@ -138,7 +154,12 @@ class CameraInputIntegrationTest {
         fixture.state.gestureAuthority.updateConfiguration(
           CameraBuilder(CameraConfiguration())
             .apply {
-              rotate { snapping { targets = BearingTargets.evenlySpaced(4, 32.0) } }
+              rotate {
+                snapping {
+                  spacing = 90.0
+                  offset = 32.0
+                }
+              }
             }
             .build(),
         )
@@ -148,7 +169,7 @@ class CameraInputIntegrationTest {
           fixture.state.setCameraPosition(before)
           fixture.settle()
           fixture.awaitWhileRendering("rotation settlement") {
-            val input = GestureInputSession(this, fixture.gestures)
+            val input = GestureInputSession(this + InputFrameClock, fixture.gestures)
             fixture.gestures.inputRotateAndPitchBy(8.0, 0.0, gestureToken = input.token)
             if (momentum)
               input.scope.launch {
@@ -175,6 +196,98 @@ class CameraInputIntegrationTest {
   }
 
   @Test
+  fun an_animated_gesture_zoom_settles_onto_its_snap(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration()).apply { zoom { snapping() } }.build(),
+        )
+        fixture.state.setCameraPosition(CameraPosition(zoom = 4.2))
+        fixture.settle()
+        // A double tap zooms with one animated command, then releases without momentum.
+        fixture.awaitWhileRendering("the zoom to settle") {
+          val input = GestureInputSession(this + InputFrameClock, fixture.gestures)
+          fixture.gestures.inputScaleByAwaitingTransition(2.0, null, 0.1.seconds, input.token)
+          input.end()
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
+      }
+    }
+  }
+
+  @Test
+  fun a_released_fling_glides_as_part_of_the_gesture(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.startFrictionPans()
+        val before = fixture.screenX()
+        val input = GestureInputSession(this + InputFrameClock, fixture.gestures)
+        fixture.gestures.inputPanBy(10.0, 0.0, gestureToken = input.token)
+        input.end(ReleaseVelocity(pan = Offset(1000f, 0f)))
+        fixture.pumpUntil("the glide to carry the content past the drag") {
+          fixture.screenX() - before > 20.0
+        }
+        assertTrue(fixture.state.isCameraMoving, "the gesture ended before its glide")
+        assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
+        fixture.awaitWhileRendering("the glide to end the gesture") {
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        fixture.pumpUntil("the camera to rest") { !fixture.state.isCameraMoving }
+        assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
+        assertFalse(input.token.acceptsFeedback)
+        val glide = checkNotNull(Glide.plan(1000.0, Pan))
+        assertEquals(10.0 + glide.distance, fixture.screenX() - before, 1.0)
+      }
+    }
+  }
+
+  @Test
+  fun new_input_stops_a_glide_and_a_flick_carries_it_on(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.startFrictionPans()
+        val before = fixture.screenX()
+        val gliding = GestureInputSession(this + InputFrameClock, fixture.gestures)
+        fixture.gestures.inputPanBy(10.0, 0.0, gestureToken = gliding.token)
+        gliding.end(ReleaseVelocity(pan = Offset(2000f, 0f)))
+        fixture.pumpUntil("the glide to start") { fixture.screenX() - before > 50.0 }
+
+        val newer = GestureInputSession(this + InputFrameClock, fixture.gestures)
+        fixture.awaitWhileRendering("the stopped glide to end its input") {
+          gliding.scope.coroutineContext[Job]!!.join()
+        }
+        fixture.pump(frames = 3)
+        val stopped = fixture.screenX()
+        fixture.pump(frames = 10)
+        assertEquals(stopped, fixture.screenX(), 1e-3, "the glide outlived newer input")
+        assertTrue(stopped - before < 10.0 + checkNotNull(Glide.plan(2000.0, Pan)).distance)
+
+        val momentum = newer.token.momentum(ReleaseVelocity(pan = Offset(500f, 0f)))
+        val pan = checkNotNull(momentum?.pan)
+        assertTrue(pan.velocityX > 500.0, "the flick lost the stopped glide's speed")
+        newer.cancel()
+      }
+    }
+  }
+
+  private suspend fun MapFixture.startFrictionPans() {
+    loadStyle(BaseStyle.Empty)
+    awaitMapReady()
+    state.gestureAuthority.updateConfiguration(
+      CameraBuilder(CameraConfiguration()).apply { pan { momentum { friction() } } }.build(),
+    )
+    state.setCameraPosition(CameraPosition(center = Position(0.0, 0.0), zoom = 5.0))
+    settle()
+  }
+
+  /** Where the content that started at the center sits on the screen, in dp. */
+  private fun MapFixture.screenX(): Double =
+    checkNotNull(session.screenLocationFromPosition(Position(0.0, 0.0))).x.value.toDouble()
+
+  @Test
   fun snapping_does_not_follow_pan_or_override_programmatic_takeover(): MapTestResult = runMapTest {
     coroutineScope {
       createMapFixture().use { fixture ->
@@ -183,7 +296,7 @@ class CameraInputIntegrationTest {
         fixture.state.gestureAuthority.updateConfiguration(
           CameraBuilder(CameraConfiguration())
             .apply {
-              rotate { snapping() }
+              rotate { snapping { duration = 30.seconds } }
             }
             .build(),
         )
@@ -196,7 +309,7 @@ class CameraInputIntegrationTest {
           input.scope.coroutineContext[Job]!!.join()
         }
         assertEquals(3.0, fixture.state.cameraPosition.bearing, 1e-6)
-        val input = GestureInputSession(this, fixture.gestures, animationDuration = 30.seconds)
+        val input = GestureInputSession(this + InputFrameClock, fixture.gestures)
         fixture.gestures.inputRotateAndPitchBy(1.0, 0.0, gestureToken = input.token)
         input.end()
         fixture.pumpUntil("settling to start") { fixture.state.isCameraMoving }
@@ -420,5 +533,9 @@ class CameraInputIntegrationTest {
         assertFalse(fixture.state.isCameraMoving)
       }
     }
+  }
+
+  private companion object {
+    val Pan = GlideDecay.Friction(MomentumDefaults.PanFriction)
   }
 }

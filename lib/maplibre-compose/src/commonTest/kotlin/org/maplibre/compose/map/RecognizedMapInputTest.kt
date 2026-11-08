@@ -62,11 +62,11 @@ class RecognizedMapInputTest {
     runCurrent()
     assertTrue(map.target.moveCalls.any { it.x > 0f })
     assertEquals(0, map.target.endedCount)
-    clock.sendFrame(1_000_000_000)
+    clock.sendFrame(3_000_000_000)
     runCurrent()
     assertEquals(1, map.target.endedCount)
     val completed = map.target.moveCalls.toList()
-    clock.sendFrame(2_000_000_000)
+    clock.sendFrame(4_000_000_000)
     runCurrent()
     assertEquals(completed, map.target.moveCalls)
   }

@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.KeyModifier
@@ -41,7 +40,7 @@ fun Interaction() {
         camera {
           rotate {
             snapping {
-              targets = BearingTargets.evenlySpaced(count = 4)
+              spacing = 90.0
               tolerance = 7.0
             }
           }
@@ -57,8 +56,8 @@ fun Interaction() {
         camera {
           rotate {
             haptics {
-              notch(BearingTargets.evenlySpaced(4))
-              notch(BearingTargets.evenlySpaced(24), HapticFeedbackType.SegmentFrequentTick)
+              notch(spacing = 90.0)
+              notch(spacing = 15.0, type = HapticFeedbackType.SegmentFrequentTick)
             }
           }
         }

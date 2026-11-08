@@ -18,7 +18,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
@@ -81,7 +80,7 @@ class PointerPairGestureTest {
     input.move(0, Offset(-100f, 0f), Offset(100f, 0f))
     val scale = input.target.scaleCalls.single().scale
     assertTrue(scale > 1.0 && scale < 200.0 / 160.0, "first delta must exclude span slop")
-    assertNull(input.pair.end()?.scale, "equal timestamps fabricated zoom momentum")
+    assertNull(input.pair.end()?.zoom, "equal timestamps fabricated zoom momentum")
   }
 
   @Test
@@ -232,37 +231,16 @@ class PointerPairGestureTest {
   }
 
   @Test
-  fun pan_and_pinch_momentum_share_the_configured_zoom_duration_and_decay() {
-    for (zoomMomentum in listOf(true, false)) {
-      val input =
-        PairInput(
-          InputConfiguration {
-            camera {
-              zoom {
-                momentum {
-                  enabled = zoomMomentum
-                  maximumDuration = 300.milliseconds
-                }
-              }
-            }
-          },
-        )
-      repeat(6) { index ->
-        val step = index + 1
-        input.move(step * 16L, Offset(-80f + step * 8f, 0f), Offset(80f + step * 56f, 0f))
-      }
-      val release = assertNotNull(input.pair.end()).settled()
-      val pan = assertNotNull(release.pan)
-      if (zoomMomentum) {
-        val scale = assertNotNull(release.scale)
-        assertEquals(300.milliseconds, scale.duration)
-        assertEquals(scale.duration, pan.duration)
-        assertEquals(GestureMath.TransformDecayPower, pan.decayPower)
-      } else {
-        assertNull(release.scale)
-        assertEquals(2, pan.decayPower)
-      }
+  fun pan_and_pinch_release_their_own_velocities() {
+    val input = PairInput(InputConfiguration.Standard)
+    repeat(6) { index ->
+      val step = index + 1
+      input.move(step * 16L, Offset(-80f + step * 8f, 0f), Offset(80f + step * 56f, 0f))
     }
+    val release = assertNotNull(input.pair.end())
+    assertTrue(assertNotNull(release.pan).x > 0f)
+    assertTrue(assertNotNull(release.zoom) > 0.0)
+    assertNull(release.bearing)
   }
 
   @Test
@@ -271,7 +249,7 @@ class PointerPairGestureTest {
       InputConfiguration(InputConfiguration.NoBindings) {
         bindings { transform { zoom { enabled = true } } }
       }
-    fun release(movingFirst: Boolean): GestureMath.ScaleVelocity {
+    fun release(movingFirst: Boolean): Double {
       val input = PairInput(options)
       repeat(6) { index ->
         val distance = (index + 1) * 24f
@@ -283,13 +261,12 @@ class PointerPairGestureTest {
       }
       val motion = assertNotNull(input.pair.end())
       assertNull(motion.pan)
-      return assertNotNull(motion.scale)
+      return assertNotNull(motion.zoom)
     }
     val first = release(true)
     val second = release(false)
-    assertTrue(first.zoomDelta > 0.0)
-    assertEquals(first.zoomDelta, second.zoomDelta, 1e-6)
-    assertEquals(first.duration, second.duration)
+    assertTrue(first > 0.0)
+    assertEquals(first, second, 1e-6)
   }
 
   @Test
@@ -372,8 +349,8 @@ class PointerPairGestureTest {
     assertTrue(input.target.scaleCalls.isNotEmpty())
     assertTrue(input.target.rotateCalls.isEmpty(), "closing the pinch started rotation")
     val momentum = assertNotNull(input.pair.end())
-    assertNotNull(momentum.scale)
-    assertNull(momentum.rotation)
+    assertNotNull(momentum.zoom)
+    assertNull(momentum.bearing)
   }
 
   @Test
@@ -390,7 +367,7 @@ class PointerPairGestureTest {
       input.move((index + 1) * 16L, -radius, radius)
     }
     assertTrue(input.target.rotateCalls.isNotEmpty(), "rotation did not recognize")
-    assertNull(input.pair.end()?.rotation, "recognition alone fabricated a rotational flick")
+    assertNull(input.pair.end()?.bearing, "recognition alone fabricated a rotational flick")
   }
 
   @Test
@@ -399,7 +376,7 @@ class PointerPairGestureTest {
       InputConfiguration(InputConfiguration.NoBindings) {
         bindings { transform { rotate { enabled = true } } }
       }
-    fun release(center: Offset): GestureMath.RotationVelocity {
+    fun release(center: Offset): Double {
       val input = PairInput(options, center = center)
       repeat(6) { index ->
         val angle = (index + 1) * 16.0 * PI / 180.0
@@ -408,12 +385,11 @@ class PointerPairGestureTest {
       }
       val motion = assertNotNull(input.pair.end())
       assertNull(motion.pan)
-      return assertNotNull(motion.rotation)
+      return assertNotNull(motion.bearing)
     }
     val origin = release(Offset.Zero)
     val translated = release(Offset(300f, 600f))
-    assertEquals(origin.bearingDelta, translated.bearingDelta, 1e-3)
-    assertEquals(origin.duration, translated.duration)
+    assertEquals(origin, translated, 1e-2)
   }
 
   private inner class PairInput(

@@ -5,11 +5,7 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 
 class GestureMathTest {
   @Test
@@ -56,45 +52,6 @@ class GestureMathTest {
   }
 
   @Test
-  fun faster_flings_travel_further_and_last_longer() {
-    assertNull(GestureMath.fling(0.0, 0.0))
-    val slow = assertNotNull(GestureMath.fling(1400.0, 0.0))
-    val fast = assertNotNull(GestureMath.fling(2800.0, 0.0))
-    assertTrue(slow.offsetXDp > 0.0)
-    assertEquals(0.0, slow.offsetYDp)
-    assertTrue(fast.offsetXDp > slow.offsetXDp)
-    assertTrue(fast.duration > slow.duration)
-  }
-
-  @Test
-  fun synchronizing_pan_with_pinch_never_increases_travel_or_initial_speed() {
-    for (speed in listOf(250.0, 1000.0, 2000.0, 10000.0)) {
-      for (duration in listOf(100.milliseconds, 600.milliseconds)) {
-        val original = assertNotNull(GestureMath.fling(speed, -speed))
-        val combined = original.settleWith(duration)
-        assertEquals(duration, combined.duration)
-        assertEquals(GestureMath.TransformDecayPower, combined.decayPower)
-        assertTrue(combined.offsetXDp > 0.0)
-        assertTrue(combined.offsetXDp <= original.offsetXDp)
-        assertEquals(-combined.offsetXDp, combined.offsetYDp)
-        val originalSpeed =
-          original.offsetXDp * original.decayPower / original.duration.inWholeNanoseconds
-        val combinedSpeed =
-          combined.offsetXDp * combined.decayPower / combined.duration.inWholeNanoseconds
-        assertTrue(combinedSpeed <= originalSpeed + 1e-12)
-      }
-    }
-  }
-
-  @Test
-  fun opposite_vertical_flings_are_equal_and_opposite() {
-    val down = assertNotNull(GestureMath.fling(0.0, 1400.0))
-    val up = assertNotNull(GestureMath.fling(0.0, -1400.0))
-    assertEquals(down.offsetYDp, -up.offsetYDp, 1e-12)
-    assertEquals(down.duration, up.duration)
-  }
-
-  @Test
   fun a_long_screen_offset_splits_into_bounded_steps_that_sum() {
     val steps = mutableListOf<Pair<Double, Double>>()
     GestureMath.forEachScreenSpaceStep(0.0, 80.0, maxStepDp = 16.0) { x, y -> steps += x to y }
@@ -105,82 +62,11 @@ class GestureMathTest {
   }
 
   @Test
-  fun pinch_velocity_continuation_follows_zoom_direction() {
-    val zoomIn = assertNotNull(GestureMath.scaleVelocity(4.0))
-    val zoomOut = assertNotNull(GestureMath.scaleVelocity(-4.0))
-    assertTrue(zoomIn.zoomDelta > 0.0)
-    assertEquals(-zoomIn.zoomDelta, zoomOut.zoomDelta)
-    assertEquals(zoomIn.duration, zoomOut.duration)
-  }
-
-  @Test
-  fun rotation_continuation_follows_angular_velocity_direction() {
-    val clockwise = assertNotNull(GestureMath.rotationVelocity(90.0))
-    val counterclockwise = assertNotNull(GestureMath.rotationVelocity(-90.0))
-    assertTrue(clockwise.bearingDelta > 0.0)
-    assertEquals(-clockwise.bearingDelta, counterclockwise.bearingDelta)
-    assertEquals(clockwise.duration, counterclockwise.duration)
-  }
-
-  @Test
-  fun fling_tuning_preserves_screen_space_travel_and_zero_disables_it() {
-    assertNull(GestureMath.fling(1400.0, 0.0, PanMomentum(minimumSpeedDpPerSecond = 1500.0)))
-    val fling =
-      assertNotNull(
-        GestureMath.fling(
-          1050.0,
-          0.0,
-          PanMomentum(baseTime = 100.milliseconds, durationScale = 2.0),
-        ),
-      )
-    val unscaled =
-      assertNotNull(GestureMath.fling(1050.0, 0.0, PanMomentum(baseTime = 100.milliseconds)))
-    assertTrue(unscaled.offsetXDp > 0.0)
-    assertEquals(unscaled.duration * 2, fling.duration)
-    assertEquals(unscaled.offsetXDp * 2, fling.offsetXDp, 1e-10)
-    assertNull(GestureMath.fling(1050.0, 0.0, PanMomentum(durationScale = 0.0)))
-    assertNull(GestureMath.fling(0.0, 0.0, PanMomentum(minimumSpeedDpPerSecond = 0.0)))
-    assertNull(GestureMath.fling(Double.NaN, 0.0))
-  }
-
-  @Test
-  fun zoom_and_rotation_continuation_durations_are_scaled_and_capped() {
-    fun scale(continuation: VelocityMomentum) = GestureMath.scaleVelocity(4.0, continuation)
-    fun rotate(continuation: VelocityMomentum) = GestureMath.rotationVelocity(90.0, continuation)
-    for (calculate in
-      listOf<(VelocityMomentum) -> Duration?>(
-        { scale(it)?.duration },
-        { rotate(it)?.duration },
-      )) {
-      assertEquals(
-        120.milliseconds,
-        calculate(VelocityMomentum(maximumDuration = 120.milliseconds)),
-      )
-      val full = assertNotNull(calculate(VelocityMomentum(maximumDuration = 1000.milliseconds)))
-      val half =
-        assertNotNull(
-          calculate(VelocityMomentum(durationScale = 0.5, maximumDuration = 1000.milliseconds)),
-        )
-      assertEquals(full / 2.0, half)
-      assertNull(calculate(VelocityMomentum(durationScale = 0.0)))
-      assertNull(calculate(VelocityMomentum(maximumDuration = Duration.ZERO)))
+  fun a_screen_offset_too_long_for_its_step_limit_takes_longer_steps() {
+    val steps = mutableListOf<Double>()
+    GestureMath.forEachScreenSpaceStep(3200.0, 0.0, maxStepDp = 16.0, maxSteps = 100) { x, _ ->
+      steps += x
     }
-  }
-
-  @Test
-  fun pitch_momentum_preserves_direction_and_obeys_configured_threshold_and_duration() {
-    val settings = PitchMomentum(minimumSpeedDegreesPerSecond = 8.0, duration = 200.milliseconds)
-    assertNull(GestureMath.pitchVelocity(7.0, settings))
-    val forward = assertNotNull(GestureMath.pitchVelocity(10.0, settings))
-    val backward = assertNotNull(GestureMath.pitchVelocity(-10.0, settings))
-    val longer =
-      assertNotNull(GestureMath.pitchVelocity(10.0, settings.copy(duration = 400.milliseconds)))
-    assertTrue(forward.pitchDelta > 0.0)
-    assertEquals(-forward.pitchDelta, backward.pitchDelta, 1e-12)
-    assertEquals(forward.duration, backward.duration)
-    assertTrue(longer.pitchDelta > forward.pitchDelta)
-    assertEquals(400.milliseconds, longer.duration)
-    assertNull(GestureMath.pitchVelocity(10.0, settings.copy(duration = Duration.ZERO)))
-    assertNull(GestureMath.pitchVelocity(0.0, settings.copy(minimumSpeedDegreesPerSecond = 0.0)))
+    assertEquals(List(100) { 32.0 }, steps)
   }
 }

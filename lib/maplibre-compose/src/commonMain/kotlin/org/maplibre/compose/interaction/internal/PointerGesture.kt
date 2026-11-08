@@ -16,8 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
-import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.InputAction
@@ -74,10 +72,10 @@ internal class PointerGesture(
 
   private sealed class Active(var ids: List<PointerId>, previous: Active? = null) : Contact {
     var twoFingerTap: TwoFingerTapCandidate? = previous?.twoFingerTap
-    var pending: PointerContinuation? = previous?.pending
+    var pending: ReleaseVelocity? = previous?.pending
 
-    fun stage(continuation: PointerContinuation?) {
-      pending = continuation?.withPrevious(pending) ?: pending
+    fun stage(release: ReleaseVelocity?) {
+      pending = release?.withPrevious(pending) ?: pending
     }
 
     abstract fun cancel()
@@ -592,17 +590,19 @@ internal class PointerGesture(
       change.consume()
     }
 
-    /** Runs a started drag's release and the momentum staged for the camera session. */
+    /** The release velocities that [endDrag] continues the camera session with. */
+    private var release: ReleaseVelocity? = null
+
+    /** Runs a started drag's release and stages its momentum for the camera session's end. */
     fun releaseDrag(
       drag: SingleDrag?,
       sample: GesturePointerSample,
-      pending: PointerContinuation?,
+      pending: ReleaseVelocity?,
     ) {
       val completed = drag?.takeIf { it.active }
       completed?.release(sample, cameraSession)
       val momentum = completed?.takeIf { gestureInProgress }?.momentum(sample)
-      val continuation = momentum?.withPrevious(pending) ?: pending
-      continuation?.settled()?.let(::animateContinuation)
+      release = momentum?.withPrevious(pending) ?: pending
     }
 
     fun emitTap(
@@ -645,52 +645,16 @@ internal class PointerGesture(
             it != InputAction.None && it != UnspecifiedAction
           } == true)
 
-    private fun animateContinuation(velocity: PointerContinuation) {
-      val session = checkNotNull(cameraSession)
-      val token = session.token
-      velocity.pan?.let { fling -> session.scope.launch { target.animateFling(fling, token) } }
-      velocity.scale?.let { scale ->
-        session.scope.launch {
-          animateDecelerating(scale.duration) { fraction ->
-            val delta = scale.zoomDelta * fraction
-            if (delta != 0.0)
-              target.inputScaleBy(
-                zoomLevelsToScale(delta),
-                velocity.scaleAnchor,
-                gestureToken = token,
-              )
-          }
-        }
-      }
-      velocity.rotation?.let { rotation ->
-        session.scope.launch {
-          animateDecelerating(rotation.duration) { fraction ->
-            target.inputRotateAndPitchBy(
-              rotation.bearingDelta * fraction,
-              0.0,
-              feedback = false,
-              anchor = velocity.rotationAnchor,
-              gestureToken = token,
-            )
-          }
-        }
-      }
-      velocity.pitch?.let { pitch ->
-        session.scope.launch {
-          animateDecelerating(pitch.duration) { fraction ->
-            target.inputRotateAndPitchBy(0.0, pitch.pitchDelta * fraction, gestureToken = token)
-          }
-        }
-      }
-    }
-
     fun endDrag() {
+      val momentum = release
+      release = null
       val session = cameraSession ?: return
       cameraSession = null
-      session.end()
+      session.end(momentum)
     }
 
     fun cancelCameraSession() {
+      release = null
       val previous = cameraSession
       cameraSession = null
       previous?.cancel()
@@ -709,7 +673,6 @@ internal class PointerGesture(
           scope,
           target,
           token,
-          animationDuration = options.scaledAnimationDuration(),
           onHaptic = onHaptic,
         ) {
           if (cameraSession === session) {

@@ -46,12 +46,14 @@ internal class InputBurst(
       }
   }
 
-  fun end() {
+  /** Ends the burst's session with the momentum that [release] starts, and returns the session. */
+  fun end(release: ReleaseVelocity? = null): GestureInputSession? {
     idleEnd?.cancel()
     idleEnd = null
-    val completed = session ?: return
+    val completed = session ?: return null
     session = null
-    completed.end()
+    completed.end(release)
+    return completed
   }
 
   fun cancel() {

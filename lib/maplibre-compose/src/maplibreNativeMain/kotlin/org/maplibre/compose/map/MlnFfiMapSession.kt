@@ -29,7 +29,7 @@ import org.maplibre.compose.camera.internal.runCameraCommand
 import org.maplibre.compose.camera.resolveScreenPoint
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.interaction.BearingSnapping
+import org.maplibre.compose.interaction.internal.GestureMomentum
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
@@ -66,9 +66,13 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.AnimationOptions
 import org.maplibre.nativeffi.BoundOptions
+import org.maplibre.nativeffi.CameraChangeSource
 import org.maplibre.nativeffi.CameraDelta
 import org.maplibre.nativeffi.CameraFitOptions
 import org.maplibre.nativeffi.CameraOptions
+import org.maplibre.nativeffi.CameraTransitionEnd
+import org.maplibre.nativeffi.CameraTransitionHandler
+import org.maplibre.nativeffi.CameraTransitionOutcome
 import org.maplibre.nativeffi.CameraUpdate as FfiCameraUpdate
 import org.maplibre.nativeffi.CameraUpdateMode
 import org.maplibre.nativeffi.Completion
@@ -184,6 +188,11 @@ internal class MlnFfiMapSession(
   private var styleCommandGroupOpen = false
   private var activeGestureToken: CameraInputToken? = null
   private var gestureBearing: Double? = null
+
+  /** The momentum that continues an ended gesture, until the core reports its end. Main only. */
+  private var glide: Glide? = null
+
+  private class Glide(val token: CameraInputToken, val transitionId: ULong, var bearing: Double)
 
   private var styleBinding: MlnFfiStyleBinding? = null
 
@@ -448,6 +457,8 @@ internal class MlnFfiMapSession(
     activeGestureToken?.complete()
     activeGestureToken = null
     gestureBearing = null
+    glide?.token?.complete()
+    glide = null
   }
 
   // endregion
@@ -487,6 +498,15 @@ internal class MlnFfiMapSession(
             if (viewport.hasViewport) notifyViewportChanged()
           }
         }
+        if (
+          (event.payload as? RuntimeEventPayload.CameraChange)?.value?.source ==
+            CameraChangeSource.MOMENTUM
+        )
+          glide?.let { current ->
+            val bearing = viewport.camera.bearing
+            current.token.reportRotation(current.bearing, bearing)
+            current.bearing = bearing
+          }
         if (presentationActive && mapEvent != null) callbacks.onEvent(this, mapEvent)
       }
 
@@ -808,7 +828,7 @@ internal class MlnFfiMapSession(
       animation.toAnimationOptions(),
       guard = guard,
       fields = update.fields(),
-    ) { map, options ->
+    ) { map, options, _ ->
       map.discarding.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
@@ -837,7 +857,7 @@ internal class MlnFfiMapSession(
           if (bearing != null) add(TransitionField.Bearing)
           if (pitch != null) add(TransitionField.Pitch)
         },
-    ) { map, options ->
+    ) { map, options, _ ->
       val view = map.getSnapshot().view
       val size = view.extent
       val point =
@@ -882,8 +902,10 @@ internal class MlnFfiMapSession(
       cameraForBounds(it, boundingBox, bearing, pitch, cameraPadding, fitPadding)
     }
     if (map != null && camera == null) return logNoFittingCamera()
-    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { target, options
-      ->
+    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) {
+      target,
+      options,
+      _ ->
       target.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
@@ -928,29 +950,29 @@ internal class MlnFfiMapSession(
     guard: CameraCommandGuard? = null,
     anchored: Boolean = false,
     fields: Set<TransitionField> = TransitionField.entries.toSet(),
-    start: (MapHandle, AnimationOptions) -> Unit,
+    /** Sends the transition, with the phase of [gestureToken]'s gesture or none. */
+    start: (MapHandle, AnimationOptions, GesturePhase) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
     val map = map
     if (isClosing || map == null) {
       release()
     } else {
+      // A gesture's transition carries its phase, so the core counts what it changes for the
+      // gesture's snapping.
+      var phase = GesturePhase.NONE
       val started =
         continuation.isActive &&
           runCameraCommand(
             gestureToken,
             guard,
-            activate = {
-              gestureToken?.let {
-                // A transition carries no gesture phase of its own, so a gesture that begins
-                // with one marks itself with an empty update first.
-                if (activateGesture(it) == GesturePhase.BEGIN) {
-                  map.discarding.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
-                }
-              }
-            },
+            activate = { gestureToken?.let { phase = activateGesture(it) } },
           ) {
-            cameraTransitions.start(map, animation, continuation, anchored, fields, start)
+            cameraTransitions.start(map, animation, continuation, anchored, fields) {
+              target,
+              options ->
+              start(target, options, phase)
+            }
           }
       if (!started) release()
     }
@@ -1051,9 +1073,15 @@ internal class MlnFfiMapSession(
       cameraForBounds(map, fit.bounds, fit.bearing, fit.pitch, null, DpPadding.Zero) ?: return
     startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
       target,
-      animation ->
+      animation,
+      phase ->
       target.updateCamera(
-        FfiCameraUpdate(mode = CameraUpdateMode.EASE, camera = camera, animation = animation),
+        FfiCameraUpdate(
+          mode = CameraUpdateMode.EASE,
+          camera = camera,
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1183,15 +1211,88 @@ internal class MlnFfiMapSession(
       }
     }
 
-  override fun onGestureEnded(token: CameraInputToken) = lifecycleAuthority.postToMain {
-    finishGesture(token, cancelled = false)
-  }
+  override val runsMomentum: Boolean
+    get() = true
+
+  override fun onGestureEnded(token: CameraInputToken, momentum: GestureMomentum?) =
+    lifecycleAuthority.postToMain {
+      if (momentum == null) finishGesture(token, cancelled = false) else glide(token, momentum)
+    }
 
   override fun cancelGesture(token: CameraInputToken) = lifecycleAuthority.postToMain {
     finishGesture(token, cancelled = true)
   }
 
+  /**
+   * Ends [token]'s gesture with [momentum], which the core runs. The gesture lasts until the
+   * momentum ends: the snapshot keeps `gestureInProgress`, and [token] stays active, so the camera
+   * keeps reporting a gesture as its reason for moving.
+   */
+  private fun glide(token: CameraInputToken, momentum: GestureMomentum) {
+    token.finish(cancelled = false) {
+      val map = map
+      if (map == null || activeGestureToken !== token) {
+        token.complete()
+        return@finish
+      }
+      activeGestureToken = null
+      val current =
+        Glide(token, cameraTransitions.reserveId(), gestureBearing ?: viewport.camera.bearing)
+      gestureBearing = null
+      glide = current
+      try {
+        map.discarding.applyCameraDelta(
+          CameraDelta(
+            momentum = momentum.toFfi(),
+            animation =
+              AnimationOptions(
+                transitionId = current.transitionId,
+                // Completes the token even after the runtime closes, so its input can finish.
+                endHandler =
+                  CameraTransitionHandler { end ->
+                    owner.completeOnMain { glideEnded(current, end) }
+                  },
+              ),
+            gesturePhase = GesturePhase.END,
+          ),
+        )
+      } catch (error: Throwable) {
+        // A rejected command never runs its end handler.
+        glideEnded(current, null)
+        throw error
+      }
+    }
+  }
+
+  /**
+   * The core reports the end of [ended]'s momentum after its final camera events. A cancelled glide
+   * reports how fast it still moved, which the next release adds to its own.
+   */
+  private fun glideEnded(ended: Glide, end: CameraTransitionEnd?) {
+    try {
+      if (glide === ended) {
+        glide = null
+        // A momentum that moves nothing raises no camera event, so read the snapshot that shows
+        // the gesture ended.
+        map?.let { if (!isClosing) viewport.refresh(it) }
+        if (activeGestureToken == null) reportGestureActive(false)
+      }
+      if (end?.outcome == CameraTransitionOutcome.CANCELLED)
+        ended.token.glideCancelled(end.velocity.toGlideVelocity())
+    } finally {
+      ended.token.complete()
+    }
+  }
+
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
+    val gliding = glide
+    if (cancelled && gliding?.token === token) {
+      // Newer input or a camera command stops the momentum. Its end handler completes the token.
+      glide = null
+      map?.discarding?.cancelCameraTransitionsWithId(gliding.transitionId)
+      if (activeGestureToken == null) reportGestureActive(false)
+      return
+    }
     token.finish(cancelled) {
       val map = map
       if (map == null) {
@@ -1284,9 +1385,13 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
-        CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation),
+        CameraDelta(
+          offset = ScreenPoint(deltaX, deltaY),
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1310,9 +1415,14 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Zoom),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
-        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation),
+        CameraDelta(
+          scale = scale,
+          anchor = anchor?.toScreenPoint(),
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1333,15 +1443,12 @@ internal class MlnFfiMapSession(
     feedback: Boolean,
   ) {
     submitCameraInput(gestureToken) { phase ->
-      if (feedback && bearingDelta != 0.0 && gestureToken != null) {
-        val (from, to) =
-          run {
-            val from = gestureBearing ?: getSnapshot().view.camera.bearing
-            val to = from + bearingDelta
-            gestureBearing = to
-            from to to
-          }
-        gestureToken.reportRotation(from, to)
+      // Every rotation moves the bearing that haptics, here and through the momentum, start from.
+      if (bearingDelta != 0.0 && gestureToken != null) {
+        val from = gestureBearing ?: getSnapshot().view.camera.bearing
+        val to = from + bearingDelta
+        gestureBearing = to
+        if (feedback) gestureToken.reportRotation(from, to)
       }
       val bearing = bearingDelta.takeIf { it != 0.0 }
       val pitch = pitchDelta.takeIf { it != 0.0 }
@@ -1362,31 +1469,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override suspend fun snapBearingAwaitingTransition(
-    snapping: BearingSnapping,
-    duration: Duration,
-    gestureToken: CameraInputToken,
-  ) {
-    if (!acceptsGestures) return
-    val map = map ?: return
-    // Snapshot reads can precede queued rotation. The ordered query observes every earlier delta.
-    val current = map.getCamera().await().camera.bearing
-    val bearing = current + (snapping.delta(current) ?: return)
-    startTransitionAwaitingRelease(
-      duration.toAnimationOptions(),
-      gestureToken = gestureToken,
-      fields = setOf(TransitionField.Bearing),
-    ) { map, animation ->
-      map.discarding.updateCamera(
-        FfiCameraUpdate(
-          mode = CameraUpdateMode.EASE,
-          camera = CameraOptions(bearing = bearing),
-          animation = animation,
-        ),
-      )
-    }
-  }
-
   override suspend fun rotateAndPitchByAwaitingTransition(
     bearingDelta: Double,
     pitchDelta: Double,
@@ -1399,13 +1481,14 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Bearing, TransitionField.Pitch),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
         CameraDelta(
           bearing = bearingDelta.takeIf { it != 0.0 },
           pitch = pitchDelta.takeIf { it != 0.0 },
           anchor = anchor?.toScreenPoint(),
           animation = animation,
+          gesturePhase = phase,
         ),
       )
     }
