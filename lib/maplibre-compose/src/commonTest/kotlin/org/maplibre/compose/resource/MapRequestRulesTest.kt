@@ -130,6 +130,16 @@ class MapRequestRulesTest {
     assertFailsWith<IllegalArgumentException> {
       MapRequestRules { addHeaders("**", mapOf("X-A" to "1"), setOf(MapResourceKind("8"))) }
     }
+    // MapLibre Native rejects NUL, and with it the whole rule list.
+    assertFailsWith<IllegalArgumentException> {
+      MapRequestRules { addQueryParameters("**", mapOf("a\u0000b" to "v")) }
+    }
+    assertFailsWith<IllegalArgumentException> {
+      MapRequestRules { addQueryParameters("**", mapOf("key" to "a\u0000b")) }
+    }
+    assertFailsWith<IllegalArgumentException> {
+      MapRequestRules { addQueryParameters("https://a.com/\u0000**", mapOf("key" to "v")) }
+    }
   }
 
   @Test
