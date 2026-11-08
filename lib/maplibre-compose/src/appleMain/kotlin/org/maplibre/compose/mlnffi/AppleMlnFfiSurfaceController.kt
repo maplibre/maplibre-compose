@@ -27,7 +27,7 @@ import platform.QuartzCore.CAMetalLayer
  * Hosts a map in a `CAMetalLayer` from the main thread; the native Metal worker renders and
  * presents into the layer.
  *
- * A frame pacer from [appleFramePacerCreate] demands the render session's frames at the display's
+ * A frame pacer from `appleFramePacerCreate` demands the render session's frames at the display's
  * refreshes, within [maximumFps]. On macOS that pacer follows the main display, the one with the
  * menu bar, even while the layer's window is on another display. A frame wake queues a pass on main
  * that only takes the session's frame results.
