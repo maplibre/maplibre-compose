@@ -11,11 +11,14 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -43,7 +46,6 @@ class StyleNodeImageTest {
     val first = painter(Color.Red)
     val replacement = painter(Color.Blue)
     val ready = CompletableDeferred<Unit>()
-    val snapshots = mutableListOf<StyleSnapshot>()
     val root =
       StyleNode(
         RecordingStyleBinding(),
@@ -52,7 +54,6 @@ class StyleNodeImageTest {
           if (request == replacement) ready.await()
           content(if (request == replacement) 2 else 1)
         },
-        publish = { snapshots += it },
       )
     val source =
       GeoJsonSource(
@@ -64,7 +65,7 @@ class StyleNodeImageTest {
     root.children += listOf(retained, removed)
     root.commit()
     runCurrent()
-    val original = snapshots.last().images.single()
+    val original = assertNotNull(root.takeRevision()).images.single()
 
     val updatedSource =
       GeoJsonSource(
@@ -82,7 +83,7 @@ class StyleNodeImageTest {
     root.children.remove(removed)
     root.commit()
     runCurrent()
-    val pending = snapshots.last()
+    val pending = assertNotNull(root.takeRevision())
     assertTrue(pending.imagesPending)
     assertEquals(data(2), (pending.sources.single() as SourceDefinition.GeoJson).data)
     assertEquals(listOf("retained"), pending.layers.map { it.definition.id })
@@ -92,7 +93,7 @@ class StyleNodeImageTest {
 
     ready.complete(Unit)
     runCurrent()
-    val completed = snapshots.last()
+    val completed = assertNotNull(root.takeRevision())
     assertFalse(completed.imagesPending)
     assertEquals(2, completed.images.single().image.width)
     assertEquals(JsonPrimitive(completed.images.single().id), paint(completed)["fill-pattern"])
@@ -100,20 +101,19 @@ class StyleNodeImageTest {
   }
 
   @Test
-  fun inline_painter_completion_cannot_publish_a_partially_ready_snapshot() = runTest {
-    val revisions = mutableListOf<StyleSnapshot>()
+  fun inline_painter_completion_cannot_produce_a_partially_ready_revision() = runTest {
     val root =
       StyleNode(
         RecordingStyleBinding(),
         CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
         prepareImage = { content(1) },
-        publish = { revisions += it },
       )
     try {
       root.children +=
         listOf(imageLayer("red", painter(Color.Red)), imageLayer("blue", painter(Color.Blue)))
       root.commit()
-      val ready = revisions.filterNot { it.imagesPending }.single()
+      val ready = assertNotNull(root.takeRevision())
+      assertFalse(ready.imagesPending)
       val imageIds = ready.images.map { JsonPrimitive(it.id) }
       assertEquals(2, ready.layers.size)
       assertTrue(
@@ -165,22 +165,15 @@ class StyleNodeImageTest {
   @Test
   fun bitmap_literals_are_read_in_the_image_scope_not_during_commit() = runTest {
     val bitmap = FakeImageBitmap(2, 1)
-    val snapshots = mutableListOf<StyleSnapshot>()
-    val prepared = CompletableDeferred<Unit>()
+    val changes = Channel<Unit>(Channel.CONFLATED)
     val root =
-      StyleNode(
-        RecordingStyleBinding(),
-        backgroundScope,
-        publish = {
-          snapshots += it
-          if (!it.imagesPending) prepared.complete(Unit)
-        },
-      )
+      StyleNode(RecordingStyleBinding(), backgroundScope, invalidated = { changes.trySend(Unit) })
     root.children +=
       imageLayer("bitmap", StyleImageRequest.Bitmap(BitmapLiteral.of(bitmap, false, null)))
     root.commit()
 
-    val pending = snapshots.last()
+    changes.receive()
+    val pending = assertNotNull(root.takeRevision())
     assertEquals(0, bitmap.reads)
     assertTrue(pending.imagesPending)
     assertEquals(
@@ -188,30 +181,53 @@ class StyleNodeImageTest {
       (pending.layers.single().definition.value["paint"] as? JsonObject)?.get("fill-pattern"),
     )
 
-    runCurrent()
-    prepared.await()
+    changes.receive()
+    assertFalse(assertNotNull(root.takeRevision()).imagesPending)
     assertEquals(1, bitmap.reads)
     root.close()
   }
 
   @Test
   fun painters_that_draw_identical_pixels_share_one_style_image() = runTest {
-    val snapshots = mutableListOf<StyleSnapshot>()
-    val root =
-      StyleNode(
-        RecordingStyleBinding(),
-        backgroundScope,
-        prepareImage = { content(1) },
-        publish = { snapshots += it },
-      )
+    val root = StyleNode(RecordingStyleBinding(), backgroundScope, prepareImage = { content(1) })
     root.children +=
       listOf(imageLayer("red", painter(Color.Red)), imageLayer("blue", painter(Color.Blue)))
     root.commit()
     runCurrent()
 
-    val ready = snapshots.last()
+    val ready = assertNotNull(root.takeRevision())
     assertFalse(ready.imagesPending)
     assertEquals(1, ready.images.size)
+    root.close()
+  }
+
+  @Test
+  fun images_prepared_while_the_consumer_is_busy_produce_one_revision() = runTest {
+    val requests = listOf(painter(Color.Red), painter(Color.Green), painter(Color.Blue))
+    val ready = CompletableDeferred<Unit>()
+    var invalidations = 0
+    val root =
+      StyleNode(
+        RecordingStyleBinding(),
+        backgroundScope,
+        prepareImage = { request ->
+          ready.await()
+          content(requests.indexOf(request) + 1)
+        },
+        invalidated = { invalidations++ },
+      )
+    root.children += requests.mapIndexed { index, request -> imageLayer("layer-$index", request) }
+    root.commit()
+    runCurrent()
+    assertTrue(assertNotNull(root.takeRevision()).imagesPending)
+
+    ready.complete(Unit)
+    runCurrent()
+    assertEquals(2, invalidations)
+    val completed = assertNotNull(root.takeRevision())
+    assertFalse(completed.imagesPending)
+    assertEquals(3, completed.images.size)
+    assertNull(root.takeRevision())
     root.close()
   }
 

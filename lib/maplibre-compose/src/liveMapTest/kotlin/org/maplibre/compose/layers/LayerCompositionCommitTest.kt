@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -24,10 +26,9 @@ import org.maplibre.compose.style.StyleSnapshot
 
 class LayerCompositionCommitTest {
   @Test
-  fun recomposition_does_not_publish_or_mutate_a_snapshot_until_apply() = runTest {
+  fun recomposition_does_not_change_the_revision_or_mutate_a_snapshot_until_apply() = runTest {
     val tick = mutableIntStateOf(0)
-    val published = mutableListOf<StyleSnapshot>()
-    val root = StyleNode(RecordingStyleBinding(), backgroundScope, publish = { published += it })
+    val root = StyleNode(RecordingStyleBinding(), backgroundScope)
     val recomposer = Recomposer(EmptyCoroutineContext)
     val composition = ControlledComposition(MapNodeApplier(root), recomposer)
     try {
@@ -41,7 +42,7 @@ class LayerCompositionCommitTest {
           }
         }
       }
-      val first = published.single()
+      val first = assertNotNull(root.takeRevision())
       tick.intValue = 1
       Snapshot.sendApplyNotifications()
       composition.recordModificationsOf(setOf(tick))
@@ -54,15 +55,15 @@ class LayerCompositionCommitTest {
         snapshot.dispose()
       }
       root.commit()
-      assertEquals(1, published.size, "recomposition must not publish before apply")
+      assertNull(root.takeRevision(), "recomposition must not change the revision before apply")
       composition.applyChanges()
       composition.applyLateChanges()
       composition.changesApplied()
-      assertEquals(2, published.size)
+      val applied = assertNotNull(root.takeRevision())
       fun value(declaration: StyleSnapshot) =
         declaration.layers.single().definition.value["paint"]!!.jsonObject["value"]
       assertEquals(JsonPrimitive(0f), value(first))
-      assertEquals(JsonPrimitive(1f), value(published.last()))
+      assertEquals(JsonPrimitive(1f), value(applied))
     } finally {
       root.close()
       composition.dispose()
