@@ -207,17 +207,24 @@ internal class NativePresentation(
 
     /**
      * Renderer thread. Lets the session go of its window and keeps the session, its renderer, and
-     * its tiles for the host's next window. Only a [PlatformWindowTarget] session gets here, and it
-     * keeps its own reference to the window, so the host need not wait for the release.
+     * its tiles for the host's next window. Only a [PlatformWindowTarget] session gets here.
+     *
+     * The session keeps its own reference to the window, but Android's `SurfaceView` destroys the
+     * window's surface once `surfaceDestroyed` returns, and Android 8.0 crashes if the session
+     * still draws into it then. So this waits until the session has stopped, as the FFI's own
+     * Android example does. A session that can't let go of its window is released whole, and the
+     * next window attaches a new one.
      */
     fun releaseTarget() {
       val current = session ?: return
       if (targetReleased || releaseRequested) return
       targetReleased = true
       ready = false
-      current.releaseTarget().asDeferred().invokeOnCompletion { error ->
-        // A session that failed reports it in its frame results.
-        if (error != null) logger?.w(error) { "The render session could not release its window" }
+      try {
+        await(current, current.releaseTarget())
+      } catch (error: MaplibreException) {
+        logger?.d(error) { "The render session could not release its window; releasing it" }
+        closeSession()
       }
     }
 
