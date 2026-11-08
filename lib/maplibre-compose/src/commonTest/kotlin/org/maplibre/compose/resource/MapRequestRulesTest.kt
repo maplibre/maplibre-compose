@@ -37,6 +37,18 @@ class MapRequestRulesTest {
   }
 
   @Test
+  fun a_rule_keeps_its_kinds_when_the_caller_changes_the_set() {
+    val kinds = mutableSetOf(MapResourceKind.Tile)
+    val rules = MapRequestRules {
+      addHeaders("https://example.com/**", mapOf("X-Key" to "1"), kinds)
+      addQueryParameters("https://example.com/**", mapOf("key" to "1"), kinds)
+    }
+    kinds.clear()
+    assertEquals(setOf(MapResourceKind.Tile), rules.headerRules.single().kinds)
+    assertEquals(setOf(MapResourceKind.Tile), rules.queryParameterRules.single().kinds)
+  }
+
+  @Test
   fun the_first_matching_query_rule_adds_its_encoded_parameters() {
     val rules = MapRequestRules {
       addQueryParameters(
