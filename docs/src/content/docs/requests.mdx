@@ -18,29 +18,18 @@ You can change these requests from Kotlin code. Do this when:
   that MapLibre cannot read directly.
 
 A <Api of="MapRequestInterceptor" /> changes the URL or headers of a request
-before MapLibre sends it. <Api of="MapRequestRules" /> is an interceptor for
-values that do not change, such as an API key. A
-<Api of="MapResourceProvider" /> returns the data for a request from your code,
-so MapLibre sends no request. They work on every platform, and they also apply
-to snapshots and offline downloads.
+before MapLibre sends it. A <Api of="MapResourceProvider" /> returns the data
+for a request from your code, so MapLibre sends no request. Both work on every
+platform, and they also apply to snapshots and offline downloads.
 
-## Add an API key or a fixed header
-
-When the values stay the same while the app runs, list them as rules. Each rule
-has a URL pattern, where `*` matches any characters except `/` and `**` matches
-any characters. For each request, the first query parameter rule and the first
-header rule whose patterns match it apply:
-
-<Code code={region(requests, "rules")} lang="kotlin" title="MapRequests.kt" />
-
-Match only URLs on your own server. A style often loads resources from
-several servers, and a key for your server should not go to the others.
-
-## Add headers that change
+## Add headers
 
 This interceptor adds a token to requests for one tile server:
 
 <Code code={region(requests, "headers")} lang="kotlin" title="MapRequests.kt" />
+
+Check the URL before you add credentials. A style often loads resources from
+several servers, and a token for your server should not go to the others.
 
 The example reads the token from a `StateFlow` on each request, so a new token
 applies to later requests.
@@ -48,9 +37,10 @@ applies to later requests.
 ## Rewrite URLs
 
 `rewriteUrl` returns the URL to fetch instead, or `null` to keep the original.
-This interceptor sends the requests for one server to another:
+To add the same query parameters or headers to every matching request, such as
+an API key, use <Api of="MapRequestRules" /> instead. It needs no callback:
 
-<Code code={region(requests, "rewrite")} lang="kotlin" title="MapRequests.kt" />
+<Code code={region(requests, "rules")} lang="kotlin" title="MapRequests.kt" />
 
 ## Serve data from app code
 

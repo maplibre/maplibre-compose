@@ -45,22 +45,6 @@ fun fixedRules(apiKey: String, token: String): MapRequestInterceptor {
   return rules
 }
 
-fun mirrorRewrite(): MapRequestInterceptor {
-  // #region rewrite
-  val interceptor =
-    MapRequestInterceptor(
-      rewriteUrl = { request ->
-        if (request.url.startsWith("https://tiles.example.com/")) {
-          request.url.replaceFirst("https://tiles.example.com/", "https://mirror.example.com/")
-        } else {
-          null
-        }
-      },
-    )
-  // #endregion rewrite
-  return interceptor
-}
-
 fun bundledTiles(): MapResourceProvider {
   // #region scheme
   // Serves app://tiles/14/2627/5721.pbf from composeResources/files/tiles/14/2627/5721.pbf
