@@ -90,7 +90,7 @@ private constructor(
       parameters.keys.forEach { name ->
         require(name.isNotEmpty()) { "A query parameter name must not be empty, was '$name'" }
       }
-      queryParameterRules += MapRequestRule(urlPattern, kinds, parameters.toMap())
+      queryParameterRules += MapRequestRule(urlPattern, kinds.toSet(), parameters.toMap())
     }
 
     /**
@@ -112,7 +112,7 @@ private constructor(
       kinds: Set<MapResourceKind> = emptySet(),
     ) {
       headers.forEach { (name, value) -> requireValidHeader(name, value) }
-      headerRules += MapRequestRule(urlPattern, kinds, headers.toMap())
+      headerRules += MapRequestRule(urlPattern, kinds.toSet(), headers.toMap())
     }
   }
 
