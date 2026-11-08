@@ -77,18 +77,23 @@ private constructor(
      * the library percent-encodes every byte except letters, digits, `-`, `.`, `_`, and `~`.
      *
      * @param urlPattern A glob that the whole URL must match. See [MapRequestRule.urlPattern].
-     * @param parameters The query parameter names and values. Names must not be empty.
+     * @param parameters The query parameter names and values. Names must not be empty, and names
+     *   and values must not contain NUL characters.
      * @param kinds The kinds of request that the rule covers, or an empty set for every kind.
-     * @throws IllegalArgumentException if a name is empty, or [urlPattern] or [kinds] is invalid as
-     *   [MapRequestRule] describes.
+     * @throws IllegalArgumentException if a name is empty, a name or value contains a NUL
+     *   character, or [urlPattern] or [kinds] is invalid as [MapRequestRule] describes.
      */
     public fun addQueryParameters(
       urlPattern: String,
       parameters: Map<String, String>,
       kinds: Set<MapResourceKind> = emptySet(),
     ) {
-      parameters.keys.forEach { name ->
+      parameters.forEach { (name, value) ->
         require(name.isNotEmpty()) { "A query parameter name must not be empty, was '$name'" }
+        // MapLibre Native reads these as C strings. The message never shows the value.
+        require(NulCharacter !in name && NulCharacter !in value) {
+          "The query parameter '${name.replace(NulCharacter, ' ')}' contains a NUL character"
+        }
       }
       queryParameterRules += MapRequestRule(urlPattern, kinds.toSet(), parameters.toMap())
     }
@@ -129,7 +134,8 @@ private constructor(
  *   matches any characters except `/`, `**` matches any characters, and `?` matches one character
  *   except `/`. `\` makes the next character match only itself. For example, the pattern
  *   `https://tiles.example.com/` followed by `**` matches every URL on that server. A pattern can
- *   have at most 4096 parts, where a run of `*` and an escaped character each count as one part.
+ *   have at most 4096 parts, where a run of `*` and an escaped character each count as one part,
+ *   and must not contain NUL characters.
  * @property kinds The kinds of request that the rule covers, or an empty set for every kind. Only
  *   the named kinds of [MapResourceKind] are valid.
  * @property values The query parameters or HTTP headers that the rule adds, by name.
@@ -145,6 +151,7 @@ internal constructor(
   internal val encodedQuery: String by lazy { encodeQuery(values) }
 
   init {
+    require(NulCharacter !in urlPattern) { "urlPattern must not contain a NUL character" }
     val tokens = UrlGlob.tokenCount(urlPattern)
     require(tokens <= UrlGlob.MaxTokens) {
       "urlPattern must have at most ${UrlGlob.MaxTokens} parts, had $tokens"
@@ -202,6 +209,8 @@ private val ManagedHeaders: Set<String> =
   )
 
 private const val FieldNamePunctuation = "!#$%&'*+-.^_`|~"
+
+private const val NulCharacter = '\u0000'
 
 private fun requireValidHeader(name: String, value: String) {
   require(
