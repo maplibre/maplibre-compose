@@ -9,6 +9,7 @@ import org.maplibre.compose.desktop.bridge.IoSurfaceRingMapHost
 import org.maplibre.compose.desktop.bridge.LinuxOpenGlMapHost
 import org.maplibre.compose.desktop.bridge.MetalMapHost
 import org.maplibre.compose.desktop.bridge.WindowsAngleMapHost
+import org.maplibre.compose.desktop.bridge.WindowsDirect3DInterop
 import org.maplibre.compose.desktop.bridge.ensureCapabilities
 import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.location.XdgPortalWindow
@@ -18,6 +19,11 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.Status
+import org.maplibre.nativeffi.VulkanDeviceHandle
+import org.maplibre.nativeffi.VulkanDeviceOptions
+import org.maplibre.nativeffi.create
 
 /** Window-scoped access; each [create] allocates a separate map-scoped bridge. */
 internal abstract class DesktopComposeMapPresentationHost<C : ComposeGpuContext>(
@@ -95,8 +101,26 @@ internal class Direct3D12PresentationHost(
     },
   ) {
   override fun createMapHost(producer: MapRenderBackend): MlnFfiMapHost =
-    if (producer == MapRenderBackend.Vulkan) DxgiSharedTextureRingMapHost(this)
-    else Direct3D12MapHost(this)
+    if (producer == MapRenderBackend.Vulkan && vulkanSharesComposeAdapter()) {
+      DxgiSharedTextureRingMapHost(this)
+    } else {
+      // Without a Vulkan device on Compose's adapter, as on a software adapter, Vulkan renders into
+      // textures this host allocates and imports instead.
+      Direct3D12MapHost(this, producer)
+    }
+
+  /** Whether a Vulkan device runs on the adapter of Compose's device, which the ring needs. */
+  private fun vulkanSharesComposeAdapter(): Boolean {
+    val device = currentContext()?.device ?: return false
+    val luid = DxgiSharedTextureRingMapHost.luidBytes(WindowsDirect3DInterop.adapterLuidOf(device))
+    return try {
+      VulkanDeviceHandle.create(VulkanDeviceOptions(deviceLuid = luid)).release()
+      true
+    } catch (error: MaplibreException) {
+      if (error.status != Status.NOT_FOUND) throw error
+      false
+    }
+  }
 }
 
 internal class OpenGlPresentationHost(

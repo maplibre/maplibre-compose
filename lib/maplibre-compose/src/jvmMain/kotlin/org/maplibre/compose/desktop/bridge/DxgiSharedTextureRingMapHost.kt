@@ -52,7 +52,7 @@ internal class DxgiSharedTextureRingMapHost(presentationHost: Direct3D12Presenta
     return rendererThread
       .run {
         // The textures belong to the Vulkan device's GPU, so pick Compose's adapter by its LUID.
-        VulkanDeviceHandle.create(VulkanDeviceOptions(deviceLuid = luid.toLuidBytes()))
+        VulkanDeviceHandle.create(VulkanDeviceOptions(deviceLuid = luidBytes(luid)))
       }
       .also { vulkan = it }
   }
@@ -92,8 +92,10 @@ internal class DxgiSharedTextureRingMapHost(presentationHost: Direct3D12Presenta
     vulkan = null
     closing?.release()
   }
-}
 
-/** The 8 bytes of a Windows `LUID`, low part first, as Vulkan's `deviceLUID` holds them. */
-private fun Long.toLuidBytes(): ByteArray =
-  ByteBuffer.allocate(Long.SIZE_BYTES).order(ByteOrder.LITTLE_ENDIAN).putLong(this).array()
+  internal companion object {
+    /** The 8 bytes of a Windows `LUID`, low part first, as Vulkan's `deviceLUID` holds them. */
+    fun luidBytes(luid: Long): ByteArray =
+      ByteBuffer.allocate(Long.SIZE_BYTES).order(ByteOrder.LITTLE_ENDIAN).putLong(luid).array()
+  }
+}

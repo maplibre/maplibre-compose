@@ -10,7 +10,16 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
 import org.jetbrains.skia.SurfaceColorFormat
+import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
+import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR
+import org.lwjgl.vulkan.KHRExternalMemoryWin32.vkGetMemoryWin32HandlePropertiesKHR
+import org.lwjgl.vulkan.VK10.VK_FORMAT_B8G8R8A8_UNORM
+import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
+import org.lwjgl.vulkan.VK10.VK_SUCCESS
+import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT
+import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.Direct3D12PresentationHost
 import org.maplibre.compose.map.MapExtent
@@ -49,20 +58,31 @@ internal data class Direct3DTextureTarget(
 )
 
 /**
- * Bridges MapLibre's OpenGL (WGL) rendering into Compose's Direct3D 12 context on Windows. The host
- * allocates an RGBA texture on Compose's device, and WGL imports it through its shared handle. The
- * Vulkan producer renders into a ring the session allocates instead; see
- * [DxgiSharedTextureRingMapHost].
+ * Bridges MapLibre's Vulkan or OpenGL rendering into Compose's Direct3D 12 context on Windows. The
+ * host allocates a texture on Compose's device, and the producer imports it through its shared
+ * handle. Vulkan uses BGRA textures; OpenGL uses RGBA textures.
+ *
+ * A Vulkan producer renders into a ring the session allocates instead when a Vulkan device shares
+ * Compose's adapter; see [DxgiSharedTextureRingMapHost]. This host serves Vulkan when none does, as
+ * on a software adapter.
  */
-internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
+internal class Direct3D12MapHost(
+  presentationHost: Direct3D12PresentationHost,
+  producer: MapRenderBackend = MapRenderBackend.OpenGl,
+) :
   SharedTextureMapHost<Direct3D12ComposeGpuContext, Direct3D12MapHost.SharedTexture>(
     presentationHost,
-    RenderBackendPair(MapRenderBackend.OpenGl, ComposeRenderBackend.Direct3D12),
+    RenderBackendPair(producer, ComposeRenderBackend.Direct3D12),
     "maplibre-windows-map-renderer",
   ) {
   private val presenter = SkiaTexturePresenter(Direct3DTextureWrapper)
   private val deviceChange = DeviceChangeRecovery<NativeHandle>(Direct3D12DeviceChangeMessage)
+  private var vulkan: VulkanDevice? = null
   private var wgl: WindowsWglContext? = null
+
+  private val dxgiFormat =
+    if (producer == MapRenderBackend.OpenGl) DXGI_FORMAT_R8G8B8A8_UNORM
+    else DXGI_FORMAT_B8G8R8A8_UNORM
 
   override fun acquireFrame(extent: MapExtent): MlnFfiMapFrameAcquisition {
     val device = withPreparedContext { it.device } ?: return MlnFfiMapFrameAcquisition.NotReady
@@ -101,8 +121,7 @@ internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
     device: NativeHandle,
     generation: Long,
   ): SharedTexture {
-    val texture =
-      WindowsDirect3DInterop.createSharedTexture(device, extent, DXGI_FORMAT_R8G8B8A8_UNORM)
+    val texture = WindowsDirect3DInterop.createSharedTexture(device, extent, dxgiFormat)
     try {
       val imported = importTexture(texture, device, extent)
       return SharedTexture(presentationTarget(texture, extent, generation), device, imported)
@@ -122,13 +141,21 @@ internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
     var sharedHandle = NULL
     try {
       sharedHandle = WindowsDirect3DInterop.createSharedHandle(texture)
-      val context = wgl ?: WindowsWglContext.create().also { wgl = it }
-      return context.importTexture(
-        sharedHandle,
-        extent,
-        "Direct3D 12",
-        WindowsDirect3DInterop.adapterLuidOf(device),
-      )
+      // The shared handle doubles as the probe for picking an importing Vulkan device, so the
+      // context cannot be created before there is a texture to share.
+      return if (producer == MapRenderBackend.OpenGl) {
+        val context = wgl ?: WindowsWglContext.create().also { wgl = it }
+        context.importTexture(
+          sharedHandle,
+          extent,
+          "Direct3D 12",
+          WindowsDirect3DInterop.adapterLuidOf(device),
+        )
+      } else {
+        val context =
+          vulkan ?: VulkanDevice.forDirect3D12Resource(sharedHandle).also { vulkan = it }
+        context.importDirect3D12Resource(sharedHandle, extent)
+      }
     } finally {
       // The import duplicates the handle rather than taking ownership, so this copy is always ours.
       WindowsDirect3DInterop.closeSharedHandle(sharedHandle)
@@ -138,9 +165,13 @@ internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
   private fun presentationTarget(texture: NativeHandle, extent: MapExtent, generation: Long) =
     Direct3DTextureTarget(
       texture = texture,
-      format = DXGI_FORMAT_R8G8B8A8_UNORM,
-      colorFormat = SurfaceColorFormat.RGBA_8888,
-      origin = TextureOrigin.BottomLeft,
+      format = dxgiFormat,
+      colorFormat =
+        if (producer == MapRenderBackend.OpenGl) SurfaceColorFormat.RGBA_8888
+        else SurfaceColorFormat.BGRA_8888,
+      origin =
+        if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft
+        else TextureOrigin.TopLeft,
       extent = extent,
       generation = generation,
     )
@@ -178,6 +209,9 @@ internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
   }
 
   override fun closeProducers() {
+    val closing = vulkan
+    vulkan = null
+    closing?.close()
     wgl?.close()
     wgl = null
   }
@@ -206,6 +240,36 @@ internal class Direct3D12MapHost(presentationHost: Direct3D12PresentationHost) :
     }
   }
 }
+
+/** A Vulkan device that can import [sharedHandle], an NT handle to a Direct3D 12 resource. */
+private fun VulkanDevice.Companion.forDirect3D12Resource(sharedHandle: Long): VulkanDevice =
+  create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { _, device ->
+    MemoryStack.stackPush().use { stack ->
+      val properties =
+        VkMemoryWin32HandlePropertiesKHR.calloc(stack)
+          .sType(VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR)
+      vkGetMemoryWin32HandlePropertiesKHR(
+        device,
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
+        sharedHandle,
+        properties,
+      ) == VK_SUCCESS && properties.memoryTypeBits() != 0
+    }
+  }
+
+/** A `VkImage` bound to the Direct3D 12 resource [sharedHandle] names, allocated at [extent]. */
+private fun VulkanDevice.importDirect3D12Resource(sharedHandle: Long, extent: MapExtent) =
+  VulkanImage.create(
+    this,
+    extent,
+    VK_FORMAT_B8G8R8A8_UNORM,
+    VK_IMAGE_LAYOUT_GENERAL,
+    VulkanImageMemory.ImportedWin32(
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
+      sharedHandle,
+      "D3D12 resource",
+    ),
+  )
 
 /**
  * The slice of Direct3D 12 this host needs, called through the JDK's foreign function API.
