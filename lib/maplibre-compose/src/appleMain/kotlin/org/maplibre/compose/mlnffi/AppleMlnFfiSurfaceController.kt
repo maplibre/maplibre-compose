@@ -131,6 +131,8 @@ internal class AppleMlnFfiSurfaceController(
       val previous = framePacer ?: return@schedule
       // A pacer's rate is fixed. The next frame pass hands the new pacer to the session, which then
       // leaves the old one.
+      // TODO: change the pacer's rate in place once
+      // https://github.com/maplibre/maplibre-native-ffi/issues/1758 allows it.
       framePacer = createFramePacer(maximumFps)
       previous.release()
       requestFrame()
