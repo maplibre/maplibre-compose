@@ -40,8 +40,10 @@ class MlnFfiRenderSessionTeardownTest {
   @Test
   fun detaching_and_closing_behind_queued_frames_destroys_the_map_and_runtime() = runMapTest {
     val fixture = BridgeMapFixture.create()
-    fixture.loadStyleBeforeRendering(Style)
+    // Driver work belongs to the thread that first services it, so the session attaches on the
+    // renderer thread from the start.
     fixture.withRendererThread {
+      fixture.loadStyleBeforeRendering(Style)
       fixture.renderingPaused = false
       fixture.awaitRendered()
       fixture.session.detachPresentation()
