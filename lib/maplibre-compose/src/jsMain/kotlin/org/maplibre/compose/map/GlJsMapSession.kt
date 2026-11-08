@@ -932,6 +932,14 @@ internal class GlJsMapSession(
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val persistentPadding = destination.effectivePadding()
     val combinedPadding = (persistentPadding.toCameraPadding() + fitPadding).toPaddingOptions()
+    // GL JS rejects only padding wider or taller than the map; padding that fills it exactly
+    // leaves no room either.
+    val extent = appliedExtent
+    if (
+      combinedPadding.left + combinedPadding.right >= extent.width.toDouble() ||
+        combinedPadding.top + combinedPadding.bottom >= extent.height.toDouble()
+    )
+      return null
     val camera =
       cameraForBounds(
         boundingBox.toLngLatBounds(),

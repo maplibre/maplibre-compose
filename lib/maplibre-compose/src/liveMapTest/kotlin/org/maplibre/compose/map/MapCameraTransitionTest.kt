@@ -257,14 +257,25 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         it.startAtOrigin()
         val before = it.session.getCameraPosition()
-        val fit = CameraFit(fitPadding = DpPadding(left = 10_000.dp, right = 10_000.dp))
+        // Padding wider than the map, and padding that fills its height exactly.
+        val half = (MapFixture.DefaultExtent.height / 2).dp
+        val fits =
+          listOf(
+            CameraFit(fitPadding = DpPadding(left = 10_000.dp, right = 10_000.dp)),
+            CameraFit(fitPadding = DpPadding(top = half, bottom = half)),
+          )
 
-        assertNull(it.state.cameraForBounds(Bounds, fit))
-        assertNull(it.state.cameraForCoordinates(listOf(Bounds.southwest, Bounds.northeast), fit))
-        it.state.fitCameraToBounds(Bounds, fit)
-        it.state.animateCameraToBounds(Bounds, fit)
-        it.pump(frames = 2)
-        assertEquals(before, it.session.getCameraPosition(), "a fit with no room moved the camera")
+        for (fit in fits) {
+          assertNull(it.state.cameraForBounds(Bounds, fit), "$fit")
+          assertNull(
+            it.state.cameraForCoordinates(listOf(Bounds.southwest, Bounds.northeast), fit),
+            "$fit",
+          )
+          it.state.fitCameraToBounds(Bounds, fit)
+          it.state.animateCameraToBounds(Bounds, fit)
+          it.pump(frames = 2)
+          assertEquals(before, it.session.getCameraPosition(), "$fit moved the camera")
+        }
       }
     }
 
