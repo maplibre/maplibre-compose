@@ -213,10 +213,10 @@ internal class GlJsMapSession(
       // re-reports on its next camera command.
       activeGestureToken = null
       reportGestureActive(false)
-      lifecycleAuthority.synchronizeCurrentPresentationCameraMotion(this)
       this.surface = null
       invalidateStyleBinding()
       destroyMap()
+      lifecycleAuthority.synchronizeCurrentPresentationCameraMotion(this)
     } else {
       this.surface = null
     }
