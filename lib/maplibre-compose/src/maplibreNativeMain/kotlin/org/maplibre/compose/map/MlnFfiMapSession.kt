@@ -614,9 +614,14 @@ internal class MlnFfiMapSession(
             styleRequestFailed(request, style, error.styleFailureReason(), error)
           return@launchOnMain
         }
-      if (loadingStyleRequest === request) loadingStyleRequest = null
-      if (!isCurrentStyleRequest(request) || this.map !== map) return@launchOnMain
+      if (!isCurrentStyleRequest(request) || this.map !== map) {
+        if (loadingStyleRequest === request) loadingStyleRequest = null
+        return@launchOnMain
+      }
+      // Reading the loaded style suspends, and the images it misses meanwhile still wait for the
+      // binding, so the load stays pending until the binding exists.
       val binding = createStyleBinding(map)
+      if (loadingStyleRequest === request) loadingStyleRequest = null
       if (!isCurrentStyleRequest(request) || !styleLoadTracker.loaded(request, binding.identity)) {
         binding.invalidate()
         return@launchOnMain
