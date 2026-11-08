@@ -196,6 +196,29 @@ class CameraInputIntegrationTest {
   }
 
   @Test
+  fun an_animated_gesture_zoom_settles_onto_its_snap(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration()).apply { zoom { snapping() } }.build(),
+        )
+        fixture.state.setCameraPosition(CameraPosition(zoom = 4.2))
+        fixture.settle()
+        // A double tap zooms with one animated command, then releases without momentum.
+        fixture.awaitWhileRendering("the zoom to settle") {
+          val input = GestureInputSession(this + InputFrameClock, fixture.gestures)
+          fixture.gestures.inputScaleByAwaitingTransition(2.0, null, 0.1.seconds, input.token)
+          input.end()
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
+      }
+    }
+  }
+
+  @Test
   fun a_released_fling_glides_as_part_of_the_gesture(): MapTestResult = runMapTest {
     coroutineScope {
       createMapFixture().use { fixture ->

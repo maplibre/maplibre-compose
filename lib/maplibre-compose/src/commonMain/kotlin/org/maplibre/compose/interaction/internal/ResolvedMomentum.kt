@@ -3,7 +3,6 @@ package org.maplibre.compose.interaction.internal
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.min
-import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.MomentumPlanner
@@ -83,8 +82,12 @@ internal data class Snapping(
         val above = min(below + spacing, 360.0)
         if (turn - below <= above - turn) below - turn else above - turn
       } else {
-        offset + round((value - offset) / spacing) * spacing - value
+        offset + roundHalfAwayFromZero((value - offset) / spacing) * spacing - value
       }
     return if (abs(delta) <= tolerance) delta else 0.0
   }
 }
+
+/** C++'s `std::round`, which Native's snap uses: halfway values round away from zero. */
+private fun roundHalfAwayFromZero(value: Double): Double =
+  if (value < 0.0) -floor(-value + 0.5) else floor(value + 0.5)

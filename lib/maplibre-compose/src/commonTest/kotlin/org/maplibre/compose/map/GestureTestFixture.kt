@@ -50,6 +50,8 @@ internal class RecordingGestureTarget(private val state: MapState) :
   val rotateCalls = mutableListOf<RotateCall>()
   val fitCalls = mutableListOf<Pair<BoxZoomFit, Duration>>()
   var project: (DpOffset) -> Position? = { null }
+  /** The highest zoom that [scaleBy] reaches, as the engine's zoom limit holds it. */
+  var maxZoom = Double.POSITIVE_INFINITY
   var interactions: MapInteractions = MapInteractions.Standard
     private set
 
@@ -110,14 +112,24 @@ internal class RecordingGestureTarget(private val state: MapState) :
     if (checkNotNull(token).acceptsCommands) action()
   }
 
+  /**
+   * Pans, scales and rotations move the camera that [getCameraPosition] reads, as the engine would.
+   */
   override fun moveBy(deltaX: Double, deltaY: Double, gestureToken: CameraInputToken?) =
-    command(gestureToken) { moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat()) }
+    command(gestureToken) {
+      moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat())
+      val center = lastCameraPosition.center
+      lastCameraPosition =
+        lastCameraPosition.copy(
+          center = Position(center.longitude - deltaX * 1e-6, center.latitude + deltaY * 1e-6),
+        )
+    }
 
-  /** Scales and rotations move the camera that [getCameraPosition] reads, as the engine would. */
   override fun scaleBy(scale: Double, anchor: DpOffset?, gestureToken: CameraInputToken?) =
     command(gestureToken) {
       scaleCalls += ScaleCall(scale, anchor)
-      lastCameraPosition = lastCameraPosition.copy(zoom = lastCameraPosition.zoom + log2(scale))
+      lastCameraPosition =
+        lastCameraPosition.copy(zoom = minOf(lastCameraPosition.zoom + log2(scale), maxZoom))
     }
 
   override fun rotateAndPitchBy(

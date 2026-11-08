@@ -25,6 +25,14 @@ class SnappingTest {
   }
 
   @Test
+  fun halfway_values_round_away_from_zero_as_native_does() {
+    val levels = snap(1.0, 0.0, 0.5)
+    assertEquals(0.5, levels.delta(4.5, circular = false))
+    assertEquals(-0.5, levels.delta(-4.5, circular = false))
+    assertEquals(0.5, levels.delta(2.5, circular = false))
+  }
+
+  @Test
   fun bearing_targets_lie_every_spacing_from_the_offset_within_one_turn() {
     val quarters = snap(90.0, 32.0, 45.0)
     assertEquals(2.0, quarters.delta(120.0, circular = true))
