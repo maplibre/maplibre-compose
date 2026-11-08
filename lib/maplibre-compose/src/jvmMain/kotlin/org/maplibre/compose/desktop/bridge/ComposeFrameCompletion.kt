@@ -54,7 +54,9 @@ internal class ComposeFrameCompletion {
     if (previousContext != null && previousContext !== context) {
       preserveFrame = null
       contextReplaced()
-      releaseOldest(keep = 0)
+      // The old context's image is gone, so a ring keeps its newest frame for the new context to
+      // read again; an idle map has no newer frame coming.
+      releaseOldest(keep = if (keepNewest) 1 else 0)
     } else if (keepNewest) {
       if (held.size > 1 && held.last().drawn) {
         // Compose no longer draws the older frames, but its submitted work may still read them.

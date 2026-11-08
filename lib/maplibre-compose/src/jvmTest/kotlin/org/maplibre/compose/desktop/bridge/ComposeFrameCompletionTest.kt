@@ -104,6 +104,37 @@ class ComposeFrameCompletionTest {
   }
 
   @Test
+  fun a_ring_keeps_its_newest_frame_for_a_replaced_context() {
+    ProductionBridgeTestRenderDriver.create().use { first ->
+      ProductionBridgeTestRenderDriver.create().use { second ->
+        first.withComposeContext { previous ->
+          second.withComposeContext { next ->
+            if (previous.skiaContext === next.skiaContext) {
+              FfiTestPlatform.skip("This environment has one Compose context to replace")
+            }
+            val completion = ComposeFrameCompletion()
+            val released = mutableListOf<String>()
+            fun hold(name: String) = completion.holdFrame { released += name }
+            completion.prepare(previous.skiaContext, keepNewest = true) {
+              error("There is no previous context")
+            }
+            hold("older")
+            completion.frameRecorded {}
+            hold("newest")
+            completion.frameRecorded {}
+            var replaced = false
+            completion.prepare(next.skiaContext, keepNewest = true) { replaced = true }
+            assertTrue(replaced)
+            assertEquals(listOf("older"), released)
+            assertTrue(completion.hasFrame, "the new context reads the newest frame again")
+            completion.abandon()
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   fun drawing_with_a_replaced_context_drops_its_wrappers_and_keeps_the_frame_held() {
     ProductionBridgeTestRenderDriver.create().use { first ->
       ProductionBridgeTestRenderDriver.create().use { second ->
