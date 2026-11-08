@@ -67,6 +67,27 @@ class CameraInputIntegrationTest {
   }
 
   @Test
+  fun a_gesture_released_after_holding_still_leaves_the_camera_at_rest(): MapTestResult =
+    runMapTest {
+      coroutineScope {
+        createMapFixture().use { fixture ->
+          fixture.loadStyle(BaseStyle.Empty)
+          fixture.awaitMapReady()
+          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
+          fixture.settle()
+          val input = GestureInputSession(this, fixture.gestures)
+          fixture.gestures.inputPanBy(20.0, 0.0, gestureToken = input.token)
+          fixture.settle()
+          assertTrue(fixture.state.isCameraMoving)
+          input.end()
+          input.scope.coroutineContext[Job]!!.join()
+          fixture.pumpUntil("the released gesture to rest") { !fixture.state.isCameraMoving }
+          assertEquals(CameraMoveReason.Gesture, fixture.state.cameraMoveReason)
+        }
+      }
+    }
+
+  @Test
   fun haptic_feedback_tracks_applied_rotation_but_not_momentum_or_settlement(): MapTestResult =
     runMapTest {
       coroutineScope {

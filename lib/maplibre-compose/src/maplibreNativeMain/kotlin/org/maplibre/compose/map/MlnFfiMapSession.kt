@@ -1145,6 +1145,8 @@ internal class MlnFfiMapSession(
 
   override fun getViewport() = viewport.getViewport()
 
+  override fun isCameraMoving(): Boolean = viewport.cameraMoving
+
   override fun positionFromScreenLocation(offset: DpOffset) =
     viewport.positionFromScreenLocation(offset)
 
