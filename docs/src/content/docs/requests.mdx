@@ -37,9 +37,10 @@ applies to later requests.
 ## Rewrite URLs
 
 `rewriteUrl` returns the URL to fetch instead, or `null` to keep the original.
-This interceptor adds an API key as a query parameter:
+To add the same query parameters or headers to every matching request, such as
+an API key, use <Api of="MapRequestRules" /> instead. It needs no callback:
 
-<Code code={region(requests, "rewrite")} lang="kotlin" title="MapRequests.kt" />
+<Code code={region(requests, "rules")} lang="kotlin" title="MapRequests.kt" />
 
 ## Serve data from app code
 

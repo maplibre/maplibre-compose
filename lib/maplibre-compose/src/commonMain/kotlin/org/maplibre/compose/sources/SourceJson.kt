@@ -66,6 +66,7 @@ internal fun JsonObjectBuilder.putGeoJsonOptions(options: GeoJsonOptions) {
   put("clusterRadius", options.clusterRadius)
   put("clusterMaxZoom", options.clusterMaxZoom)
   put("clusterMinPoints", options.clusterMinPoints)
+  options.attributionHtml?.let { put("attribution", it) }
   if (options.clusterProperties.isEmpty()) return
   putJsonObject("clusterProperties") { putClusterProperties(options.clusterProperties) }
 }

@@ -54,7 +54,8 @@ internal constructor(
  * If a function throws an exception, the library logs a warning and the request continues: with its
  * original URL when [rewriteUrl] throws, or with no added headers when [headers] throws.
  *
- * Use [MapResourceProvider] to supply resource data directly.
+ * Use [MapRequestRules] to add fixed query parameters or headers without code that runs for each
+ * request, and [MapResourceProvider] to supply resource data directly.
  */
 public interface MapRequestInterceptor {
   /**

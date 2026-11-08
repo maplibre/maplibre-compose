@@ -219,6 +219,13 @@ public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   override val asMutable: MutableCustomVectorTileSourceHandle?
 
   /**
+   * Requests new data for the tiles that intersect [bounds] and that the map still needs.
+   * Invalidation may also reload other tiles of this source. A tile whose provider call is in
+   * progress may show that call's result before it reloads.
+   */
+  public fun invalidateBounds(bounds: BoundingBox): Unit
+
+  /**
    * Requests new data for [tile]. Invalidation may also reload other tiles of this source. A tile
    * whose provider call is in progress may show that call's result before it reloads.
    *

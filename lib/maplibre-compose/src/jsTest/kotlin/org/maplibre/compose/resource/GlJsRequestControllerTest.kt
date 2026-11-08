@@ -43,6 +43,31 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun request_rules_add_their_parameters_and_headers_by_url_and_resource_type() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor =
+            MapRequestRules {
+              addQueryParameters(
+                "https://tiles.example.com/**",
+                mapOf("key" to "a b"),
+                setOf(MapResourceKind.Tile),
+              )
+              addHeaders("https://tiles.example.com/*.pbf?key=*", mapOf("X-Key" to "1"))
+            },
+        ),
+      )
+
+    val tile = controller.transformRequest("https://tiles.example.com/0.pbf", "Tile").asDynamic()
+    assertEquals("https://tiles.example.com/0.pbf?key=a%20b", tile.url as String)
+    assertEquals("1", tile.headers["X-Key"] as String)
+    assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Style"))
+    assertNull(controller.transformRequest("https://other.example.com/0.pbf", "Tile"))
+    controller.close()
+  }
+
+  @Test
   fun headers_derive_from_the_rewritten_url() {
     val controller =
       GlJsRequestController(
