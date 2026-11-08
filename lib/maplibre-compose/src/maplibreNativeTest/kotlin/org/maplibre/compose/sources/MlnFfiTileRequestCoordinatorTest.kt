@@ -198,12 +198,12 @@ class MlnFfiTileRequestCoordinatorTest {
         it.start()
       }
     try {
-      val (map, ready) =
+      val map =
         withTimeout(5.seconds) {
           owner.awaitRuntime().createMap(MapOptions(LogicalExtent(1u, 1u, 1.0)))
         }
       try {
-        ready.await()
+        map.ready.await()
         action(DroppingBinding(map, owner))
       } finally {
         map.release().await()

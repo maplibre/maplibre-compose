@@ -64,7 +64,7 @@ class MlnFfiOfflineStorageTest {
       val held = CompletableDeferred<OfflineRegionStatus>()
       val query =
         async(start = CoroutineStart.UNDISPATCHED) {
-          storage.refreshStatus(pack) { held }
+          storage.refreshStatus(pack) { held.await() }
         }
       assertFalse(query.isCompleted)
       val before = owner.awaitRuntime().getOfflineRegionStatus(pack.regionId).await()
@@ -75,7 +75,6 @@ class MlnFfiOfflineStorageTest {
           sourceType = org.maplibre.nativeffi.RuntimeEventSourceType.RUNTIME,
           source = 0uL,
           generation = 0uL,
-          code = 0u,
           message = "",
           payload =
             RuntimeEventPayload.OfflineRegionStatus(

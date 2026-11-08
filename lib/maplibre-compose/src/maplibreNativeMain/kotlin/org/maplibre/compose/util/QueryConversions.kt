@@ -3,12 +3,8 @@ package org.maplibre.compose.util
 import kotlin.math.floor
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.ClusterIdProperty
@@ -53,44 +49,20 @@ internal suspend fun List<SourceFeature>.toGeoJsonFeatures():
   }
 }
 
-/**
- * Converts a queried cluster feature back into the GeoJSON `queryFeatureExtension` takes, keeping
- * `cluster_id` an unsigned integer literal: MapLibre resolves the cluster by the value's exact
- * numeric type and treats any other as absent, returning an empty result with a success status (see
- * https://github.com/maplibre/maplibre-native-ffi/pull/340).
- *
- * Returns null when there is no usable cluster id.
- */
-internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): String? {
-  val clusterId = (properties?.get(ClusterIdProperty) as? JsonPrimitive)?.toUnsignedOrNull()
-  if (clusterId == null) return null
-
-  val feature = buildJsonObject {
-    put("type", "Feature")
-    // Null rather than the real geometry: mbgl reads only the properties here.
-    put("geometry", JsonNull)
-    putJsonObject("properties") {
-      properties.orEmpty().forEach { (key, value) ->
-        when (key) {
-          // uint64_t crosses JSON as an integer literal; a Long's bit pattern reads back unsigned.
-          ClusterIdProperty -> put(key, JsonPrimitive(clusterId.toULong()))
-          else -> put(key, value)
-        }
-      }
-    }
-  }
-  return feature.toString()
-}
+/** The feature's `cluster_id`, or null when it has none that a cluster query can use. */
+internal fun Feature<*, JsonObject?>.clusterIdOrNull(): UInt? =
+  (properties?.get(ClusterIdProperty) as? JsonPrimitive)?.toUIntOrNull()
 
 /**
  * Reads a non-negative integer, whatever shape it arrived in: a caller-built feature may carry the
  * id quoted or as a double.
  */
-private fun JsonPrimitive.toUnsignedOrNull(): Long? {
-  content.toULongOrNull()?.let {
-    return it.toLong()
+private fun JsonPrimitive.toUIntOrNull(): UInt? {
+  content.toUIntOrNull()?.let {
+    return it
   }
   val asDouble = content.toDoubleOrNull() ?: return null
-  if (asDouble < 0.0 || asDouble != floor(asDouble)) return null
-  return asDouble.toLong()
+  if (asDouble < 0.0 || asDouble > UInt.MAX_VALUE.toDouble() || asDouble != floor(asDouble))
+    return null
+  return asDouble.toUInt()
 }

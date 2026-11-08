@@ -1,12 +1,11 @@
 package org.maplibre.compose.map
 
-import kotlinx.coroutines.Deferred
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.nativeffi.Completion
 import org.maplibre.nativeffi.MapHandle
-import org.maplibre.nativeffi.NewRenderSession
 import org.maplibre.nativeffi.RenderSessionAttachOptions
 import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.attachMetalBorrowedTexture
@@ -19,7 +18,7 @@ internal actual fun attachPlatformTarget(
   target: MlnFfiRenderTarget,
   extent: MapExtent,
   options: RenderSessionAttachOptions,
-): NewRenderSession =
+): RenderSessionHandle =
   when (target) {
     is MetalTextureTarget -> map.attachMetalBorrowedTexture(target.toDescriptor(extent), options)
     is MetalSurfaceTarget -> map.attachMetalSurface(target.toDescriptor(extent), options)
@@ -30,10 +29,10 @@ internal actual fun replacePlatformTarget(
   session: RenderSessionHandle,
   target: MlnFfiRenderTarget,
   extent: MapExtent,
-): Deferred<*> =
+): Completion<*> =
   when (target) {
-    is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
-    is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))
+    is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toReplacement(extent))
+    is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toReplacement(extent))
     else -> error("Unsupported platform target: $target")
   }
 

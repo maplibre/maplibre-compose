@@ -3,14 +3,12 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
-import org.maplibre.compose.mlnffi.use
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LoadedStyleContents
 import org.maplibre.compose.style.MlnFfiRenderSessions
@@ -23,24 +21,20 @@ import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.unpremultiplyChannel
 import org.maplibre.nativeffi.CameraUpdate
 import org.maplibre.nativeffi.EdgeInsets
-import org.maplibre.nativeffi.GraphicsDeviceHandle
-import org.maplibre.nativeffi.GraphicsDeviceTextureDescriptor
 import org.maplibre.nativeffi.LogicalExtent
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.MapMode
 import org.maplibre.nativeffi.MapOptions
 import org.maplibre.nativeffi.MapProjectionHandle
 import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.OffscreenDescriptor
 import org.maplibre.nativeffi.RenderDriverKind
 import org.maplibre.nativeffi.RenderSessionAttachOptions
 import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.RuntimeEvent
 import org.maplibre.nativeffi.RuntimeEventFlag
-import org.maplibre.nativeffi.RuntimeEventType
+import org.maplibre.nativeffi.Status
 import org.maplibre.nativeffi.TextureReadbackResult
-
-private val SnapshotEvents =
-  RuntimeEventFlag.MAP_STYLE_LOADED or RuntimeEventFlag.MAP_LOADING_FAILED
 
 internal fun createNativeSnapshotterAdapter(owner: MlnFfiRuntime): SnapshotterAdapter =
   createNativeSnapshotterAdapter(owner, tryLoadRuntimeBackends())
@@ -192,38 +186,32 @@ private class NativeSnapshotterAdapter(
     // after it observes the new size when it completes.
     if (current.extent != extent) {
       current.extent = extent
-      current.session.discarding.resize(extent.toFfiExtent())
+      current.session.discarding.resize(extent.toLogicalSize())
     }
     current.map
       .updateCamera(CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets())))
       .await()
   }
 
+  /** The load completes once the style document parses, and fails when it doesn't. */
   private suspend fun loadStyle(current: NativeSnapshotEngine, baseStyle: BaseStyle) {
-    val load = current.expectStyle()
-    // This snapshot's own commands are the map's only ones, so an event of a later generation
-    // than the latest published one comes from this style command or after it.
-    load.minimumGeneration = current.map.getSnapshot().generation + 1u
-    val submitted =
-      try {
-        when (baseStyle) {
-          is BaseStyle.Uri -> current.map.setStyleUrl(baseStyle.uri)
-          is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json)
-          UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
-        }
-      } catch (error: MaplibreException) {
-        current.endStyleLoad(load)
-        throw IllegalStateException(error.message ?: "MapLibre snapshot capture failed", error)
-      }
     try {
-      submitted.await()
-    } catch (error: Throwable) {
-      current.endStyleLoad(load)
-      throw error
+      when (baseStyle) {
+        is BaseStyle.Uri -> current.map.setStyleUrl(baseStyle.uri)
+        is BaseStyle.Json -> current.map.setStyleJson(baseStyle.json)
+        UnspecifiedBaseStyle -> error("UnspecifiedBaseStyle is never created")
+      }.await()
+    } catch (error: MaplibreException) {
+      // Only the snapshotter's own close releases the map during a load.
+      if (error.status == Status.CANCELLED) throw snapshotterClosedCancellation()
+      throw IllegalStateException(
+        error.diagnostic.ifBlank { "MapLibre snapshot capture failed" },
+        error,
+      )
     }
-    load.result.await().getOrThrow()
+    val contents = LoadedStyleContents.read(current.map)
     styleBinding?.invalidate()
-    styleBinding = createStyleBinding(current)
+    styleBinding = createStyleBinding(current, contents)
   }
 
   private suspend fun readViewport(
@@ -255,12 +243,14 @@ private class NativeSnapshotterAdapter(
       .withProjection(MapViewProjection(current.map.getSnapshot().view))
   }
 
-  private fun createStyleBinding(current: NativeSnapshotEngine): MlnFfiStyleBinding =
+  private fun createStyleBinding(
+    current: NativeSnapshotEngine,
+    contents: LoadedStyleContents,
+  ): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       map = current.map,
       owner = owner,
-      contents =
-        current.loadedContents ?: error("MapLibre reported a loaded style without contents"),
+      contents = contents,
       loggerProvider = { owner.options.logger },
       sessionOpen = { open && engine === current },
       renderSessions =
@@ -312,15 +302,7 @@ private class NativeSnapshotterAdapter(
   }
 }
 
-/** One style load that runtime events finish with the load or failure they report. */
-private class StyleLoad {
-  val result = CompletableDeferred<Result<Unit>>()
-
-  /** The generation of the style command; events from before it belong to the replaced style. */
-  @Volatile var minimumGeneration: ULong = ULong.MAX_VALUE
-}
-
-/** A static map and the owned-texture render session it renders into. */
+/** A static map and the offscreen render session it renders into. */
 private class NativeSnapshotEngine
 private constructor(
   private val owner: MlnFfiRuntime,
@@ -332,55 +314,18 @@ private constructor(
   lateinit var session: RenderSessionHandle
     private set
 
-  @Volatile private var styleLoad: StyleLoad? = null
-  @Volatile
-  var loadedContents: LoadedStyleContents? = null
-    private set
-
   /**
    * Whether a step failed. MapLibre keeps a failed tile or glyph range failed and would not load it
    * again, so the next capture needs a new engine.
    */
   @Volatile var replace = false
 
-  fun expectStyle(): StyleLoad =
-    StyleLoad().also {
-      loadedContents = null
-      styleLoad = it
-    }
-
-  fun endStyleLoad(load: StyleLoad) {
-    if (styleLoad === load) styleLoad = null
-  }
-
-  override fun onEvent(event: RuntimeEvent) {
-    when (event.type) {
-      RuntimeEventType.MAP_STYLE_LOADED -> {
-        val load = styleLoad ?: return
-        if (event.generation < load.minimumGeneration) return
-        owner.launchOnMain {
-          val contents = LoadedStyleContents.read(map)
-          if (styleLoad !== load) return@launchOnMain
-          loadedContents = contents
-          styleLoad = null
-          load.result.complete(Result.success(Unit))
-        }
-      }
-      RuntimeEventType.MAP_LOADING_FAILED -> {
-        val load = styleLoad ?: return
-        if (event.generation < load.minimumGeneration) return
-        styleLoad = null
-        val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
-        load.result.complete(Result.failure(IllegalStateException(message)))
-      }
-      else -> Unit
-    }
-  }
+  /** The map reports no events: its style loads report through their completions. */
+  override fun onEvent(event: RuntimeEvent) = Unit
 
   suspend fun close() =
     withContext(NonCancellable) {
       val failures = mutableListOf<Throwable>()
-      styleLoad?.result?.complete(Result.failure(snapshotterClosedCancellation()))
       if (::session.isInitialized) {
         runCatching { session.release().await() }.exceptionOrNull()?.let(failures::add)
       }
@@ -395,28 +340,24 @@ private constructor(
       extent: MapExtent,
     ): NativeSnapshotEngine {
       val runtime = owner.awaitRuntime()
-      val (map, ready) =
+      val map =
         runtime.createMap(
           MapOptions(
             initialExtent = extent.toFfiExtent(),
             mapMode = MapMode.STATIC,
-            eventMask = SnapshotEvents,
+            eventMask = RuntimeEventFlag.NONE,
           ),
         )
       val engine = NativeSnapshotEngine(owner, map, extent.scaleFactor, extent)
       try {
         check(owner.register(map, engine)) { "The map runtime is closed" }
-        ready.await()
-        val attachment =
-          GraphicsDeviceHandle.create().use { device ->
-            map.attachGraphicsDeviceTexture(
-              device,
-              GraphicsDeviceTextureDescriptor(extent.toFfiExtent()),
-              RenderSessionAttachOptions(driver = RenderDriverKind.CORE_WORKER),
-            )
-          }
-        engine.session = attachment.session
-        attachment.ready.await()
+        // The session waits for the map to be ready, and creates an offscreen device of its own.
+        engine.session =
+          map.attachOffscreen(
+            OffscreenDescriptor(extent.toLogicalSize()),
+            RenderSessionAttachOptions(driver = RenderDriverKind.CORE_WORKER),
+          )
+        engine.session.ready.await()
         return engine
       } catch (error: Throwable) {
         runCatching { engine.close() }.exceptionOrNull()?.let(error::addSuppressed)

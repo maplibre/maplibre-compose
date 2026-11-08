@@ -29,7 +29,7 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.nativeffi.EdgeInsets
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.MapProjectionHandle
-import org.maplibre.nativeffi.ProjectionMode
+import org.maplibre.nativeffi.ProjectionModeOptions
 import org.maplibre.nativeffi.ScreenPoint
 import org.maplibre.spatialk.geojson.Position
 
@@ -217,7 +217,7 @@ class MlnFfiViewportTest {
       // A projection mode change moves the viewport's corners without a camera event.
       state
         .withPlatformMap {
-          map.setProjectionMode(ProjectionMode(axonometric = true, xSkew = 0.5, ySkew = 0.5))
+          map.setProjectionMode(ProjectionModeOptions(axonometric = true, xSkew = 0.5, ySkew = 0.5))
         }
         .await()
       val engineRegion = fixture.session.readMap { map -> map.visibleRegion() }

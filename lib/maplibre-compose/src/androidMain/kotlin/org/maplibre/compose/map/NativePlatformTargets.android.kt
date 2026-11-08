@@ -1,12 +1,11 @@
 package org.maplibre.compose.map
 
-import kotlinx.coroutines.Deferred
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
+import org.maplibre.nativeffi.Completion
 import org.maplibre.nativeffi.MapHandle
-import org.maplibre.nativeffi.NewRenderSession
 import org.maplibre.nativeffi.RenderSessionAttachOptions
 import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.attachVulkanBorrowedTexture
@@ -18,7 +17,7 @@ internal actual fun attachPlatformTarget(
   target: MlnFfiRenderTarget,
   extent: MapExtent,
   options: RenderSessionAttachOptions,
-): NewRenderSession =
+): RenderSessionHandle =
   when (target) {
     is VulkanImageTarget -> map.attachVulkanBorrowedTexture(target.toDescriptor(extent), options)
     is VulkanSurfaceTarget -> map.attachVulkanSurface(target.toDescriptor(extent), options)
@@ -29,10 +28,10 @@ internal actual fun replacePlatformTarget(
   session: RenderSessionHandle,
   target: MlnFfiRenderTarget,
   extent: MapExtent,
-): Deferred<*> =
+): Completion<*> =
   when (target) {
-    is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
-    is VulkanSurfaceTarget -> session.resize(extent.toFfiExtent())
+    is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toReplacement(extent))
+    is VulkanSurfaceTarget -> session.resize(extent.toLogicalSize())
     else -> error("Unsupported platform target: $target")
   }
 

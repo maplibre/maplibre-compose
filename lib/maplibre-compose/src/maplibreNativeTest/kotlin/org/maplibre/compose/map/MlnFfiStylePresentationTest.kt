@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.compile
 import org.maplibre.compose.expressions.dsl.const
@@ -23,7 +22,8 @@ import org.maplibre.compose.style.StyleSnapshot
 import org.maplibre.compose.style.onRejected
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.nativeffi.CommandCompletion
+import org.maplibre.nativeffi.MaplibreException
+import org.maplibre.nativeffi.Status
 
 class MlnFfiStylePresentationTest {
 
@@ -39,16 +39,15 @@ class MlnFfiStylePresentationTest {
           contents = LoadedStyleContents.read(loaded.mapForTest),
           sessionOpen = { loaded.isLoaded },
         )
-      val refusal =
-        CompletableDeferred<CommandCompletion>().apply {
-          completeExceptionally(IllegalArgumentException("refused"))
-        }
+      val source = """{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}"""
+      loaded.mapForTest.addStyleSourceJson("duplicate", source).await()
       var reported: StyleMutationException? = null
-      val outcome = binding.addSourceWith { refusal }
+      // Native completes the duplicate add with its refusal after the call returns.
+      val outcome = binding.addSourceWith { it.addStyleSourceJson("duplicate", source) }
       outcome.onRejected { reported = it }
       assertNull(reported, "a refusal must not call application code during the write")
       fixture.awaitUntil("the refusal to be delivered on main") { reported != null }
-      assertEquals("refused", reported?.message)
+      assertEquals(Status.ALREADY_EXISTS, (reported?.cause as? MaplibreException)?.status)
     }
   }
 

@@ -1,6 +1,5 @@
 package org.maplibre.compose.resource
 
-import org.maplibre.compose.mlnffi.reportFailure
 import org.maplibre.nativeffi.HttpHeaderTransform
 import org.maplibre.nativeffi.ResourceKind
 import org.maplibre.nativeffi.ResourceTransform
@@ -15,34 +14,29 @@ import org.maplibre.nativeffi.setHttpHeaderTransform
  * the URL transform request.
  */
 internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) {
-  // OpenHarmony and the browser FFI decline header transforms; that failure arrives here and leaves
-  // the URL transform in place.
-  setHttpHeaderTransform(
-      HttpHeaderTransform(
-        callback = { kind, url, response ->
+  // OpenHarmony and the browser FFI decline header transforms. Native logs that failure, and the
+  // URL transform stays in place.
+  discarding.setHttpHeaderTransform(
+    HttpHeaderTransform(
+      callback = { kind, url, response ->
+        val mapRequest = MapResourceRequest(url, kind.toCommon())
+        config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
+          response.setHeader(name, value)
+        }
+      },
+    ),
+  )
+  discarding.setResourceTransform(
+    ResourceTransform(
+      callback = { kind, url, request ->
+        // A request released without an answer fails, so an unchanged URL completes too.
+        request.use {
           val mapRequest = MapResourceRequest(url, kind.toCommon())
-          config.interceptor.headersOrNone(mapRequest, config.logger).forEach { (name, value) ->
-            response.setHeader(name, value)
-          }
-        },
-      ),
-    )
-    .reportFailure(
-      config.logger,
-      "install the header transform; request interceptor headers are ignored",
-    )
-  setResourceTransform(
-      ResourceTransform(
-        callback = { kind, url, request ->
-          request.use {
-            val mapRequest = MapResourceRequest(url, kind.toCommon())
-            val rewritten = config.interceptor.rewrittenUrl(mapRequest, config.logger)
-            if (rewritten != url) it.complete(rewritten)
-          }
-        },
-      ),
-    )
-    .reportFailure(config.logger, "install the request interceptor's URL transform")
+          it.complete(config.interceptor.rewrittenUrl(mapRequest, config.logger))
+        }
+      },
+    ),
+  )
 }
 
 /** The kind with the same name in MapLibre GL JS, or the native number as decimal text. */

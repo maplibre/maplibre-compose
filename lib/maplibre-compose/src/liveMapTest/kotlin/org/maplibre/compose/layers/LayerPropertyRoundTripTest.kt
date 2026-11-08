@@ -285,7 +285,7 @@ class LayerPropertyRoundTripTest {
         },
         Case(
           "text-color",
-          """["rgba",17.0,34.0,51.0,0.5]""",
+          """["rgba",17.0,34.0,51.0,0.5019607843137255]""",
           "\"rgba(17, 34, 51, 0.5019607843137255)\"",
         ) {
           it.paint("text-color", (const(Color(0x80112233)).c()).asLayerProperty())

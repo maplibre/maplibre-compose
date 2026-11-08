@@ -835,7 +835,7 @@ internal constructor(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition = afterViewport {
+  ): CameraPosition? = afterViewport {
     adapter.cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
   }
 
@@ -845,7 +845,7 @@ internal constructor(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition = afterViewport {
+  ): CameraPosition? = afterViewport {
     adapter.cameraForGeometry(geometry, bearing, pitch, cameraPadding, fitPadding)
   }
 
@@ -1152,12 +1152,13 @@ internal constructor(
    * those change before applying it.
    *
    * @param fit Sets the camera orientation and padding used for the fit.
-   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds.
+   * @return The camera, or null when no camera fits: when the padding and the viewport insets
+   *   together are as wide or as tall as the viewport.
    */
   public suspend fun cameraForBounds(
     boundingBox: BoundingBox,
     fit: CameraFit = CameraFit(),
-  ): CameraPosition =
+  ): CameraPosition? =
     attachmentAuthority
       .awaitAttachment()
       .cameraForBounds(boundingBox, fit.bearing, fit.pitch, fit.cameraPadding, fit.fitPadding)
@@ -1176,13 +1177,13 @@ internal constructor(
    *
    * See [cameraForBounds] for padding and viewport semantics.
    *
+   * @return The camera, or null when no camera fits, as for [cameraForBounds].
    * @throws IllegalArgumentException if [geometry] contains no positions.
-   * @throws IllegalStateException if the backend cannot calculate a camera for the geometry.
    */
   public suspend fun cameraForGeometry(
     geometry: Geometry,
     fit: CameraFit = CameraFit(),
-  ): CameraPosition {
+  ): CameraPosition? {
     require(geometry.positions().any()) { "The geometry contains no positions" }
     return attachmentAuthority
       .awaitAttachment()
@@ -1193,13 +1194,13 @@ internal constructor(
    * Waits for a viewport, then calculates a camera that fits every position in [coordinates]. See
    * [cameraForGeometry] for the fit, padding, and antimeridian semantics.
    *
+   * @return The camera, or null when no camera fits, as for [cameraForBounds].
    * @throws IllegalArgumentException if [coordinates] is empty.
-   * @throws IllegalStateException if the backend cannot calculate a camera for the coordinates.
    */
   public suspend fun cameraForCoordinates(
     coordinates: Collection<Position>,
     fit: CameraFit = CameraFit(),
-  ): CameraPosition {
+  ): CameraPosition? {
     require(coordinates.isNotEmpty()) { "The coordinates are empty" }
     return cameraForGeometry(MultiPoint(coordinates.toList()), fit)
   }
@@ -1207,6 +1208,9 @@ internal constructor(
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command,
    * accepted input, or detaching cancels this call.
+   *
+   * When no camera fits, as described for [cameraForBounds], the camera stays where it is and a
+   * warning is logged.
    *
    * @param fit See [cameraForBounds].
    */
@@ -1311,6 +1315,9 @@ internal constructor(
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
+   *
+   * When no camera fits, as described for [cameraForBounds], the camera stays where it is and a
+   * warning is logged.
    *
    * @param fit See [cameraForBounds].
    */

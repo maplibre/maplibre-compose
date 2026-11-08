@@ -14,8 +14,8 @@ import org.maplibre.nativeffi.setLogCallback
  *
  * Installed once, when the first native runtime is created; `logSetCallback` loads the native
  * library itself. The callback reads the current logger at each record, so replacing the logger
- * never reinstalls the callback. Every record is consumed, so a null logger or a filtered severity
- * does not fall through to the engine's platform logger.
+ * never reinstalls the callback. Records don't also go to the engine's platform logger, so a null
+ * logger or a filtered severity stays quiet.
  */
 internal object MlnFfiLogBridge {
   private val lock = MlnFfiLock()
@@ -24,7 +24,8 @@ internal object MlnFfiLogBridge {
   fun ensureInstalled() {
     lock.withLock {
       if (installed) return
-      setLogCallback(LogHandler(::forward))
+      // No platform severities, so the engine's platform logger stays quiet.
+      setLogCallback(LogHandler(callback = ::forward))
       installed = true
     }
   }
@@ -34,7 +35,7 @@ internal object MlnFfiLogBridge {
     event: LogEvent,
     code: Long,
     message: String,
-  ): Boolean {
+  ) {
     MapLog.log(
       level = severity.toMapLogLevel(),
       throwable = null,
@@ -42,8 +43,6 @@ internal object MlnFfiLogBridge {
       source = MapLogSource.NativeEngine,
       category = event.categoryName(),
     )
-    // Consumed, so the engine's platform logger stays quiet.
-    return true
   }
 }
 

@@ -116,7 +116,12 @@ private constructor(
       scheduleFrame()
     }
 
-  /** While true, frames the session asks for wait until [frame] or until rendering resumes. */
+  /**
+   * While true, frames the session asks for wait until [frame] or until rendering resumes. Written
+   * on the test's thread and read where frames render, so a resume that finds a frame already
+   * scheduled relies on that frame seeing it.
+   */
+  @Volatile
   var renderingPaused: Boolean = false
     set(value) {
       field = value

@@ -319,11 +319,13 @@ ci:
         library loading, and Windows packaging problems. Shared code that Linux
         x64 already tests does not need it.
       paths: [lib/*-windows-x64/*, lib/location-runtime-windows/*]
-    desktop-windows-arm64:
-      covers: >-
-        The JVM desktop target on Windows ARM64. Runs the same tests and
-        packaging as Windows x64. Catches architecture-specific problems on
-        Windows: native library selection and loading for the architecture, ABI
-        and pointer layout, and ARM runner toolchain differences.
-        Architecture-neutral changes do not need it.
-      paths: [lib/*-windows-arm64/*]
+    # TODO: restore this unit and its job in ci/jobs.json once the FFI's Windows ARM64 runtime
+    # JARs load again: https://github.com/maplibre/maplibre-native-ffi/issues/1756
+    # desktop-windows-arm64:
+    #   covers: >-
+    #     The JVM desktop target on Windows ARM64. Runs the same tests and
+    #     packaging as Windows x64. Catches architecture-specific problems on
+    #     Windows: native library selection and loading for the architecture, ABI
+    #     and pointer layout, and ARM runner toolchain differences.
+    #     Architecture-neutral changes do not need it.
+    #   paths: [lib/*-windows-arm64/*]

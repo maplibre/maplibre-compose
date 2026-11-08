@@ -5,22 +5,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.nativeffi.CameraChangeMode
+import org.maplibre.nativeffi.CameraChangeSource
 import org.maplibre.nativeffi.RenderMode
 import org.maplibre.nativeffi.RenderingStats
 import org.maplibre.nativeffi.RuntimeEvent
+import org.maplibre.nativeffi.RuntimeEventCameraChange
 import org.maplibre.nativeffi.RuntimeEventPayload
 import org.maplibre.nativeffi.RuntimeEventRenderFrame
 import org.maplibre.nativeffi.RuntimeEventSourceType
 import org.maplibre.nativeffi.RuntimeEventType
 
 class MlnFfiMapEventsTest {
-
-  @Test
-  fun a_blank_load_failure_carries_a_stated_reason() {
-    val event = runtimeEvent(RuntimeEventType.MAP_LOADING_FAILED).toMapEvent()
-    assertTrue((event as MapEvent.StyleLoadFailed).reason.isNotBlank())
-  }
 
   @Test
   fun a_finished_frame_carries_the_render_stats() {
@@ -35,8 +32,8 @@ class MlnFfiMapEventsTest {
                 placementChanged = false,
                 stats =
                   RenderingStats(
-                    encodingTime = 1.5,
-                    renderingTime = 2.5,
+                    encodingTimeMs = 1.5,
+                    renderingTimeMs = 2.5,
                     frameCount = 3L,
                     drawCallCount = 4L,
                     totalDrawCallCount = 5L,
@@ -50,11 +47,27 @@ class MlnFfiMapEventsTest {
     assertEquals(RenderStats.Mode.Full, stats.mode)
     assertTrue(stats.needsRepaint)
     assertTrue(!stats.placementChanged)
-    assertEquals(1.5.seconds, stats.encodingTime)
-    assertEquals(2.5.seconds, stats.renderingTime)
+    assertEquals(1.5.milliseconds, stats.encodingTime)
+    assertEquals(2.5.milliseconds, stats.renderingTime)
     assertEquals(3L, stats.frameCount)
     assertEquals(4L, stats.drawCallCount)
     assertEquals(5L, stats.totalDrawCallCount)
+  }
+
+  @Test
+  fun a_camera_change_reads_its_mode_from_the_payload() {
+    fun change(mode: CameraChangeMode) =
+      runtimeEvent(
+          RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
+          payload =
+            RuntimeEventPayload.CameraChange(
+              RuntimeEventCameraChange(mode = mode, source = CameraChangeSource.COMMAND),
+            ),
+        )
+        .toMapEvent()
+
+    assertEquals(MapEvent.CameraMoveStarted(true), change(CameraChangeMode.ANIMATED))
+    assertEquals(MapEvent.CameraMoveStarted(false), change(CameraChangeMode.IMMEDIATE))
   }
 
   @Test
@@ -70,6 +83,7 @@ class MlnFfiMapEventsTest {
   @Test
   fun an_event_outside_the_catalog_translates_to_nothing() {
     assertNull(runtimeEvent(RuntimeEventType.MAP_RENDER_ERROR).toMapEvent())
+    assertNull(runtimeEvent(RuntimeEventType.MAP_STYLE_LOADED).toMapEvent())
     assertNull(runtimeEvent(RuntimeEventType.MAP_STYLE_IMAGE_MISSING).toMapEvent())
     assertNull(runtimeEvent(RuntimeEventType(9999u)).toMapEvent())
   }
@@ -93,17 +107,14 @@ class MlnFfiMapEventsTest {
 
   private fun runtimeEvent(
     type: RuntimeEventType,
-    code: UInt = 0u,
     payload: RuntimeEventPayload = RuntimeEventPayload.None,
-    message: String = "",
   ) =
     RuntimeEvent(
       type = type,
       source = 1uL,
       generation = 1uL,
       sourceType = RuntimeEventSourceType.MAP,
-      code = code,
       payload = payload,
-      message = message,
+      message = "",
     )
 }

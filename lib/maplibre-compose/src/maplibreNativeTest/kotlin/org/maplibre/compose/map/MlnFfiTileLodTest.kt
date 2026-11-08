@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -109,8 +108,9 @@ class MlnFfiTileLodTest {
   private companion object {
     val Prefetch = 7u
 
-    fun assertAngleDegrees(expected: Double, radians: Double?) {
-      val actual = assertNotNull(radians) * 180.0 / PI
+    /** Native reads and writes the threshold in degrees. */
+    fun assertAngleDegrees(expected: Double, degrees: Double?) {
+      val actual = assertNotNull(degrees)
       assertTrue(abs(expected - actual) <= 1e-6, "expected $expected°, was $actual°")
     }
   }

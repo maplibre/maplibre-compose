@@ -74,8 +74,6 @@ internal data class VulkanImageTarget(
   val imageView: NativeHandle,
   /** `VkFormat` of [image]. */
   val format: Int,
-  /** `VkImageLayout` the host leaves [image] in before MapLibre renders. */
-  val initialLayout: Int,
   /** `VkImageLayout` MapLibre must leave [image] in for the host to consume it. */
   val finalLayout: Int,
   override val extent: MapExtent,

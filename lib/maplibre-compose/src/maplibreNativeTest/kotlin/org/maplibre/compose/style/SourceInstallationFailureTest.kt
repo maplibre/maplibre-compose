@@ -106,9 +106,8 @@ class SourceInstallationFailureTest {
           installation.update(next)
           assertNull(binding.getSource(initial.id))
           fixture.pumpUntil("the rejected GeoJSON URL warning") {
-            warnings.any { "discarded command failed" in it }
+            warnings.any { "Could not update GeoJSON source 'geojson'" in it }
           }
-          assertTrue(warnings.any { "discarded command failed" in it })
           assertEquals(next, installation.definition)
           binding.addSource(initial)
           installation.update(initial)
