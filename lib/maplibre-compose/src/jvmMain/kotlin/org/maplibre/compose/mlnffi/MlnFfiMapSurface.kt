@@ -283,6 +283,9 @@ private class MlnFfiMapHostSessionImpl(
   override val backends: RenderBackendPair
     get() = host.backends
 
+  override val frameDemands: MlnFfiFrameDemands
+    get() = host.frameDemands
+
   override fun requestFrame() {
     onRequestFrame()
   }

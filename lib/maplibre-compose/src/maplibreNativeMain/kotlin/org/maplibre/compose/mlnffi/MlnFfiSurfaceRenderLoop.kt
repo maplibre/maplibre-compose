@@ -331,11 +331,8 @@ internal abstract class MlnFfiSurfaceRenderLoop<S : Any>(
     val start = TimeSource.Monotonic.markNow()
     try {
       when (renderer.render(this, frame)) {
-        is MlnFfiFrameResult.Rendered -> {
-          pacer.rendered(start)
-          // A parked demand needs the next pass. Other sessions wake the host for each frame.
-          if (frameDemands == MlnFfiFrameDemands.Parked) requestFrameOnRenderThread()
-        }
+        // The session wakes the host for each frame.
+        is MlnFfiFrameResult.Rendered -> pacer.rendered(start)
 
         MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()
         MlnFfiFrameResult.AwaitUpdate -> Unit

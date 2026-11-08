@@ -62,15 +62,16 @@ internal class AppleMlnFfiSurfaceController(
   @Volatile private var closeRequested = false
   private var pacerFps = maximumFps
 
-  /** Main thread. Created with the first layer, and replaced when [maximumFps] changes. */
+  /**
+   * Main thread. Created when the first layer's session attaches, and replaced when [maximumFps]
+   * changes.
+   */
   internal var framePacer: FramePacerHandle? = null
-    private set(value) {
-      field = value
-      frameDemands = value?.let(MlnFfiFrameDemands::Paced) ?: MlnFfiFrameDemands.Parked
-    }
-
-  override var frameDemands: MlnFfiFrameDemands = MlnFfiFrameDemands.Parked
     private set
+
+  override val frameDemands: MlnFfiFrameDemands
+    get() =
+      MlnFfiFrameDemands.Paced(framePacer ?: createFramePacer(pacerFps).also { framePacer = it })
 
   /** Retains the layer until native teardown has released it. */
   fun surfaceLayoutChanged(layer: CAMetalLayer, extent: MapExtent) {
@@ -79,10 +80,7 @@ internal class AppleMlnFfiSurfaceController(
       if (layer !== surface) {
         // The render session uses the old layer until it lets go of it.
         loseSurface()
-        attachSurface(extent) {
-          if (framePacer == null) framePacer = createFramePacer(pacerFps)
-          layer
-        }
+        attachSurface(extent) { layer }
       } else resizeSurface(extent, reallocates = false)
     }
   }

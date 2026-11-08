@@ -171,6 +171,7 @@ private constructor(
     object : MlnFfiMapHostSession {
       override val isClosed = false
       override val backends: RenderBackendPair = driver.backends
+      override val frameDemands = driver.frameDemands
 
       override fun requestFrame() {
         frameRequested.store(true)
