@@ -87,39 +87,22 @@ A `mappings` block replaces the default mappings. The map uses the first `on`
 row that matches the input, and `otherwise` matches any other input. Drags, taps, and keys
 have their own `mappings` blocks in `bindings`.
 
-## Change how the map glides after a flick
-
-When the user lets go of a moving gesture, the map keeps moving at the speed of
-the release and slows down until it stops. Each part of the camera, pan, zoom,
-rotation, and pitch, glides on its own. Use `momentum` to change how a part
-slows, or to turn its glide off. This map pans for longer after a flick, settles
-the zoom on a whole level, and stops turning as soon as the user lets go:
-
-<Code code={region(interaction, "momentum")} lang="kotlin" title="App.kt" />
-
-`friction` halves the speed of the part every `halfLife`. `ease` follows a glide
-that a <Api of="MomentumPlanner" /> plans from the speed of the release; on
-Android, pans ease along <Api of="MomentumPlanner.AndroidFling" />, like a
-scrolling list. A new touch stops the glide, and a flick in the same direction
-carries its speed on.
-
 ## Snap rotation to bearings
 
 When a rotation ends within 7° of north, the map turns to exactly north. Use
-`snapping` to choose other bearings, which lie every `spacing` degrees from
-`offset`. This map snaps to north, east, south, and west:
+`snapping` to choose other bearings. This map snaps to north, east, south, and
+west:
 
 <Code code={region(interaction, "bearing-snapping")} lang="kotlin" title="App.kt" />
 
-To turn snapping off, set `enabled = false` in the `snapping` block. Zoom and
-pitch have `snapping` blocks too, which are off until you add one.
+To turn snapping off, set `enabled = false` in the `snapping` block.
 
 ## Change haptic feedback for rotation
 
 On Android, iOS, and macOS, the device gives haptic feedback when the user
-rotates the map past north. Use `haptics` to choose the bearings, every `spacing`
-degrees from `offset`, and the feedback type. This map ticks at north, east,
-south, and west, and gives a frequent tick every 15°:
+rotates the map past north. Use `haptics` to choose the bearings and the feedback
+type. This map ticks at north, east, south, and west, and gives a frequent tick
+every 15°:
 
 <Code code={region(interaction, "bearing-haptics")} lang="kotlin" title="App.kt" />
 

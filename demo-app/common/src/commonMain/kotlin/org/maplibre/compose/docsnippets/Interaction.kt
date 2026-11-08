@@ -5,7 +5,6 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.interaction.CameraAction
 import org.maplibre.compose.interaction.ClickResult
@@ -33,19 +32,6 @@ fun Interaction() {
       },
   )
   // #endregion camera-movement
-
-  // #region momentum
-  MaplibreMap(
-    interactions =
-      MapInteractions {
-        camera {
-          pan { momentum { friction { halfLife = 250.milliseconds } } }
-          zoom { snapping() }
-          rotate { momentum { enabled = false } }
-        }
-      },
-  )
-  // #endregion momentum
 
   // #region bearing-snapping
   MaplibreMap(
