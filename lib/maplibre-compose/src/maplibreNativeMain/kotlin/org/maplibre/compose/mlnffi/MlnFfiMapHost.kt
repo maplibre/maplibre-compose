@@ -44,12 +44,6 @@ internal sealed interface MlnFfiMapFrameAcquisition {
 /** How a render session's frames are demanded. */
 internal sealed interface MlnFfiFrameDemands {
   /**
-   * Each frame pass parks one demand that waits for the next map update, and the host schedules the
-   * next pass when a frame result arrives.
-   */
-  data object Parked : MlnFfiFrameDemands
-
-  /**
    * [pacer] demands frames at display refreshes. Frame passes only take frame results. A pass that
    * finds another pacer than the session's gives the session the new one.
    */
@@ -57,7 +51,8 @@ internal sealed interface MlnFfiFrameDemands {
 
   /**
    * The session's redraw wake asks the host for a frame pass, which demands one frame. The host
-   * schedules the pass at its next display frame.
+   * schedules the pass at its next display frame, and the session has one demand at a time, so the
+   * host's own clock paces rendering.
    */
   data object OnRedraw : MlnFfiFrameDemands
 }
@@ -74,7 +69,7 @@ internal interface MlnFfiMapHostSession {
    * at every frame pass.
    */
   val frameDemands: MlnFfiFrameDemands
-    get() = MlnFfiFrameDemands.Parked
+    get() = MlnFfiFrameDemands.OnRedraw
 
   /** Asks the host to schedule another frame. Safe to call from any thread; requests coalesce. */
   fun requestFrame()
@@ -103,6 +98,10 @@ internal interface MlnFfiMapHostSession {
  */
 internal interface MlnFfiMapHost : AutoCloseable {
   val backends: RenderBackendPair
+
+  /** See [MlnFfiMapHostSession.frameDemands]. */
+  val frameDemands: MlnFfiFrameDemands
+    get() = MlnFfiFrameDemands.OnRedraw
 
   /**
    * Resizes the host's render target, called before the next [acquireFrame] whenever the extent

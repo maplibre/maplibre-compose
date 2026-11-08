@@ -173,9 +173,11 @@ class AppleMlnFfiSurfaceControllerTest {
     val controller =
       AppleMlnFfiSurfaceController(RecordingRenderer(), null, onFailure = { throw it })
     try {
-      assertNull(controller.framePacer, "The pacer waits for the first layer")
+      assertNull(controller.framePacer, "The pacer waits for a session to need it")
       attachLayer(controller)
-      val first = assertNotNull(controller.framePacer)
+      // A render session reads its host's frame demands when it attaches.
+      val first = (controller.frameDemands as MlnFfiFrameDemands.Paced).pacer
+      assertSame(first, controller.framePacer)
       controller.setMaximumFps(30)
       controller.awaitActions()
       val second = assertNotNull(controller.framePacer)
