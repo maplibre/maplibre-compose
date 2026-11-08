@@ -110,6 +110,8 @@ internal class Direct3D12PresentationHost(
     }
 
   /** Whether a Vulkan device runs on the adapter of Compose's device, which the ring needs. */
+  // TODO: also check that the device can share D3D11 textures, which the ring attach checks only
+  // when it runs, once https://github.com/maplibre/maplibre-native-ffi/issues/1757 lets a host ask.
   private fun vulkanSharesComposeAdapter(): Boolean {
     val device = currentContext()?.device ?: return false
     val luid = DxgiSharedTextureRingMapHost.luidBytes(WindowsDirect3DInterop.adapterLuidOf(device))
