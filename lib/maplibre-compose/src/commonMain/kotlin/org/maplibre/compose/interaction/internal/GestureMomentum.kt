@@ -337,8 +337,8 @@ private const val MaxPanSteps = 100
  * longer than a drag event's, so a tilted map moves its content the same distance on the screen in
  * every direction. Cancellation reports the speed the glide still had through [token].
  *
- * The engine clamps steps against limits and bounds, which stops nothing early here: a part that
- * reaches a limit keeps its planned time before it settles.
+ * A step that bounds or limits hold in place stops its part, which then settles at once, as in
+ * MapLibre Native.
  */
 internal suspend fun CameraInputTarget.runMomentum(
   momentum: GestureMomentum,
@@ -370,6 +370,7 @@ internal suspend fun CameraInputTarget.runMomentum(
       val now = withFrameNanos { it }
       elapsed = (now - startNanos) / 1e9
       pan?.advance(elapsed)?.let { fraction ->
+        val before = getCameraPosition().center
         GestureMath.forEachScreenSpaceStep(
           pan.totalX * fraction,
           pan.totalY * fraction,
@@ -378,9 +379,15 @@ internal suspend fun CameraInputTarget.runMomentum(
         ) { x, y ->
           moveBy(x, y, gestureToken = token)
         }
+        if (getCameraPosition().center == before) pan.moving = false
       }
       for (part in parts) {
-        part.advance(elapsed)?.let { part.step(this, token, it * part.total) }
+        part.advance(elapsed)?.let {
+          val before = part.value(this)
+          part.step(this, token, it * part.total)
+          // Bearing has no limits.
+          if (!part.circular && part.value(this) == before) part.moving = false
+        }
         if (part.snapPending && !part.moving) {
           part.snapPending = false
           val delta = checkNotNull(part.snap).delta(part.value(this), part.circular)

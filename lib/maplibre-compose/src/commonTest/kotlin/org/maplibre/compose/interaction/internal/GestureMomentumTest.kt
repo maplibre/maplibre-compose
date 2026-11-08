@@ -12,6 +12,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CoroutineScope
@@ -277,6 +278,34 @@ class GestureMomentumTest {
     // The bearing eased from 2° to north.
     assertEquals(-2.0, target.rotateCalls.sumOf { it.bearingDelta }, 1e-9)
     assertEquals(0.0, target.lastCameraPosition.bearing, 1e-9)
+  }
+
+  @Test
+  fun a_part_that_a_limit_holds_stops_and_settles_at_once() = runTest {
+    val clock = BroadcastFrameClock()
+    val scope = CoroutineScope(backgroundScope.coroutineContext + clock)
+    val target = map.target
+    target.lastCameraPosition = CameraPosition(zoom = 10.3)
+    target.maxZoom = 10.4
+    val token = target.onGestureStarted()
+    val decay = GlideDecay.Friction(MomentumDefaults.ZoomFriction)
+    val momentum =
+      GestureMomentum(
+        zoom = AnchoredMomentumPart(3.0, decay, null, Snapping(true, 1.0, 0.0, 0.5, Duration.ZERO)),
+      )
+    val planned = assertNotNull(Glide.plan(3.0, decay)).duration
+    val run = scope.launch { target.runMomentum(momentum, token) }
+    runCurrent()
+    var nanos = 0L
+    while (run.isActive && nanos < 5_000_000_000) {
+      clock.sendFrame(nanos)
+      runCurrent()
+      nanos += 16_000_000
+    }
+    assertTrue(run.isCompleted)
+    // The zoom stopped at the limit and settled there, long before its glide would have ended.
+    assertTrue(nanos < planned * 1e9 / 2, "settled after $nanos ns of a $planned s glide")
+    assertEquals(10.0, target.lastCameraPosition.zoom, 1e-9)
   }
 
   @Test

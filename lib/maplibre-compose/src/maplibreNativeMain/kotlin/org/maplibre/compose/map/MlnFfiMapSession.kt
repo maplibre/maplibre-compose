@@ -828,7 +828,7 @@ internal class MlnFfiMapSession(
       animation.toAnimationOptions(),
       guard = guard,
       fields = update.fields(),
-    ) { map, options ->
+    ) { map, options, _ ->
       map.discarding.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
@@ -857,7 +857,7 @@ internal class MlnFfiMapSession(
           if (bearing != null) add(TransitionField.Bearing)
           if (pitch != null) add(TransitionField.Pitch)
         },
-    ) { map, options ->
+    ) { map, options, _ ->
       val view = map.getSnapshot().view
       val size = view.extent
       val point =
@@ -902,8 +902,10 @@ internal class MlnFfiMapSession(
       cameraForBounds(it, boundingBox, bearing, pitch, cameraPadding, fitPadding)
     }
     if (map != null && camera == null) return logNoFittingCamera()
-    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { target, options
-      ->
+    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) {
+      target,
+      options,
+      _ ->
       target.updateCamera(
         FfiCameraUpdate(
           mode = animation.updateMode,
@@ -948,29 +950,29 @@ internal class MlnFfiMapSession(
     guard: CameraCommandGuard? = null,
     anchored: Boolean = false,
     fields: Set<TransitionField> = TransitionField.entries.toSet(),
-    start: (MapHandle, AnimationOptions) -> Unit,
+    /** Sends the transition, with the phase of [gestureToken]'s gesture or none. */
+    start: (MapHandle, AnimationOptions, GesturePhase) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val release = { if (continuation.isActive) continuation.resume(Unit) }
     val map = map
     if (isClosing || map == null) {
       release()
     } else {
+      // A gesture's transition carries its phase, so the core counts what it changes for the
+      // gesture's snapping.
+      var phase = GesturePhase.NONE
       val started =
         continuation.isActive &&
           runCameraCommand(
             gestureToken,
             guard,
-            activate = {
-              gestureToken?.let {
-                // A transition carries no gesture phase of its own, so a gesture that begins
-                // with one marks itself with an empty update first.
-                if (activateGesture(it) == GesturePhase.BEGIN) {
-                  map.discarding.updateCamera(FfiCameraUpdate(gesturePhase = GesturePhase.BEGIN))
-                }
-              }
-            },
+            activate = { gestureToken?.let { phase = activateGesture(it) } },
           ) {
-            cameraTransitions.start(map, animation, continuation, anchored, fields, start)
+            cameraTransitions.start(map, animation, continuation, anchored, fields) {
+              target,
+              options ->
+              start(target, options, phase)
+            }
           }
       if (!started) release()
     }
@@ -1071,9 +1073,15 @@ internal class MlnFfiMapSession(
       cameraForBounds(map, fit.bounds, fit.bearing, fit.pitch, null, DpPadding.Zero) ?: return
     startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
       target,
-      animation ->
+      animation,
+      phase ->
       target.updateCamera(
-        FfiCameraUpdate(mode = CameraUpdateMode.EASE, camera = camera, animation = animation),
+        FfiCameraUpdate(
+          mode = CameraUpdateMode.EASE,
+          camera = camera,
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1377,9 +1385,13 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
-        CameraDelta(offset = ScreenPoint(deltaX, deltaY), animation = animation),
+        CameraDelta(
+          offset = ScreenPoint(deltaX, deltaY),
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1403,9 +1415,14 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Zoom),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
-        CameraDelta(scale = scale, anchor = anchor?.toScreenPoint(), animation = animation),
+        CameraDelta(
+          scale = scale,
+          anchor = anchor?.toScreenPoint(),
+          animation = animation,
+          gesturePhase = phase,
+        ),
       )
     }
   }
@@ -1464,13 +1481,14 @@ internal class MlnFfiMapSession(
       duration.toAnimationOptions(),
       gestureToken = gestureToken,
       fields = setOf(TransitionField.Center, TransitionField.Bearing, TransitionField.Pitch),
-    ) { map, animation ->
+    ) { map, animation, phase ->
       map.discarding.applyCameraDelta(
         CameraDelta(
           bearing = bearingDelta.takeIf { it != 0.0 },
           pitch = pitchDelta.takeIf { it != 0.0 },
           anchor = anchor?.toScreenPoint(),
           animation = animation,
+          gesturePhase = phase,
         ),
       )
     }
