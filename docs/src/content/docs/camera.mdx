@@ -106,7 +106,8 @@ without animation, call <Api of="MapState.fitCameraToBounds" />.
 <CameraFit />
 
 <Api of="MapState.cameraForBounds" /> calculates the fitted camera without
-moving the map, so you can change it before you apply it. For example, cap the
+moving the map, so you can change it before you apply it. It returns `null`
+when the padding and insets leave no room on the map. For example, cap the
 zoom so that a fit around a few nearby points does not zoom in too far:
 
 <Code code={region(camera, "camera-for-bounds")} lang="kotlin" title="App.kt" />

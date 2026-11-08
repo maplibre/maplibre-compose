@@ -699,11 +699,11 @@ internal class MlnFfiMapSession(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition {
+  ): CameraPosition? {
     val map = checkNotNull(map) { "The map became unavailable during the bounds query" }
     val insets = viewport.appliedViewportInsets
     return cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding, insets)
-      .toCameraPosition(insets)
+      ?.toCameraPosition(insets)
   }
 
   override suspend fun cameraForGeometry(
@@ -712,14 +712,14 @@ internal class MlnFfiMapSession(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition {
+  ): CameraPosition? {
     val map = checkNotNull(map) { "The map became unavailable during the geometry query" }
     val geoJson = geometry.toJson()
     val insets = viewport.appliedViewportInsets
     return fitCamera(map, bearing, pitch, cameraPadding, fitPadding, insets) {
         map.cameraForGeometry(geoJson, it).await()
       }
-      .toCameraPosition(insets)
+      ?.toCameraPosition(insets)
   }
 
   override suspend fun fitCameraToBounds(
@@ -736,7 +736,9 @@ internal class MlnFfiMapSession(
       "A bounds fit requires the current presentation viewport"
     }
     val map = checkNotNull(map) { "The map became unavailable during the bounds fit" }
-    val camera = cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
+    val camera =
+      cameraForBounds(map, boundingBox, bearing, pitch, cameraPadding, fitPadding)
+        ?: return logNoFittingCamera()
     if (guard?.isValid() == false) return
     // Returns once main has handled the command's camera events.
     owner.inEventOrder(map.updateCamera(FfiCameraUpdate(camera = camera))).await()
@@ -750,7 +752,7 @@ internal class MlnFfiMapSession(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
     insets: EdgeInsets = viewport.appliedViewportInsets,
-  ): CameraOptions =
+  ): CameraOptions? =
     fitCamera(map, bearing, pitch, cameraPadding, fitPadding, insets) {
       map.cameraForLatLngBounds(bounds = boundingBox.toLatLngBounds(), fitOptions = it).await()
     }
@@ -763,7 +765,7 @@ internal class MlnFfiMapSession(
     fitPadding: DpPadding,
     insets: EdgeInsets = viewport.appliedViewportInsets,
     fit: suspend (CameraFitOptions) -> CameraOptions,
-  ): CameraOptions {
+  ): CameraOptions? {
     val current = map.getSnapshot().view.camera.toCameraPosition(insets)
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val persistent = checkNotNull(destination.toCameraOptions(insets).padding)
@@ -774,7 +776,7 @@ internal class MlnFfiMapSession(
       } catch (error: MaplibreException) {
         // Padding that leaves no room for the fit.
         if (error.status != Status.INVALID_ARGUMENT) throw error
-        throw IllegalStateException("MapLibre could not fit a camera: ${error.diagnostic}", error)
+        return null
       }
     if (this.map !== map || isClosing)
       throw CancellationException("The fitted map is no longer current")
@@ -875,9 +877,11 @@ internal class MlnFfiMapSession(
     check(viewport.hasViewport) {
       "A bounds animation requires the current presentation viewport"
     }
+    val map = map
     val camera = map?.let {
       cameraForBounds(it, boundingBox, bearing, pitch, cameraPadding, fitPadding)
     }
+    if (map != null && camera == null) return logNoFittingCamera()
     startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { target, options
       ->
       target.updateCamera(
@@ -888,6 +892,10 @@ internal class MlnFfiMapSession(
         ),
       )
     }
+  }
+
+  private fun logNoFittingCamera() {
+    logger?.w { "No camera fits the bounds in the current viewport; the camera stays where it is" }
   }
 
   private val CameraAnimation.updateMode: CameraUpdateMode
@@ -1038,13 +1046,9 @@ internal class MlnFfiMapSession(
   ) {
     if (!acceptsGestures) return
     val map = map ?: return
+    // A box too small to fit within the viewport insets leaves the camera where it is.
     val camera =
-      try {
-        cameraForBounds(map, fit.bounds, fit.bearing, fit.pitch, null, DpPadding.Zero)
-      } catch (_: IllegalStateException) {
-        // A box too small to fit within the viewport insets leaves the camera where it is.
-        return
-      }
+      cameraForBounds(map, fit.bounds, fit.bearing, fit.pitch, null, DpPadding.Zero) ?: return
     startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
       target,
       animation ->

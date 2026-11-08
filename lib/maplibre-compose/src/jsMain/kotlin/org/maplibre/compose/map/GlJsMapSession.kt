@@ -784,12 +784,8 @@ internal class GlJsMapSession(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition =
-    checkNotNull(
-      map?.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding),
-    ) {
-      "The map could not calculate a camera for the bounds"
-    }
+  ): CameraPosition? =
+    map?.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
 
   override suspend fun cameraForGeometry(
     geometry: Geometry,
@@ -797,7 +793,7 @@ internal class GlJsMapSession(
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition =
+  ): CameraPosition? =
     withMap(null as CameraPosition?) { map ->
       map.cameraPositionForPositions(
         geometry.positions(),
@@ -806,7 +802,7 @@ internal class GlJsMapSession(
         cameraPadding,
         fitPadding,
       )
-    } ?: throw IllegalStateException("The map could not calculate a camera for the geometry")
+    }
 
   override suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
@@ -818,7 +814,9 @@ internal class GlJsMapSession(
   ) {
     if (guard?.isValid() == false) return
     cameraTransitions.releasePending()
-    val camera = cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+    val camera =
+      cameraForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+        ?: return logNoFittingCamera()
     onMap { map ->
       if (guard?.isValid() == false) return@onMap
       map.jumpTo(camera.toJumpToOptions())
@@ -879,17 +877,17 @@ internal class GlJsMapSession(
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    // The animation can wait for the first style, so fit the viewport it starts in. A failed fit
-    // fails the caller through the queued command.
+    // The animation can wait for the first style, so fit the viewport it starts in.
     awaitCameraRelease(guard = guard) { map ->
       val camera =
-        checkNotNull(
-          map.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding),
-        ) {
-          "The map could not calculate a camera for the bounds"
-        }
+        map.cameraPositionForBounds(boundingBox, bearing, pitch, cameraPadding, fitPadding)
+          ?: return@awaitCameraRelease logNoFittingCamera()
       map.animateTo(camera.toCameraUpdate(), animation)
     }
+  }
+
+  private fun logNoFittingCamera() {
+    logger?.w { "No camera fits the bounds in the current viewport; the camera stays where it is" }
   }
 
   private fun MaplibreMap.animateTo(update: CameraUpdate, animation: CameraAnimation) {

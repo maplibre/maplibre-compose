@@ -94,7 +94,8 @@ suspend fun showRoute(mapState: MapState, routeBounds: BoundingBox) {
 
 // #region camera-for-bounds
 suspend fun showResults(mapState: MapState, resultBounds: BoundingBox) {
-  val camera = mapState.cameraForBounds(resultBounds)
+  // Null when the padding leaves no room on the map, such as on a very small map.
+  val camera = mapState.cameraForBounds(resultBounds) ?: return
   mapState.animateCamera(
     update = camera.copy(zoom = minOf(camera.zoom, 15.0)).toCameraUpdate(),
     animation = CameraAnimation.Fly.Standard,

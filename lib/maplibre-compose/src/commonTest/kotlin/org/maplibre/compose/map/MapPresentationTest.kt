@@ -2051,7 +2051,7 @@ class MapPresentationTest {
 
   @Test
   fun inline_queries_reject_results_from_a_detached_presentation() = runTest {
-    val queries: List<suspend (MapState) -> Any> =
+    val queries: List<suspend (MapState) -> Any?> =
       listOf(
         { it.cameraForBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))) },
         { it.cameraForCoordinates(listOf(Position(-1.0, -1.0), Position(1.0, 1.0))) },

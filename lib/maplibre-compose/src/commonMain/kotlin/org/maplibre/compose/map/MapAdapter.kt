@@ -86,7 +86,7 @@ internal interface MapAdapter {
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition
+  ): CameraPosition?
 
   /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
   suspend fun cameraForGeometry(
@@ -95,7 +95,7 @@ internal interface MapAdapter {
     pitch: Double,
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
-  ): CameraPosition
+  ): CameraPosition?
 
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
