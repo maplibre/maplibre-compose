@@ -14,7 +14,7 @@ import org.maplibre.nativeffi.setLogCallback
  *
  * Installed once, when the first native runtime is created; `logSetCallback` loads the native
  * library itself. The callback reads the current logger at each record, so replacing the logger
- * never reinstalls the callback. No record also goes to the engine's platform logger, so a null
+ * never reinstalls the callback. Records don't also go to the engine's platform logger, so a null
  * logger or a filtered severity stays quiet.
  */
 internal object MlnFfiLogBridge {

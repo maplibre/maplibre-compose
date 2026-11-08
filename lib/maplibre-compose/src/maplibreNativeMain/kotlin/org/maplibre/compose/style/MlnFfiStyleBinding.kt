@@ -565,7 +565,8 @@ internal open class MlnFfiStyleBinding(
   ): StyleCommand {
     val added = addSourceWith { map ->
       map.addGeoJsonSource(sourceId, options.toFfiOptions()).also {
-        // Synchronous tiling isn't a source option. Set right after the add, it covers every data.
+        // Synchronous tiling isn't a source option; setting it right after the add covers the
+        // initial data too.
         if (options.synchronousTiling)
           map.discarding.setGeoJsonSourceSynchronousTiling(sourceId, true)
       }

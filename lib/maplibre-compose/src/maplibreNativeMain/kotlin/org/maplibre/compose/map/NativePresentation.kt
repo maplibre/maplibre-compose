@@ -336,7 +336,6 @@ internal class NativePresentation(
         // Other hosts re-arm on their next pass, after any consumer has released its frame.
         if (!attachment.demandPending && (completed == null || host.servicesDriverWorkOnFrame)) {
           attachment.demandPending = true
-          // A surface target shows each frame it draws.
           session.demandFrame(FrameDemand(flags = FrameDemandFlag.WAIT_FOR_UPDATE))
         }
         completed ?: return MlnFfiFrameResult.AwaitUpdate
