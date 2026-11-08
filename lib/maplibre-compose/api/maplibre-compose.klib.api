@@ -5194,9 +5194,6 @@ final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDem
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop[0]
 
 // Targets: [apple]
-final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop[0]
-
-// Targets: [apple]
 final val org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop|#static{}org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop[0]
 
 // Targets: [apple]
@@ -5313,9 +5310,6 @@ final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDem
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Paced$stableprop_getter(){}[0]
-
-// Targets: [apple]
-final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameDemands_Parked$stableprop_getter(){}[0]
 
 // Targets: [apple]
 final fun org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(): kotlin/Int // org.maplibre.compose.mlnffi/org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter|org_maplibre_compose_mlnffi_MlnFfiFrameResult_AwaitUpdate$stableprop_getter(){}[0]
