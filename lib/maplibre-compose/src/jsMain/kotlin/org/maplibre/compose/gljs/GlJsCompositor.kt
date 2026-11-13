@@ -1,68 +1,66 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import org.maplibre.compose.logging.MapLog
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.webgl.WebGLRenderTarget
+import androidx.compose.ui.platform.webgl.rememberWebGLRenderTarget
+import androidx.compose.ui.unit.IntSize
 import org.maplibre.compose.map.MapExtent
 
-/** What a map should render into for one frame. */
+/** The target for one map frame. */
 internal sealed interface GlJsFrameTarget {
   data class Composited(val target: GlJsRenderTarget) : GlJsFrameTarget
 
-  /** Compose has not finished building the renderer whose context the map shares. */
+  /** Compose has not finished creating its GPU renderer. */
   data object NotReady : GlJsFrameTarget
 
   /** The measured extent exceeds the GPU limits; wait for a different extent. */
   data object UnsupportedSize : GlJsFrameTarget
 
-  /** The map renders into its own canvas, for a DOM host or without Compose compositing. */
+  /** A Compose surface without a GPU renderer. The map renders into an unobserved canvas. */
   data object OwnCanvas : GlJsFrameTarget
 }
 
-/** Supplies the render target for one map, frame by frame. */
+/** Runs MapLibre frames and supplies the painter that presents them. */
 internal interface GlJsCompositor : AutoCloseable {
-  fun acquire(extent: MapExtent): GlJsFrameTarget
+  val painter: Painter?
+
+  /** Runs [renderMap] in the WebGL period that this compositor provides. */
+  fun render(extent: MapExtent, renderMap: (GlJsFrameTarget) -> Unit): GlJsFrameTarget
 }
 
-/** A seam for tests that run against a raster surface with no WebGL context. */
-internal val LocalGlJsCompositor =
-  staticCompositionLocalOf<(MapLog?) -> GlJsCompositor> {
-    { logger -> ComposeGlJsCompositor(logger) }
+internal typealias GlJsCompositorFactory = @Composable (size: IntSize) -> GlJsCompositor
+
+/** Supplies a test compositor when a Compose surface has no WebGL context. */
+internal val LocalGlJsCompositor = staticCompositionLocalOf<GlJsCompositorFactory?> { null }
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+internal fun rememberGlJsCompositor(size: IntSize): GlJsCompositor {
+  val factory = LocalGlJsCompositor.current
+  if (factory != null) return factory(size)
+  val target = rememberWebGLRenderTarget(size)
+  return remember(target) {
+    if (target == null) DetachedGlJsCompositor() else ComposeGlJsCompositor(target)
   }
+}
 
-/** A target is never resized in place: WebGL cannot resize a texture. */
-internal class ComposeGlJsCompositor(private val logger: MapLog?) : GlJsCompositor {
+/** Uses the WebGL target and lifecycle that Compose UI provides. */
+@OptIn(ExperimentalComposeUiApi::class)
+internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : GlJsCompositor {
+  private val mapTarget = ComposeGlJsRenderTarget(target)
 
-  private var target: GlJsRenderTarget? = null
-  private var generation = 0L
-  private var reportedUnavailable = false
+  override val painter: Painter = target.painter
 
-  override fun acquire(extent: MapExtent): GlJsFrameTarget {
+  override fun render(
+    extent: MapExtent,
+    renderMap: (GlJsFrameTarget) -> Unit,
+  ): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
-    val hostContext = EmscriptenGl.currentContext()
-    if (hostContext == null || !SkikoGpuBridge.isReady(hostContext)) {
-      if (!reportedUnavailable) {
-        reportedUnavailable = true
-        logger?.d {
-          "Waiting to composite the map: " +
-            if (hostContext == null) "Compose has no current WebGL renderer"
-            else SkikoGpuBridge.diagnostic(hostContext)
-        }
-      }
-      return GlJsFrameTarget.NotReady
-    }
-    reportedUnavailable = false
-
-    val current = target
-    if (
-      current != null &&
-        current.hostContext.handle == hostContext.handle &&
-        current.widthPx == extent.physicalWidth &&
-        current.heightPx == extent.physicalHeight
-    ) {
-      return GlJsFrameTarget.Composited(current)
-    }
-
-    val gl = hostContext.webGlContext.asDynamic()
+    val gl = mapTarget.gl
     val limit =
       minOf(
         gl.getParameter(gl.MAX_TEXTURE_SIZE).unsafeCast<Int>(),
@@ -71,30 +69,38 @@ internal class ComposeGlJsCompositor(private val logger: MapLog?) : GlJsComposit
     if (extent.physicalWidth > limit || extent.physicalHeight > limit) {
       return GlJsFrameTarget.UnsupportedSize
     }
-
-    val next =
-      GlJsRenderTarget(
-        hostContext = hostContext,
-        widthPx = extent.physicalWidth,
-        heightPx = extent.physicalHeight,
-        generation = ++generation,
-      )
-    target = next
-    current?.close()
-    return GlJsFrameTarget.Composited(next)
+    val frameTarget = GlJsFrameTarget.Composited(mapTarget)
+    var matchesExtent = false
+    val rendered = target.render {
+      // Layout can publish a new extent before composition applies the target's requested size.
+      // GL JS permanently clamps its pixel ratio if it sees that smaller drawing buffer.
+      matchesExtent =
+        target.size.width == extent.physicalWidth && target.size.height == extent.physicalHeight
+      if (matchesExtent) renderMap(frameTarget)
+    }
+    return if (rendered && matchesExtent) {
+      frameTarget
+    } else {
+      GlJsFrameTarget.NotReady
+    }
   }
 
   override fun close() {
-    target?.close()
-    target = null
+    target.markGLStateStale()
   }
 }
 
-/**
- * A compositor for a Compose surface that has no GPU behind it. See [GlJsFrameTarget.OwnCanvas].
- */
+/** A compositor for a Compose surface without a GPU renderer. */
 internal class DetachedGlJsCompositor : GlJsCompositor {
-  override fun acquire(extent: MapExtent): GlJsFrameTarget = GlJsFrameTarget.OwnCanvas
+  override val painter: Painter? = null
+
+  override fun render(
+    extent: MapExtent,
+    renderMap: (GlJsFrameTarget) -> Unit,
+  ): GlJsFrameTarget {
+    renderMap(GlJsFrameTarget.OwnCanvas)
+    return GlJsFrameTarget.OwnCanvas
+  }
 
   override fun close() = Unit
 }
