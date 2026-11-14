@@ -1143,11 +1143,8 @@ internal class MlnFfiMapSession(
     val session = presentation.readySession() ?: return emptyList()
     val result =
       submitQuery(session, geometry, layerIds, predicate)?.awaitQuery() ?: return emptyList()
-    return withContext(Dispatchers.Default) {
-      // Native walks style layers from the bottom. MapState and GL JS put the feature in front
-      // first.
-      result.toGeoJsonFeatures().asReversed()
-    }
+    // Native returns the feature in front first, as MapState and GL JS do.
+    return withContext(Dispatchers.Default) { result.toGeoJsonFeatures() }
   }
 
   /** Null when the session closed or lost its target before it accepted the query. */
