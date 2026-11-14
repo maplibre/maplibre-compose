@@ -32,7 +32,7 @@ fflate = "0.8.3"
 jsJodaTimezone = "2.22.0"
 htmlConverterCompose = "1.1.1"
 hms-location = "6.12.0.300"
-nucleus = "3.0.0-dev-202611011507"
+nucleus = "3.0.0-dev-202611061347"
 kermit = "2.2.0"
 kotlin-wrappers = "2026.11.1"
 kotlinx-coroutines = "1.11.0"
@@ -64,7 +64,7 @@ robolectric = "4.17"
 mocha = "11.7.6"
 
 # Regular tools: keep as up to date as possible
-gradle-dokka = "2.2.0"
+gradle-dokka = "2.3.0"
 gradle-mavenPublish = "0.37.0"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
