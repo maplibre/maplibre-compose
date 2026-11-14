@@ -58,16 +58,16 @@ runs:
           New-ItemProperty -Path $driverKey -Name $Manifest -PropertyType DWord -Value 0 -Force | Out-Null
         }
 
-        $mesaVersion = "26.2.6"
+        $mesaVersion = "26.3.0"
         if ($env:RUNNER_ARCH -eq "ARM64") {
           $architecture = "arm64"
-          $openGlHash = "1C7BD291665ECE8901E3D3D928C22C04418CEA095527BABAC9752733FA0ABFC4"
-          $expectedHash = "8B48C8CFD862485371AB8E7DCB9149279B14D04A72E03BD82051ECAEB24CFEB2"
+          $openGlHash = "8133D1F077D8569B5B3A36135A32F8F9ECF8BA3F6083CA40228F5D38D7207487"
+          $expectedHash = "855B11DEEA387DCF69777CC60AA892E8879DABD1DD673287BA28101390DEE4B3"
           $manifestName = "dzn_icd.aarch64.json"
         } else {
           $architecture = "x64"
-          $openGlHash = "5C6FB3C75CE4C8A7AE6A0D0C3077935D4D9331D0C2F8DB2ECB6E461E08A62F57"
-          $expectedHash = "71A358A714D91175847CE0FDB2F9F3D797E58FBF74F8F39EDA4555DB429D0E57"
+          $openGlHash = "95305B4FCC9B0F85A03FA872505D7032FCEBC3A70A6681A491400F8AA4A10391"
+          $expectedHash = "4A249E049B968E8BCAC711DBDA127035CA88356876A3CE73A6C633C40C4D34A9"
           $manifestName = "dzn_icd.x86_64.json"
         }
         $archiveName = "mesa-dzn-$architecture-$mesaVersion.7z"
