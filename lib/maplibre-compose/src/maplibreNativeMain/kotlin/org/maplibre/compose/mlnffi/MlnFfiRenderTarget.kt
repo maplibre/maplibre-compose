@@ -3,8 +3,6 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.nativeffi.OpenGlClientApi
-import org.maplibre.nativeffi.OpenGlContextOwnership
 
 /**
  * A borrowed pointer address or 64-bit Vulkan handle. The host owns the resource; MapLibre Compose
@@ -96,6 +94,8 @@ internal data class VulkanImageTarget(
 /** An `id<MTLTexture>` MapLibre renders into. */
 @Immutable
 internal data class MetalTextureTarget(
+  /** `id<MTLDevice>` that owns [texture]. The session renders on it. */
+  val device: NativeHandle,
   /** `id<MTLTexture>`. */
   val texture: NativeHandle,
   /** `MTLPixelFormat` of [texture]. */
@@ -131,33 +131,26 @@ internal data class MetalSurfaceTarget(
 /** Platform context handles MapLibre needs to render into an OpenGL target. */
 internal sealed interface OpenGlContextHandles
 
-/** EGL context handles, used by EGL hosts. */
+/**
+ * EGL context handles, used by EGL hosts. The session renders with a context of its own in this
+ * context's share group.
+ */
 @Immutable
 internal data class EglContextHandles(
   /** `EGLDisplay`. */
   val display: NativeHandle,
   /** `EGLConfig`. */
   val config: NativeHandle,
-  /**
-   * `EGLContext` whose share group the session joins. Unused when [ownership] is
-   * [OpenGlContextOwnership.DEDICATED], where the session creates a context of its own.
-   */
+  /** `EGLContext` whose share group the session joins. */
   val shareContext: NativeHandle,
   /** `eglGetProcAddress`. */
   val getProcAddress: NativeHandle,
-  /**
-   * Whether the session shares this thread with host graphics work. A dedicated session owns the
-   * thread's context.
-   */
-  val ownership: OpenGlContextOwnership = OpenGlContextOwnership.SHARED,
-  /**
-   * Client API a dedicated session creates its context for. Ignored under shared ownership, where
-   * the session reads it from [shareContext].
-   */
-  val clientApi: OpenGlClientApi = OpenGlClientApi.UNSPECIFIED,
 ) : OpenGlContextHandles
 
-/** WGL context handles, used by WGL hosts. */
+/**
+ * WGL context handles, used by WGL hosts. The session renders with a context of its own in this
+ * context's share group.
+ */
 @Immutable
 internal data class WglContextHandles(
   /** `HDC`. */
@@ -166,7 +159,6 @@ internal data class WglContextHandles(
   val shareContext: NativeHandle,
   /** `wglGetProcAddress`. */
   val getProcAddress: NativeHandle,
-  val ownership: OpenGlContextOwnership = OpenGlContextOwnership.SHARED,
 ) : OpenGlContextHandles
 
 /**

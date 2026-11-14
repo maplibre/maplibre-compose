@@ -27,10 +27,11 @@ import org.maplibre.nativeffi.MapMode
 import org.maplibre.nativeffi.MapOptions
 import org.maplibre.nativeffi.MapProjectionHandle
 import org.maplibre.nativeffi.MaplibreException
-import org.maplibre.nativeffi.OffscreenDescriptor
+import org.maplibre.nativeffi.OffscreenTarget
 import org.maplibre.nativeffi.RenderDriverKind
 import org.maplibre.nativeffi.RenderSessionAttachOptions
 import org.maplibre.nativeffi.RenderSessionHandle
+import org.maplibre.nativeffi.RenderTarget
 import org.maplibre.nativeffi.RuntimeEvent
 import org.maplibre.nativeffi.RuntimeEventFlag
 import org.maplibre.nativeffi.Status
@@ -186,7 +187,7 @@ private class NativeSnapshotterAdapter(
     // after it observes the new size when it completes.
     if (current.extent != extent) {
       current.extent = extent
-      current.session.discarding.resize(extent.toLogicalSize())
+      current.session.discarding.resize(extent.toLogicalExtent())
     }
     current.map
       .updateCamera(CameraUpdate(camera = request.cameraPosition.toCameraOptions(EdgeInsets())))
@@ -353,9 +354,9 @@ private constructor(
         check(owner.register(map, engine)) { "The map runtime is closed" }
         // The session waits for the map to be ready, and creates an offscreen device of its own.
         engine.session =
-          map.attachOffscreen(
-            OffscreenDescriptor(extent.toLogicalSize()),
-            RenderSessionAttachOptions(driver = RenderDriverKind.CORE_WORKER),
+          map.attach(
+            RenderTarget.Offscreen(OffscreenTarget(extent.toLogicalSize())),
+            options = RenderSessionAttachOptions(driver = RenderDriverKind.CORE_WORKER),
           )
         engine.session.ready.await()
         return engine

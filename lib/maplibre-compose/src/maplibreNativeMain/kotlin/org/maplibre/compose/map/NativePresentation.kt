@@ -8,7 +8,6 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
@@ -20,34 +19,20 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.MlnFfiSignal
-import org.maplibre.compose.mlnffi.OpenGlContextHandles
-import org.maplibre.compose.mlnffi.OpenGlSurfaceTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.PlatformWindowTarget
-import org.maplibre.compose.mlnffi.VulkanContextHandles
-import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.nativeffi.Completion
-import org.maplibre.nativeffi.EglContextDescriptor
 import org.maplibre.nativeffi.FrameDemand
 import org.maplibre.nativeffi.FrameDemandFlag
 import org.maplibre.nativeffi.FramePacerHandle
+import org.maplibre.nativeffi.GpuDeviceHandle
 import org.maplibre.nativeffi.GpuSync
 import org.maplibre.nativeffi.GpuSyncKind
 import org.maplibre.nativeffi.MapHandle
 import org.maplibre.nativeffi.MapView
 import org.maplibre.nativeffi.MaplibreException
-import org.maplibre.nativeffi.NativePointer
-import org.maplibre.nativeffi.OpenGlBorrowedTexture
-import org.maplibre.nativeffi.OpenGlBorrowedTextureDescriptor
-import org.maplibre.nativeffi.OpenGlBorrowedTextureReplacement
-import org.maplibre.nativeffi.OpenGlClientApi
-import org.maplibre.nativeffi.OpenGlContextDescriptor
-import org.maplibre.nativeffi.OpenGlContextDescriptorData
-import org.maplibre.nativeffi.OpenGlContextOwnership
-import org.maplibre.nativeffi.OpenGlSurfaceDescriptor
-import org.maplibre.nativeffi.OpenGlSurfaceReplacement
 import org.maplibre.nativeffi.RenderDriverKind
 import org.maplibre.nativeffi.RenderFrameResult
 import org.maplibre.nativeffi.RenderResult
@@ -55,9 +40,7 @@ import org.maplibre.nativeffi.RenderSessionAttachOptions
 import org.maplibre.nativeffi.RenderSessionCapabilityFlag
 import org.maplibre.nativeffi.RenderSessionHandle
 import org.maplibre.nativeffi.Status
-import org.maplibre.nativeffi.VulkanContextDescriptor
 import org.maplibre.nativeffi.Wake
-import org.maplibre.nativeffi.WglContextDescriptor
 
 /**
  * One host attachment owns its render session and every borrow of its GPU target.
@@ -94,6 +77,13 @@ internal class NativePresentation(
     var demandPending = false
     /** The frame pacer that demands the session's frames, when the host has one. */
     var pacer: FramePacerHandle? = null
+    /**
+     * The host's GPU objects that [session] renders on, wrapped, or null for a device that the
+     * session created. It outlives the session.
+     */
+    var device: GpuDeviceHandle? = null
+    /** The [MlnFfiRenderTarget.deviceKey] of [device]. */
+    var deviceKey: Any? = null
     /** Whether the session let go of its window, and waits for the host's next one. */
     var targetReleased = false
     /**
@@ -206,6 +196,10 @@ internal class NativePresentation(
         await(closing, closing.release())
       } finally {
         target = null
+        // Released only once the session no longer renders on it.
+        device?.close()
+        device = null
+        deviceKey = null
       }
     }
 
@@ -566,7 +560,7 @@ internal class NativePresentation(
     ) {
       // A Metal session resizes its layer itself, keeping the same layer.
       try {
-        live.discarding.resize(extent.toLogicalSize())
+        live.discarding.resize(extent.toLogicalExtent())
       } catch (error: MaplibreException) {
         throw sessionFailed(live, error)
       }
@@ -629,15 +623,17 @@ internal class NativePresentation(
     attachment.target = target
     val demands = attachment.host.frameDemands
     val options = attachment.attachOptions(driver, demands)
+    (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
+    val device = wrapTargetDevice(target)
     val started: RenderSessionHandle =
-      when (target) {
-        is OpenGlTextureTarget -> {
-          target.makeContextCurrent()
-          map.attachOpenGlBorrowedTexture(target.toDescriptor(extent), options)
-        }
-        is OpenGlSurfaceTarget -> map.attachOpenGlSurface(target.toDescriptor(extent), options)
-        else -> attachPlatformTarget(map, target, extent, options)
+      try {
+        map.attachTarget(target, extent, device, options)
+      } catch (error: Throwable) {
+        device?.close()
+        throw error
       }
+    attachment.device = device
+    attachment.deviceKey = target.deviceKey
     attachment.session = started
     attachment.driver = driver
     attachment.target = target
@@ -667,24 +663,24 @@ internal class NativePresentation(
     target: MlnFfiRenderTarget,
     extent: MapExtent,
   ): Boolean {
+    // A session renders on the device it attached with.
+    if (target.deviceKey != attachment.deviceKey) return false
     try {
       val replacement: Completion<*>? =
         when (target) {
-          is OpenGlTextureTarget -> {
-            target.makeContextCurrent()
-            session.setOpenGlBorrowedTextureTarget(target.toReplacement(extent))
-          }
-          is OpenGlSurfaceTarget -> session.setOpenGlSurfaceTarget(target.toReplacement(extent))
           is PlatformWindowTarget ->
             if (previous is PlatformWindowTarget && previous.window === target.window) {
               // The session resizes its window's surface and the map in order with its frames.
-              session.discarding.resize(extent.toLogicalSize())
+              session.discarding.resize(extent.toLogicalExtent())
               // The resized window has no image yet, but a Vulkan session has nothing new to draw
               // until the map changes, so a pacer would leave the window black.
               session.demandFrame(FrameDemand(flags = FrameDemandFlag.FORCE))
               null
-            } else replacePlatformTarget(session, target, extent)
-          else -> replacePlatformTarget(session, target, extent)
+            } else session.replaceTarget(target, extent)
+          else -> {
+            (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
+            session.replaceTarget(target, extent)
+          }
         }
       replacement?.let { attachment.await(session, it) }
       attachment.targetReleased = false
@@ -719,88 +715,4 @@ internal class NativePresentation(
       cause,
     )
   }
-
-  private fun OpenGlTextureTarget.toDescriptor(extent: MapExtent) =
-    OpenGlBorrowedTextureDescriptor(
-      logicalSize = extent.toLogicalSize(),
-      physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
-      physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
-      context = context.toFfi(),
-      textures = listOf(OpenGlBorrowedTexture(textureName.toUInt())),
-      target = textureTarget.toUInt(),
-    )
-
-  private fun OpenGlTextureTarget.toReplacement(extent: MapExtent) =
-    OpenGlBorrowedTextureReplacement(
-      logicalSize = extent.toLogicalSize(),
-      physicalWidth = extent.physicalWidth.coerceAtLeast(1).toUInt(),
-      physicalHeight = extent.physicalHeight.coerceAtLeast(1).toUInt(),
-      textures = listOf(OpenGlBorrowedTexture(textureName.toUInt())),
-    )
-
-  private fun OpenGlSurfaceTarget.toDescriptor(extent: MapExtent) =
-    OpenGlSurfaceDescriptor(
-      logicalSize = extent.toLogicalSize(),
-      context = context.toFfi(),
-      surface = NativePointer.ofAddress(surface.address),
-    )
-
-  private fun OpenGlSurfaceTarget.toReplacement(extent: MapExtent) =
-    OpenGlSurfaceReplacement(
-      logicalSize = extent.toLogicalSize(),
-      surface = NativePointer.ofAddress(surface.address),
-    )
 }
-
-internal fun VulkanContextHandles.toFfi() =
-  VulkanContextDescriptor(
-    instance = NativePointer.ofAddress(instance.address),
-    physicalDevice = NativePointer.ofAddress(physicalDevice.address),
-    device = NativePointer.ofAddress(device.address),
-    graphicsQueue = NativePointer.ofAddress(graphicsQueue.address),
-    graphicsQueueFamilyIndex = graphicsQueueFamilyIndex.toUInt(),
-    getInstanceProcAddr = NativePointer.ofAddress(getInstanceProcAddr.address),
-    getDeviceProcAddr = NativePointer.ofAddress(getDeviceProcAddr.address),
-  )
-
-internal fun OpenGlContextHandles.toFfi(): OpenGlContextDescriptor =
-  when (this) {
-    is EglContextHandles -> toFfi()
-    is WglContextHandles -> toFfi()
-  }
-
-internal fun EglContextHandles.toFfi(): OpenGlContextDescriptor {
-  val dedicated = ownership == OpenGlContextOwnership.DEDICATED
-  return OpenGlContextDescriptor(
-    ownership = ownership,
-    data =
-      OpenGlContextDescriptorData.Egl(
-        EglContextDescriptor(
-          display = NativePointer.ofAddress(display.address),
-          config = NativePointer.ofAddress(config.address),
-          shareContext =
-            if (dedicated) NativePointer.NULL_POINTER
-            else NativePointer.ofAddress(shareContext.address),
-          clientApi =
-            if (dedicated && clientApi == OpenGlClientApi.UNSPECIFIED) OpenGlClientApi.GLES
-            else clientApi,
-          getProcAddress = NativePointer.ofAddress(getProcAddress.address),
-        ),
-      ),
-  )
-}
-
-internal fun WglContextHandles.toFfi(): OpenGlContextDescriptor =
-  OpenGlContextDescriptor(
-    ownership = ownership,
-    data =
-      OpenGlContextDescriptorData.Wgl(
-        WglContextDescriptor(
-          deviceContext = NativePointer.ofAddress(deviceContext.address),
-          shareContext =
-            if (ownership == OpenGlContextOwnership.DEDICATED) NativePointer.NULL_POINTER
-            else NativePointer.ofAddress(shareContext.address),
-          getProcAddress = NativePointer.ofAddress(getProcAddress.address),
-        ),
-      ),
-  )

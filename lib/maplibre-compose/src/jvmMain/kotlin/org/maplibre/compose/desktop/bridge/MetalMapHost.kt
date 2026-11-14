@@ -62,6 +62,7 @@ internal class MetalMapHost(
       )
     val presentation =
       MetalTextureTarget(
+        device,
         texture,
         MetalTexture.pixelFormat(texture.address),
         if (producer == MapRenderBackend.OpenGl) TextureOrigin.BottomLeft

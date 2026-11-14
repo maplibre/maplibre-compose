@@ -55,6 +55,7 @@ private constructor(private val device: MTLDeviceProtocol) : FfiTestRenderDriver
       MlnFfiMapFrame(
         target =
           MetalTextureTarget(
+            device = NativeHandle((device as ObjCObject).objcPtr().toLong()),
             texture = NativeHandle(texture.rawAddress()),
             pixelFormat = MTLPixelFormatBGRA8Unorm.toLong(),
             origin = TextureOrigin.TopLeft,
