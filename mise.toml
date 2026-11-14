@@ -1,7 +1,7 @@
 # https://mise.jdx.dev
 
 monorepo_root = true
-min_version = "2026.11.3"
+min_version = "2026.11.8"
 
 [settings]
 lockfile = true
@@ -35,21 +35,21 @@ shell = "bash -e -c"
 android_cmdline_tools_version = "23.0"
 android_api_level = "36"
 dprint_version = "0.64.3"
-go_version = "1.27.3"
-hk_version = "2.11.1"
-jactionlint_version = "2.5.0"
+go_version = "1.27.4"
+hk_version = "2.12.0"
+jactionlint_version = "2.6.0"
 java_version = "zulu-25.38.109.0"
 jvl_version = "2026.05.03"
 metrics_bucket = "maplibre-compose-metrics"
-node_version = "26.13.0"
+node_version = "26.13.1"
 playwright_version = "1.65.0"
 pnpm_version = "12.18.0"
 python_version = "3.15.2"
-ruff_version = "0.17.4"
+ruff_version = "0.17.5"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.64.6"
-wrangler_version = "4.158.0"
-xcodes_version = "2.1.0"
+wrangler_version = "4.162.0"
+xcodes_version = "2.2.0"
 zig_version = "0.17.1"
 
 [tools]
