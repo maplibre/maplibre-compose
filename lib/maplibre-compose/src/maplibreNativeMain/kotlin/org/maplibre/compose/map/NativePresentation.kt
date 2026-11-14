@@ -148,11 +148,35 @@ internal class NativePresentation(
       val current = session ?: return
       if (!callerDriven) return
       try {
-        (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
-        current.serviceDriverWork()
+        runDriverWork(current)
       } catch (error: MaplibreException) {
         // A session closing on this thread has nothing left to service.
         logger?.d(error) { "Render session driver service failed" }
+      }
+    }
+
+    /** Renderer-thread state of [runDriverWork]. */
+    private var servicing = false
+    private var serviceAgain = false
+
+    /**
+     * Renderer thread. Services [session]'s driver work. The session can call its driver work wake
+     * from inside a service, which then can't service again, so the outer service runs once more.
+     */
+    private fun runDriverWork(session: RenderSessionHandle) {
+      if (servicing) {
+        serviceAgain = true
+        return
+      }
+      servicing = true
+      try {
+        do {
+          serviceAgain = false
+          (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
+          session.serviceDriverWork()
+        } while (serviceAgain)
+      } finally {
+        servicing = false
       }
     }
 
@@ -165,9 +189,8 @@ internal class NativePresentation(
       work.invokeOnCompletion { this.work.signal() }
       while (!work.isCompleted) {
         if (callerDriven) {
-          (target as? OpenGlTextureTarget)?.makeContextCurrent?.invoke()
           try {
-            session.serviceDriverWork()
+            runDriverWork(session)
           } catch (error: MaplibreException) {
             // A release that finished meanwhile no longer takes service; its completion follows.
             if (error.status != Status.INVALID_STATE) throw error
