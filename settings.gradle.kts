@@ -31,6 +31,14 @@ dependencyResolutionManagement {
     maven("https://developer.huawei.com/repo/") {
       content { includeGroupAndSubgroups("com.huawei") }
     }
+    // A local MapLibre Native FFI build, staged with its `kotlin:publish` task, replaces the
+    // published one.
+    providers.gradleProperty("maplibre.nativeFfi.repository").orNull?.let { repository ->
+      exclusiveContent {
+        forRepository { maven(repository) }
+        filter { includeGroup("org.maplibre.nativeffi") }
+      }
+    }
   }
 }
 
