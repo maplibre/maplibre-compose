@@ -884,7 +884,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun setLight(light: JsonObject) {
     val json = light.toString()
-    write("The light", light) { it.setStyleLightJson(json) }
+    write("The light", light) { it.setStyleRootProperty("light", json) }
   }
 
   override val supportsSky: Boolean = false
