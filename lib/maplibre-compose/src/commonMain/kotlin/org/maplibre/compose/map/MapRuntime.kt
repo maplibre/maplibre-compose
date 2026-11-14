@@ -208,7 +208,7 @@ internal constructor(
   private var closed = false
   private var closedState: Boolean by mutableStateOf(false)
 
-  /** The storage from [createOfflineStorage], or null where the runtime has none. */
+  /** The storage the runtime's offline-storage factory created, or null where it has none. */
   internal val boundOfflineStorage: AutoCloseable? = createOfflineStorage?.invoke(::requireOpen)
 
   /**
