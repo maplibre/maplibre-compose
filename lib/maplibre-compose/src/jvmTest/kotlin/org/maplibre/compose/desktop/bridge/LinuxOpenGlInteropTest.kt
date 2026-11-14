@@ -356,6 +356,8 @@ class LinuxOpenGlInteropTest {
         override fun onGestureActive(map: MapAdapter, active: Boolean) {}
 
         override fun onViewportChanged(map: MapAdapter) {}
+
+        override fun onCameraMotionChanged(map: MapAdapter) {}
       }
 
     private val runtime =

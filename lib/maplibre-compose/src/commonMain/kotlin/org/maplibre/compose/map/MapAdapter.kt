@@ -207,6 +207,12 @@ internal interface MapAdapter {
 
     /** Reports a viewport the map adopted without a camera event, such as after a resize. */
     fun onViewportChanged(map: MapAdapter)
+
+    /**
+     * Reports that [MapAdapter.isCameraMoving] changed without a camera event, such as when an
+     * animation's caller resumes after the camera already came to rest.
+     */
+    fun onCameraMotionChanged(map: MapAdapter)
   }
 }
 
@@ -226,6 +232,8 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 
   override fun onViewportChanged(map: MapAdapter) = Unit
+
+  override fun onCameraMotionChanged(map: MapAdapter) = Unit
 }
 
 /**
@@ -278,5 +286,9 @@ internal class MapStateCallbacks(
 
   override fun onViewportChanged(map: MapAdapter) {
     owner.attachmentAuthority.synchronizeCamera(map)
+  }
+
+  override fun onCameraMotionChanged(map: MapAdapter) {
+    owner.attachmentAuthority.synchronizeCameraMotion(map)
   }
 }

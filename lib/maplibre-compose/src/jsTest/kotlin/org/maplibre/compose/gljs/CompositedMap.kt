@@ -124,5 +124,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 
     override fun onViewportChanged(map: MapAdapter) = Unit
+
+    override fun onCameraMotionChanged(map: MapAdapter) = Unit
   }
 }

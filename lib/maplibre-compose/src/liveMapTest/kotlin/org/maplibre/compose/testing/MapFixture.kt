@@ -229,4 +229,8 @@ internal class RecordingMapCallbacks(
     events += "viewportChanged"
     callbacks?.onViewportChanged(map)
   }
+
+  override fun onCameraMotionChanged(map: MapAdapter) {
+    callbacks?.onCameraMotionChanged(map)
+  }
 }

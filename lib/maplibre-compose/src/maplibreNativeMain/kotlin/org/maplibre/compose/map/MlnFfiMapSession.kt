@@ -173,7 +173,11 @@ internal class MlnFfiMapSession(
       },
     )
 
-  private val cameraTransitions = MlnFfiCameraTransitions(postToMain = owner::postToMain)
+  private val cameraTransitions =
+    MlnFfiCameraTransitions(
+      postToMain = owner::postToMain,
+      onRest = { if (presentationActive) callbacks.onCameraMotionChanged(this) },
+    )
 
   internal val canPresentFrames: Boolean
     get() = styleLoadTracker.presentation != StylePresentation.Hidden
@@ -954,29 +958,38 @@ internal class MlnFfiMapSession(
     fields: Set<TransitionField> = TransitionField.entries.toSet(),
     /** Sends the transition, with the phase of [gestureToken]'s gesture or none. */
     start: (MapHandle, AnimationOptions, GesturePhase) -> Unit,
-  ): Unit = suspendCancellableCoroutine { continuation ->
-    val release = { if (continuation.isActive) continuation.resume(Unit) }
-    val map = map
-    if (isClosing || map == null) {
-      release()
-    } else {
-      // A gesture's transition carries its phase, so the core counts what it changes for the
-      // gesture's snapping.
-      var phase = GesturePhase.NONE
-      val started =
-        continuation.isActive &&
-          runCameraCommand(
-            gestureToken,
-            guard,
-            activate = { gestureToken?.let { phase = activateGesture(it) } },
-          ) {
-            cameraTransitions.start(map, animation, continuation, anchored, fields) {
-              target,
-              options ->
-              start(target, options, phase)
-            }
-          }
-      if (!started) release()
+  ) {
+    var transition: MlnFfiCameraTransitions.Transition? = null
+    try {
+      suspendCancellableCoroutine { continuation ->
+        val release = { if (continuation.isActive) continuation.resume(Unit) }
+        val map = map
+        if (isClosing || map == null) {
+          release()
+        } else {
+          // A gesture's transition carries its phase, so the core counts what it changes for the
+          // gesture's snapping.
+          var phase = GesturePhase.NONE
+          val started =
+            continuation.isActive &&
+              runCameraCommand(
+                gestureToken,
+                guard,
+                activate = { gestureToken?.let { phase = activateGesture(it) } },
+              ) {
+                transition =
+                  cameraTransitions.start(map, animation, continuation, anchored, fields) {
+                    target,
+                    options ->
+                    start(target, options, phase)
+                  }
+              }
+          if (!started) release()
+        }
+      }
+    } finally {
+      // The camera reports rest no earlier than the task in which the caller resumes.
+      transition?.callerLeft()
     }
   }
 
@@ -1172,7 +1185,7 @@ internal class MlnFfiMapSession(
 
   override fun getViewport() = viewport.getViewport()
 
-  override fun isCameraMoving(): Boolean = viewport.cameraMoving
+  override fun isCameraMoving(): Boolean = viewport.cameraMoving || cameraTransitions.isMoving
 
   override fun positionFromScreenLocation(offset: DpOffset) =
     viewport.positionFromScreenLocation(offset)

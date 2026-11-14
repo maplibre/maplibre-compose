@@ -16,9 +16,15 @@ import org.maplibre.nativeffi.MapHandle
  * caller only withdraws it; the camera keeps moving, as on every platform.
  *
  * Native callbacks post to main after the final camera events, so camera state shows where the
- * transition ended before the caller resumes.
+ * transition ended before the caller resumes. Those events can reach main a task before the end,
+ * and the caller resumes in a task after it, so a transition keeps [isMoving] true until its caller
+ * has resumed, or until its end when the caller left first.
  */
-internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Unit) -> Unit) {
+internal class MlnFfiCameraTransitions(
+  private val postToMain: (action: () -> Unit) -> Unit,
+  /** Runs on main when [isMoving] turns false. */
+  private val onRest: () -> Unit,
+) {
   /** A camera field that a transition animates. */
   enum class Field {
     Center,
@@ -30,25 +36,46 @@ internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Un
 
   private class Anchor(val transition: Transition, val size: DpSize, val fields: Set<Field>)
 
-  private inner class Transition(
+  /** A started transition, which its caller [leaves][callerLeft] once it stops waiting. */
+  inner class Transition(
     val id: ULong,
     val map: MapHandle,
     val continuation: CancellableContinuation<Unit>,
   ) {
+    private var ended = false
+    private var left = false
+
     fun transitionEnded() {
       if (anchor?.transition === this) anchor = null
-      if (continuation.isActive) continuation.resume(Unit)
+      ended = true
+      if (left) settle() else if (continuation.isActive) continuation.resume(Unit)
+    }
+
+    /** On main, once the caller resumes, however it resumes. */
+    fun callerLeft() {
+      left = true
+      if (ended) settle()
+    }
+
+    private fun settle() {
+      if (--moving == 0) onRest()
     }
   }
 
   private var nextId = 0uL
   private var anchor: Anchor? = null
+  private var moving = 0
+
+  /** Whether a transition started here hasn't settled, even if the camera already shows its end. */
+  val isMoving: Boolean
+    get() = moving > 0
 
   /**
    * A transition ID that no transition started here uses, for a camera change started elsewhere.
    */
   fun reserveId(): ULong = ++nextId
 
+  /** Returns the started transition, or null if it didn't start. */
   fun start(
     map: MapHandle,
     animation: AnimationOptions,
@@ -60,9 +87,9 @@ internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Un
      */
     fields: Set<Field> = Field.entries.toSet(),
     start: (MapHandle, AnimationOptions) -> Unit,
-  ) {
+  ): Transition? {
     // Cancellation while this waits for the map must not start a native transition.
-    if (!continuation.isActive) return
+    if (!continuation.isActive) return null
     val size =
       if (anchored)
         map.getSnapshot().view.extent.let { DpSize(it.width.toInt().dp, it.height.toInt().dp) }
@@ -82,12 +109,14 @@ internal class MlnFfiCameraTransitions(private val postToMain: (action: () -> Un
     } catch (error: Throwable) {
       // A rejected command never runs its end handler.
       if (continuation.isActive) continuation.resumeWithException(error)
-      return
+      return null
     }
+    moving++
     // Native stops a replaced anchor. Geometry changes from here on no longer belong to it, so
     // they must not cancel the replacement.
     if (anchor?.fields?.any { it in fields } == true) anchor = null
     if (size != null) anchor = Anchor(transition, size, fields + Field.Center)
+    return transition
   }
 
   fun viewportChanged(size: DpSize) {
