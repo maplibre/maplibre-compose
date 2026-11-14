@@ -48,9 +48,13 @@ enum class DesktopHostPlatform(
   fun runtimeArtifactId(backend: RenderBackend): String =
     "maplibre-compose-runtime-${backend.artifactInfix}-$artifactSuffix"
 
-  /** Module carrying [backend]'s native runtime, without a version. */
+  /**
+   * Module carrying the native runtime, without a version. One runtime carries every backend of a
+   * platform.
+   */
+  @Suppress("UNUSED_PARAMETER")
   fun runtimeModule(backend: RenderBackend): String =
-    "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${backend.artifactInfix}-jvm"
+    "org.maplibre.nativeffi:maplibre-native-ffi-runtime-jvm"
 
   /** Whether Compose presentation needs LWJGL OpenGL natives, regardless of the map backend. */
   private val presentsThroughOpenGl: Boolean

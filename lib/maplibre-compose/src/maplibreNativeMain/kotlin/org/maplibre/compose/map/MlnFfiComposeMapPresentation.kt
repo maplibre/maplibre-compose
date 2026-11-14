@@ -74,17 +74,29 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
     emptySet()
   }
 
+/** The resource in which a MapLibre Compose runtime artifact names the backend that it selects. */
+internal const val PackagedRenderBackendResource = "META-INF/maplibre-compose/render-backend"
+
+/**
+ * The backends that the packaged MapLibre Compose runtime artifacts select, from their
+ * [PackagedRenderBackendResource], or empty when none selects one. One FFI runtime carries every
+ * backend of its platform, so the artifact the application packaged chooses among them.
+ */
+internal expect fun packagedRenderBackends(): Set<MapRenderBackend>
+
 /** The backends of the packaged MapLibre Native FFI runtime, or the error that loading it threw. */
 internal fun tryLoadRuntimeBackends(): Result<Set<MapRenderBackend>> =
   try {
     loadNativeLibrary()
     val supported = supportedRenderBackendMask()
+    val packaged = packagedRenderBackends()
     Result.success(
       buildSet {
           if (RenderBackendFlag.METAL in supported) add(MapRenderBackend.Metal)
           if (RenderBackendFlag.VULKAN in supported) add(MapRenderBackend.Vulkan)
           if (RenderBackendFlag.OPEN_GL in supported) add(MapRenderBackend.OpenGl)
           // WebGPU is currently supported only by the browser FFI runtime, which no host here uses.
+          if (packaged.isNotEmpty()) retainAll(packaged)
         }
         .also(::initializePlatformGraphics),
     )

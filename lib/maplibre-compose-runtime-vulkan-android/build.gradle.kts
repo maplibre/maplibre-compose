@@ -25,5 +25,5 @@ android {
 }
 
 dependencies {
-  runtimeOnly(libs.maplibre.nativeFfi.runtimeVulkanKmp)
+  runtimeOnly(libs.maplibre.nativeFfi.runtime)
 }

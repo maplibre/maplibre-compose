@@ -50,7 +50,7 @@ maplibre-geojsonVt = "6.1.1"
 maplibre-android = "13.7.1"
 maplibre-ios = "6.31.0"
 maplibre-js = "6.12.0"
-maplibre-nativeFfi = "0.202611.0"
+maplibre-nativeFfi = "0.0.0-mlnrs"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
 # fetches v8.json at this tag. Follow the maplibre-gl release's own
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.
@@ -145,11 +145,7 @@ jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling",
 maplibre-androidOpenGl = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android" }
 maplibre-nativeFfi = { module = "org.maplibre.nativeffi:maplibre-native-ffi", version.ref = "maplibre-nativeFfi" }
-maplibre-nativeFfi-runtimeMetal = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal-jvm", version.ref = "maplibre-nativeFfi" }
-maplibre-nativeFfi-runtimeMetalKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal", version.ref = "maplibre-nativeFfi" }
-maplibre-nativeFfi-runtimeOpenGl = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-opengl", version.ref = "maplibre-nativeFfi" }
-maplibre-nativeFfi-runtimeVulkan = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan-jvm", version.ref = "maplibre-nativeFfi" }
-maplibre-nativeFfi-runtimeVulkanKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan", version.ref = "maplibre-nativeFfi" }
+maplibre-nativeFfi-runtime = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime", version.ref = "maplibre-nativeFfi" }
 lwjgl-core = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
 lwjgl-opengles = { module = "org.lwjgl:lwjgl-opengles", version.ref = "lwjgl" }

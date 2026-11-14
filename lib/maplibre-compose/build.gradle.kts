@@ -129,7 +129,7 @@ kotlin {
       dependencies {
         // iOS runs the Metal backend, on the device and in the simulator; the runtime klib
         // carries the static MapLibre Native archive and its Apple framework linker opts.
-        implementation(libs.maplibre.nativeFfi.runtimeMetalKmp)
+        implementation(libs.maplibre.nativeFfi.runtime)
       }
     }
 
@@ -218,7 +218,7 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
       // The shared device-test render driver targets OpenGL.
-      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
+      implementation(libs.maplibre.nativeFfi.runtime)
     }
   }
 }
