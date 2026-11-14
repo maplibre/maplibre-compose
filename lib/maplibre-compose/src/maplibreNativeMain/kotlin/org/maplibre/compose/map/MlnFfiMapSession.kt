@@ -1119,7 +1119,7 @@ internal class MlnFfiMapSession(
         }
     val results = pending.flatMap { it?.awaitQuery() ?: emptyList() }.groupBy { it.layerId }
     return withContext(Dispatchers.Default) {
-      hitPadding.mapValues { (id, _) -> results[id].orEmpty().toGeoJsonFeatures().asReversed() }
+      hitPadding.mapValues { (id, _) -> results[id].orEmpty().toGeoJsonFeatures() }
     }
   }
 
