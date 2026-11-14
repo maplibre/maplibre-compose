@@ -328,16 +328,6 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
         publishProgress(payload.regionId, payload.status.toDownloadProgress())
       }
 
-      RuntimeEventType.OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED -> {
-        val payload =
-          (event.payload as? RuntimeEventPayload.OfflineRegionTileCountLimit)?.value ?: return
-        logger?.w { "Offline pack ${payload.regionId} hit the tile limit of ${payload.limit}" }
-        publishProgress(
-          payload.regionId,
-          DownloadProgress.TileLimitExceeded(payload.limit.toLong()),
-        )
-      }
-
       RuntimeEventType.OFFLINE_REGION_RESPONSE_ERROR -> {
         val payload =
           (event.payload as? RuntimeEventPayload.OfflineRegionResponseError)?.value ?: return
@@ -447,6 +437,4 @@ internal class MlnFfiOfflineStorage(private val owner: MlnFfiRuntime) :
 
 /** The region events that [MlnFfiOfflineStorage] handles. */
 private val ObservedRegionEvents: RuntimeEventFlag =
-  RuntimeEventFlag.OFFLINE_REGION_STATUS_CHANGED or
-    RuntimeEventFlag.OFFLINE_REGION_RESPONSE_ERROR or
-    RuntimeEventFlag.OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED
+  RuntimeEventFlag.OFFLINE_REGION_STATUS_CHANGED or RuntimeEventFlag.OFFLINE_REGION_RESPONSE_ERROR

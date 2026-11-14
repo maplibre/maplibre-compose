@@ -49,14 +49,14 @@ private constructor(
      */
     private suspend fun createRuntime(cacheFile: Path, getLogger: () -> MapLog?): RuntimeHandle =
       try {
-        RuntimeHandle.create(RuntimeOptions(cachePath = cacheFile.toString())).await()
+        RuntimeHandle.create(RuntimeOptions(cachePath = cacheFile.toString()))
       } catch (error: MaplibreException) {
         if (error.status != Status.INVALID_ARGUMENT) throw error
         getLogger()?.w(error) {
           "Could not open the MapLibre cache database $cacheFile; the cache and offline packs " +
             "stay in memory until the runtime closes"
         }
-        RuntimeHandle.create(RuntimeOptions(cachePath = "")).await()
+        RuntimeHandle.create(RuntimeOptions(cachePath = ""))
       }
 
     /**

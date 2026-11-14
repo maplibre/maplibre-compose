@@ -12,7 +12,6 @@ import org.maplibre.compose.map.ChoreographerVsync
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.nativeffi.FramePacerHandle
 import org.maplibre.nativeffi.FramePacerOptions
-import org.maplibre.nativeffi.androidFramePacerCreate
 
 /** How an Android surface host has its render session's frames demanded. */
 internal enum class AndroidFramePacing {
@@ -148,7 +147,7 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed) return null
     // A paced session's frame passes only take results, so they need not wait for a display frame.
     if (pacing == AndroidFramePacing.FramePacer) return schedule(delay, action)
-    // TODO: pace these sessions with androidFramePacerCreate too, once the pacer keeps demanding
+    // TODO: pace these sessions with FramePacerHandle.create too, once the pacer keeps demanding
     // frames while Choreographer stops: https://github.com/maplibre/maplibre-native-ffi/issues/1753
     val tick = Runnable { ticker.postFrame { action() } }
     if (delay > Duration.ZERO) main.postDelayed(tick, delay.inWholeMillisRoundedUp())
@@ -175,7 +174,7 @@ internal class AndroidMlnFfiSurfaceController(
   private fun currentPacer(): FramePacerHandle {
     checkRenderThread()
     return pacer
-      ?: androidFramePacerCreate(
+      ?: FramePacerHandle.create(
           FramePacerOptions(maximumFramesPerSecond = pacerFps?.takeIf { it > 0 }?.toUInt()),
         )
         .also { pacer = it }

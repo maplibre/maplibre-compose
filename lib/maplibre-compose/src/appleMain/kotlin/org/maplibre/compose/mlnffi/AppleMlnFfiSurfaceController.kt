@@ -19,7 +19,6 @@ import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.throwCleanupFailures
 import org.maplibre.nativeffi.FramePacerHandle
 import org.maplibre.nativeffi.FramePacerOptions
-import org.maplibre.nativeffi.appleFramePacerCreate
 import platform.Foundation.NSThread
 import platform.QuartzCore.CAMetalLayer
 
@@ -27,7 +26,7 @@ import platform.QuartzCore.CAMetalLayer
  * Hosts a map in a `CAMetalLayer` from the main thread; the native Metal worker renders and
  * presents into the layer.
  *
- * A frame pacer from `appleFramePacerCreate` demands the render session's frames at the display's
+ * A frame pacer from `FramePacerHandle.create` demands the render session's frames at the display's
  * refreshes, within [maximumFps]. On macOS that pacer follows the main display, the one with the
  * menu bar, even while the layer's window is on another display. A frame wake queues a pass on main
  * that only takes the session's frame results.
@@ -192,7 +191,7 @@ internal class AppleMlnFfiSurfaceController(
     val DefaultMetalDevice = NativeHandle(0L)
 
     fun createFramePacer(maximumFps: Int?): FramePacerHandle =
-      appleFramePacerCreate(
+      FramePacerHandle.create(
         maximumFps
           ?.takeIf { it > 0 }
           ?.let { FramePacerOptions(maximumFramesPerSecond = it.toUInt()) },
