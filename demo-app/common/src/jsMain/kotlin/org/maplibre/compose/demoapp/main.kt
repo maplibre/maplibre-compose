@@ -24,8 +24,6 @@ fun main() {
   }
   document.getElementById("ferry-root")?.remove()
   onWasmReady {
-    // Must run before Compose builds its renderer, which creates the GPU context maps composite
-    // into.
     installMaplibreCompose()
     val launch = DemoLaunch.parse { URLSearchParams(window.location.search).get(it) }
     ComposeViewport(document.body!!) { DemoApp(launch) }
