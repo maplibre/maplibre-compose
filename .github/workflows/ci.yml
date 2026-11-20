@@ -38,7 +38,7 @@ jobs:
       ios: ${{ steps.plan.outputs.ios }}
       desktop: ${{ steps.plan.outputs.desktop }}
     steps:
-      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+      - uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           persist-credentials: false
       - id: rubberstamp
@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 25
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+      - uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           persist-credentials: false
           # The docs versions file is generated from the release tags.
@@ -107,7 +107,7 @@ jobs:
           && github.event.inputs.secrets != 'false')
         }}
     steps:
-      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+      - uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -170,7 +170,7 @@ jobs:
     timeout-minutes: 20
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+      - uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
@@ -181,7 +181,7 @@ jobs:
       - name: Upload JS test results to Trunk
         if: ${{ !cancelled() && fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "**/build/test-results/jsBrowserTest/TEST-*.xml"
           org-slug: sargunv
@@ -235,7 +235,7 @@ jobs:
       - name: Upload macOS Native test results to Trunk
         if: ${{ !cancelled() && fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "**/build/test-results/macosArm64Test/TEST-*.xml"
           org-slug: sargunv
@@ -273,7 +273,7 @@ jobs:
     timeout-minutes: 45
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+      - uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           persist-credentials: false
       # API 24 is minSdk. Its Package Manager hangs on UTP streamed
@@ -292,7 +292,7 @@ jobs:
           ${{ !cancelled() && matrix.api-level == 36 &&
           fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "**/build/test-results/testDebugUnitTest/TEST-*.xml,**/build/test-results/testAndroidHostTest/TEST-*.xml"
           org-slug: sargunv
@@ -317,7 +317,7 @@ jobs:
       - name: Upload Android device test results to Trunk
         if: ${{ !cancelled() && fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "**/build/outputs/androidTest-results/**/TEST-*.xml"
           org-slug: sargunv
@@ -389,7 +389,7 @@ jobs:
       - name: Upload iOS test results to Trunk
         if: ${{ !cancelled() && fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "**/build/test-results/iosSimulatorArm64Test/TEST-*.xml"
           org-slug: sargunv
@@ -434,7 +434,7 @@ jobs:
       - if:
           ${{ startsWith(matrix.runner, 'blacksmith-') &&
           contains(matrix.runner, '-ubuntu-') }}
-        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
+        uses: useblacksmith/checkout@75c49b6ed30ce59336e9252425796cfcfac155f8 # v1.8.3
         with:
           persist-credentials: false
           fetch-tags: true
@@ -454,7 +454,7 @@ jobs:
       - name: Upload desktop test results to Trunk
         if: ${{ !cancelled() && fromJSON(needs.plan.outputs.secrets) }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@39e806ceaad33705d78c996bcc8510a600e82e21 # v2.1.7
+        uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
         with:
           junit-paths: "build/desktop-backends/**/test-results/TEST-*.xml,**/build/test-results/test/TEST-*.xml"
           org-slug: sargunv
