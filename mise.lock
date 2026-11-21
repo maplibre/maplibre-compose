@@ -14,108 +14,143 @@ url = "https://github.com/XcodesOrg/xcodes/releases/download/2.2.0/xcodes.zip"
 url_api = "https://api.github.com/repos/XcodesOrg/xcodes/releases/assets/735725476"
 
 [[tools."aqua:astral-sh/ruff"]]
-version = "0.17.5"
+version = "0.17.6"
 backend = "aqua:astral-sh/ruff"
-specifiers = ["0.17.5"]
+specifiers = ["0.17.6"]
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-arm64"]
-checksum = "sha256:4d959d4322a8cd3effe11e9fc6743da1dbb41cd0b2476e433b6e6bfd9a69b626"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740496838"
+checksum = "sha256:d4eea36ee6228f6c6bbcf0aea4ebf66fe0e595eedc6cffe628d7b8ba3623390f"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.6/ruff-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/768306985"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64"]
-checksum = "sha256:7d261fc981a784668e19e9fa6ad437bfd95b67f2dc263fc1eab87d54d72fcc90"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740497139"
+checksum = "sha256:94b33791f48cd54ab35ad673a443a5c001d3e6d87effeaba9899070b700d45f3"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.6/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/768307340"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.macos-arm64"]
-checksum = "sha256:4ffadabec5c5fee1ddb2eecac0787ffe6fa18c665b73da9258b84211f40c5829"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740496814"
+checksum = "sha256:72a886253072cd1bb6a5978a33a5a7add848ee315a8b0f1589f164a11c26328d"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.6/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/768306954"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.windows-arm64"]
-checksum = "sha256:037fee4b6a171e81c910f30a6067857d254b78d4ca57eafaeead30854c15c543"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-aarch64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740496813"
+checksum = "sha256:fdb5146498cd30b7af288c8becab610a30aa7d300d899927347f49e99766dd85"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.6/ruff-aarch64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/768306951"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.windows-x64"]
-checksum = "sha256:6e1284ce4e2fa0ea7b4a28d0947f59c63e6983aa8b2e5b04402b0e59376405ca"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740497059"
+checksum = "sha256:00c5d5793d308e8575b16b7303527110dd49bd02d46db0a8668b0eefdca14c2e"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.6/ruff-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/768307328"
 provenance = "github-attestations"
 
 [[tools."aqua:dprint/dprint"]]
-version = "0.64.3"
+version = "0.65.0"
 backend = "aqua:dprint/dprint"
-specifiers = ["0.64.3"]
+specifiers = ["0.65.0"]
 
 [tools."aqua:dprint/dprint"."platforms.linux-arm64"]
-checksum = "sha256:c820bfc67b0cd6f5f0fa4d00ecdcb056944c86030859f5e50151c88d9164b30d"
-url = "https://github.com/dprint/dprint/releases/download/0.64.3/dprint-aarch64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/667629157"
+checksum = "sha256:804535e54f431674f5481725ba5d4718de0a7398d6abd33b899fd734f6d98062"
+url = "https://github.com/dprint/dprint/releases/download/0.65.0/dprint-aarch64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773173"
 provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.linux-x64"]
-checksum = "sha256:f71cb7e22d6776439eba168d5cb296092d6413fea7148fe4d70684a2702a4fee"
-url = "https://github.com/dprint/dprint/releases/download/0.64.3/dprint-x86_64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/667629165"
+checksum = "sha256:d1aaf0c6d015931b860804eda5bf7fac9d29e2253351b7d6b0177e6b03a8776d"
+url = "https://github.com/dprint/dprint/releases/download/0.65.0/dprint-x86_64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773175"
 provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.macos-arm64"]
-checksum = "sha256:94b48820945602fb113a34343db0a9e653a8346c60966f790556dc9ce4084a92"
-url = "https://github.com/dprint/dprint/releases/download/0.64.3/dprint-aarch64-apple-darwin.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/667629166"
+checksum = "sha256:5e57a5e75f5d29d1f9dcc10255fccb9815031f4720fe6759643d0ee12cf201f2"
+url = "https://github.com/dprint/dprint/releases/download/0.65.0/dprint-aarch64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773168"
 provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.windows-arm64"]
-checksum = "sha256:3beb87a2582f1e43a301efd0840565518484e53f8c7b0ad27b857eee08e0745f"
-url = "https://github.com/dprint/dprint/releases/download/0.64.3/dprint-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/667629154"
+checksum = "sha256:83bc6c5df42d6001062a71ac475ceb5be119472af6afb3fce52ff13ed042db77"
+url = "https://github.com/dprint/dprint/releases/download/0.65.0/dprint-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773171"
 provenance = "github-attestations"
 
 [tools."aqua:dprint/dprint"."platforms.windows-x64"]
-checksum = "sha256:3beb87a2582f1e43a301efd0840565518484e53f8c7b0ad27b857eee08e0745f"
-url = "https://github.com/dprint/dprint/releases/download/0.64.3/dprint-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/667629154"
+checksum = "sha256:83bc6c5df42d6001062a71ac475ceb5be119472af6afb3fce52ff13ed042db77"
+url = "https://github.com/dprint/dprint/releases/download/0.65.0/dprint-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773171"
 provenance = "github-attestations"
 
 [[tools."aqua:jdx/hk"]]
-version = "2.12.0"
+version = "2.13.0"
 backend = "aqua:jdx/hk"
-specifiers = ["2.12.0"]
+specifiers = ["2.13.0"]
 
 [tools."aqua:jdx/hk"."platforms.linux-arm64"]
-checksum = "sha256:0f4e44802c3fcf98461b6608281353ae1944b82fd12f4a683f8e2e6683e562f3"
+checksum = "sha256:490196a4e638991c671f42941d72ade4d00b14750145f34fc64377b49fc070bb"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/728911209"
+url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295808"
 
 [tools."aqua:jdx/hk"."platforms.linux-x64"]
-checksum = "sha256:db98f893b882f064c1f7abcc96f4ccc31e8154fd1ba0f7f94823d371c2c4fdad"
-url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/728911276"
+checksum = "sha256:8ff0b29c9925d73df9b14af7fc43ace86de03db73eafa3046750fce5c39e1955"
+url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295854"
 
 [tools."aqua:jdx/hk"."platforms.macos-arm64"]
-checksum = "sha256:269c17d47e884c19adb77144d5957e854fc5fc6a1a6f9c1a0a5b19431e2fabb8"
+checksum = "sha256:64efc441dc0858a175909fd6253ddd6c540da80e7d1bd2a2ad0ec9c0cdab3d97"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/728911206"
+url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295809"
 
 [tools."aqua:jdx/hk"."platforms.windows-arm64"]
-checksum = "sha256:b84354929124ff501ae57a5ed5e3824f982f361d94396f5acc06fde6a15fbe5f"
+checksum = "sha256:54d34ae2e9ce7307658c69021801a2aad64149614eab60640dab7a63a18e2025"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-aarch64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/728911208"
+url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295811"
 
 [tools."aqua:jdx/hk"."platforms.windows-x64"]
-checksum = "sha256:052f2ea36dc679cae7fbbd57f75c2b4e5c4cd7bb6711f7bf6b9a147524ffe9f9"
+checksum = "sha256:2908de6281368b8128f1d4d7a03905d3ab0eb86a82641d6055be88806bf9ffac"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/728911213"
+url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295806"
+
+[[tools."aqua:jdx/jactionlint"]]
+version = "2.6.0"
+backend = "aqua:jdx/jactionlint"
+specifiers = ["2.6.0"]
+
+[tools."aqua:jdx/jactionlint"."platforms.linux-arm64"]
+checksum = "sha256:c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515805"
+provenance = "github-attestations"
+
+[tools."aqua:jdx/jactionlint"."platforms.linux-x64"]
+checksum = "sha256:d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515801"
+provenance = "github-attestations"
+
+[tools."aqua:jdx/jactionlint"."platforms.macos-arm64"]
+checksum = "sha256:c3f373c7eac668aacb390b9c802cf4b5e2ad1a11b0b0c0aea6b04ca0cfa0c018"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515965"
+provenance = "github-attestations"
+
+[tools."aqua:jdx/jactionlint"."platforms.windows-arm64"]
+checksum = "sha256:18fc5bd05e94b2fef1ebf76e7e763d0624f93223cc582a2f159d42c471d97730"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_windows_arm64.zip"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740516057"
+provenance = "github-attestations"
+
+[tools."aqua:jdx/jactionlint"."platforms.windows-x64"]
+checksum = "sha256:e939dd8c0eeeb620e70d30aa9aa21c671be078876660a831a82d07e372f0fa4d"
+url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_windows_amd64.zip"
+url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740516065"
+provenance = "github-attestations"
 
 [[tools."aqua:koalaman/shellcheck"]]
 version = "0.11.0"
@@ -148,73 +183,38 @@ url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellche
 url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056944"
 
 [[tools."aqua:pnpm/pnpm"]]
-version = "12.18.0"
+version = "12.21.0"
 backend = "aqua:pnpm/pnpm"
-specifiers = ["12.18.0"]
+specifiers = ["12.21.0"]
 
 [tools."aqua:pnpm/pnpm"."platforms.linux-arm64"]
-checksum = "sha256:700bd1aa4028465b80e62b7c5bec8455be60bbafaf53a3262a4ab8e2057712ac"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505548"
+checksum = "sha256:6c5913a48c93b3a556b71c3bd9bf12c6bf9fbfbbbd2dcbd1d52a85c539751b9e"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357257"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.linux-x64"]
-checksum = "sha256:3726060e236c0db3e7124c0a5af123c840ba0cb76682149b63ea0baf290017c2"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505542"
+checksum = "sha256:84c4773bcf4a217f4083cd7b2a91e4cee6103cf42426c1282ef37d308f55a410"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357264"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.macos-arm64"]
-checksum = "sha256:9b647f634d7e8f23162c9d3d1d0e0950d1152402ca0f4c331583ed7c75cd3706"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505537"
+checksum = "sha256:5c4d73018e00dd602531ce714625594fb693cbe110e6719df2b043b0ae62ab1a"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357270"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.windows-arm64"]
-checksum = "sha256:942765d3d900f2c586874011169489db9983285df6e033a0c930ada8498a572d"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-win32-arm64.zip"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505549"
+checksum = "sha256:9584890db13a8bcd9a77556f3455e37718a17a31c0aee0254cf8d8ac6b3a8df1"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-win32-arm64.zip"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357256"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.windows-x64"]
-checksum = "sha256:dfe2123affd2ed4be280ba7ab4678c0fae130b4936fabefa9b1675b60514ef7c"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-win32-x64.zip"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505547"
-provenance = "github-attestations"
-
-[[tools."github:jdx/jactionlint"]]
-version = "2.6.0"
-backend = "github:jdx/jactionlint"
-specifiers = ["2.6.0"]
-
-[tools."github:jdx/jactionlint"."platforms.linux-arm64"]
-checksum = "sha256:c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515805"
-provenance = "github-attestations"
-
-[tools."github:jdx/jactionlint"."platforms.linux-x64"]
-checksum = "sha256:d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515801"
-provenance = "github-attestations"
-
-[tools."github:jdx/jactionlint"."platforms.macos-arm64"]
-checksum = "sha256:c3f373c7eac668aacb390b9c802cf4b5e2ad1a11b0b0c0aea6b04ca0cfa0c018"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740515965"
-provenance = "github-attestations"
-
-[tools."github:jdx/jactionlint"."platforms.windows-arm64"]
-checksum = "sha256:18fc5bd05e94b2fef1ebf76e7e763d0624f93223cc582a2f159d42c471d97730"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_windows_arm64.zip"
-url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740516057"
-provenance = "github-attestations"
-
-[tools."github:jdx/jactionlint"."platforms.windows-x64"]
-checksum = "sha256:e939dd8c0eeeb620e70d30aa9aa21c671be078876660a831a82d07e372f0fa4d"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_windows_amd64.zip"
-url_api = "https://api.github.com/repos/jdx/jactionlint/releases/assets/740516065"
+checksum = "sha256:4fb64bb37e46c788309e0fd4ea93beb512546fdc7348121194fb704fbb72c09c"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-win32-x64.zip"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357265"
 provenance = "github-attestations"
 
 [[tools."github:sargunv/jvl"]]
@@ -265,34 +265,34 @@ checksum = "sha256:91a44a2b8a716600ad94a4f143e156116620db8828086a6e3602291be9bd0
 url = "https://dl.google.com/go/go1.27.4.darwin-arm64.tar.gz"
 
 [[tools."go:github.com/sargunv/devices-cli"]]
-version = "0.0.0-20261106003834-2ffe4364873f"
+version = "0.0.0-20261118051936-f04e04c68e26"
 backend = "go:github.com/sargunv/devices-cli"
-specifiers = ["v0.0.0-20261106003834-2ffe4364873f"]
+specifiers = ["v0.0.0-20261118051936-f04e04c68e26"]
 
 [[tools.java]]
-version = "zulu-25.38.109.0"
+version = "zulu-25.38.201.0"
 backend = "core:java"
-specifiers = ["zulu-25.38.109.0"]
+specifiers = ["zulu-25.38.201.0"]
 
 [tools.java."platforms.linux-arm64"]
-checksum = "sha256:6d773a4ed04d54eca6f0b8aa9d8829cdf7f5661024b6ac48ea155ab6b4ec9721"
-url = "https://cdn.azul.com/zulu/bin/zulu25.38.109-ca-jdk25.0.5.0.3-linux_aarch64.tar.gz"
+checksum = "sha256:7f0c356813de315dbac44d1a2a2d61a5cab9d6ac8f2cdff6e32c994be5c02da1"
+url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-linux_aarch64.tar.gz"
 
 [tools.java."platforms.linux-x64"]
-checksum = "sha256:bb633b566fd501911a850d604d7d3abdfee657a88f2bbacb12e5ebc34727356f"
-url = "https://cdn.azul.com/zulu/bin/zulu25.38.109-ca-jdk25.0.5.0.3-linux_x64.tar.gz"
+checksum = "sha256:fc7a3d9396b443134666b9cf7cd946b532dc1781f5350c725849ac50d16a7198"
+url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-linux_x64.tar.gz"
 
 [tools.java."platforms.macos-arm64"]
-checksum = "sha256:fdeec963512a67082616d86df67ee326fe9f3d564ff83b7030c3f34a225a902a"
-url = "https://cdn.azul.com/zulu/bin/zulu25.38.109-ca-jdk25.0.5.0.3-macosx_aarch64.tar.gz"
+checksum = "sha256:249d560d50703f71ae7c4f90c872a6e9c691e6207845786d5b18fd28d30b8fa3"
+url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-macosx_aarch64.tar.gz"
 
 [tools.java."platforms.windows-arm64"]
-checksum = "sha256:11fb8ee329e0385bf5f82bf70207346d144f90dad9b06d875d4e23324182aaa7"
-url = "https://cdn.azul.com/zulu/bin/zulu25.38.109-ca-jdk25.0.5.0.3-win_aarch64.zip"
+checksum = "sha256:c37778de9e4bbb05aa5357251b36430e371c3ed001784f3792fe4cd4defcefdd"
+url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-win_aarch64.zip"
 
 [tools.java."platforms.windows-x64"]
-checksum = "sha256:792e1454a4abdd8379bb335f3f284652487cbb4113c92962312080b5bc661f72"
-url = "https://cdn.azul.com/zulu/bin/zulu25.38.109-ca-jdk25.0.5.0.3-win_x64.zip"
+checksum = "sha256:01c1c4cfe8c0e04a22a46d3cd1ddd18b9db9fb2a1b0a88ffd90e0aa57420845e"
+url = "https://cdn.azul.com/zulu/bin/zulu25.38.201-ca-jdk25.0.5.1-win_x64.zip"
 
 [[tools.node]]
 version = "26.13.1"
@@ -320,16 +320,16 @@ checksum = "sha256:e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
 [[tools."npm:playwright"]]
-version = "1.65.0"
-aube = { path = ".mise/locks/npm-playwright/1.65.0", digest = "sha256:a0160ae14997da56895a35b253d8a18920bfe465ba4a44e83349225e47ab6051" }
+version = "1.65.1"
+aube = { path = ".mise/locks/npm-playwright/1.65.1", digest = "sha256:f87d3323cec54802bd1cae015bbcbb00af6f4192ffe35c191a6ccdad4cd955e0" }
 backend = "npm:playwright"
-specifiers = ["1.65.0"]
+specifiers = ["1.65.1"]
 
 [[tools."npm:wrangler"]]
-version = "4.162.0"
-aube = { path = ".mise/locks/npm-wrangler/4.162.0", digest = "sha256:0e7a4abf83d7363caab1f425cfa1586b7c9e2d39a874ebc67f6de3d1e38f6e70" }
+version = "4.165.0"
+aube = { path = ".mise/locks/npm-wrangler/4.165.0", digest = "sha256:a042de7dbb6f11b898fe9b20c4f994e379d9c463faac02af99eb7100931d0930" }
 backend = "npm:wrangler"
-specifiers = ["4.162.0"]
+specifiers = ["4.165.0"]
 
 [[tools.python]]
 version = "3.15.2"
@@ -362,29 +362,29 @@ url = "https://github.com/astral-sh/python-build-standalone/releases/download/20
 provenance = "github-attestations"
 
 [[tools.swiftformat]]
-version = "0.64.6"
+version = "0.64.7"
 backend = "github:nicklockwood/SwiftFormat"
-specifiers = ["0.64.6"]
+specifiers = ["0.64.7"]
 
 [tools.swiftformat.options]
 no_app = "true"
 
 [tools.swiftformat."platforms.linux-arm64"]
-checksum = "sha256:f9e402654355faa4020c5fa7431dd1be2c5daa9cea93b936c2675011b2e99fd7"
+checksum = "sha256:f42267d050f863047f6a90a1e268dd90e2145ab6c81144c304afbdc438617efd"
 checksum_source = "mise-versions"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.6/swiftformat_linux_aarch64.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/716496052"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.7/swiftformat_linux_aarch64.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/747332882"
 
 [tools.swiftformat."platforms.linux-x64"]
-checksum = "sha256:5b9b03a383409a4bf60b0cacd6b18fb36fc3fbacd8b8af156a2865b80ff20ebe"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.6/swiftformat_linux.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/716496057"
+checksum = "sha256:819aea026e1c630f46b234ed84481e56d9eb3cfe7024cd51b1af55169c8e13bb"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.7/swiftformat_linux.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/747332872"
 
 [tools.swiftformat."platforms.macos-arm64"]
-checksum = "sha256:70e6b2057647fb1c54d620ebbb6649274de56534c57f91f67461a129ebaaba3e"
+checksum = "sha256:e82e224325cbd3403fc7b68caf6c917926dc106de3af875fca4b87e3c4634038"
 checksum_source = "mise-versions"
-url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.6/swiftformat.zip"
-url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/716496056"
+url = "https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.7/swiftformat.zip"
+url_api = "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/assets/747332879"
 
 [[tools.zig]]
 version = "0.17.1"
@@ -394,6 +394,7 @@ specifiers = ["0.17.1"]
 [tools.zig."platforms.linux-arm64"]
 checksum = "sha256:a1546d5646eb184437918d6635ca6b762a0e889eac09cef720ee7a1ed3fe7795"
 url = "https://ziglang.org/download/0.17.1/zig-aarch64-linux-0.17.1.tar.xz"
+provenance = "minisign"
 
 [tools.zig."platforms.linux-x64"]
 checksum = "sha256:3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a"
@@ -403,11 +404,14 @@ provenance = "minisign"
 [tools.zig."platforms.macos-arm64"]
 checksum = "sha256:75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d"
 url = "https://ziglang.org/download/0.17.1/zig-aarch64-macos-0.17.1.tar.xz"
+provenance = "minisign"
 
 [tools.zig."platforms.windows-arm64"]
 checksum = "sha256:4789895bdb1e312a2ea73b2a7c0a0cc8d2ab62ba6976e834a7c54cf443377c15"
 url = "https://ziglang.org/download/0.17.1/zig-aarch64-windows-0.17.1.zip"
+provenance = "minisign"
 
 [tools.zig."platforms.windows-x64"]
 checksum = "sha256:b03f477a1943673e02aca0f570e8030dffd536ce1f45cbc4d3326ec31159562e"
 url = "https://ziglang.org/download/0.17.1/zig-x86_64-windows-0.17.1.zip"
+provenance = "minisign"
