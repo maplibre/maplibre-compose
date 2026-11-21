@@ -66,7 +66,7 @@ kotlin {
   sourceSets {
     jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
 
-    val jvmMain by getting
+    val jvmMain = getByName("jvmMain")
 
     listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
       .forEach {
@@ -135,7 +135,7 @@ kotlin {
 
     jvmMain.apply {
       dependencies {
-        implementation(compose.desktop.common)
+        implementation(libs.jetbrains.compose.desktop)
 
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
         // artifact the application picks.
@@ -202,7 +202,7 @@ kotlin {
 
     // One native runtime is loaded per test process; `maplibre.desktop.backend` selects which, and
     // a CI matrix adds processes for additional applicable backends.
-    val jvmTest by getting
+    val jvmTest = getByName("jvmTest")
     jvmTest.dependencies {
       implementation(compose.desktop.currentOs)
       // Real-runtime tests deliver engine callbacks on Dispatchers.Main, which Swing supplies.
@@ -293,8 +293,8 @@ configureBrowserTestBundle()
 
 // Both project dependencies and published KLIBs expose this same module subpath. Extraction
 // from a Maven artifact is handled by the consumer's Kotlin Gradle plugin.
-val buildMaplibreGlJs by
-  tasks.registering(Exec::class) {
+val buildMaplibreGlJs =
+  tasks.register<Exec>("buildMaplibreGlJs") {
     workingDir(rootDir)
     commandLine("mise", "run", "build:maplibre-gl-js")
     // The script checks the submodule pin and patch state outside Gradle configuration and caches
@@ -304,8 +304,8 @@ val glJsRuntime = layout.buildDirectory.dir("maplibre-gl-js")
 
 tasks.withType<KotlinWebpack>().configureEach { inputs.dir(glJsRuntime) }
 
-val stageMaplibreGlJs by
-  tasks.registering(Sync::class) {
+val stageMaplibreGlJs =
+  tasks.register<Sync>("stageMaplibreGlJs") {
     dependsOn(buildMaplibreGlJs)
     from(glJsRuntime) { exclude(".stamp") }
     into(kotlin.js().compilations.getByName("main").npmProject.dir.map { it.dir("maplibre-gl") })
