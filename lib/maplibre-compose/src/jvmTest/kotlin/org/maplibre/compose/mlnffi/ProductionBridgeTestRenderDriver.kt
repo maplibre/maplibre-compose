@@ -1,18 +1,13 @@
 package org.maplibre.compose.mlnffi
 
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
-import java.awt.EventQueue
 import java.lang.FunctionalInterface
 import java.lang.invoke.MethodHandles
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -70,13 +65,13 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.DesktopComposeMapPresentationHost
+import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.Direct3D12PresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.bridge.MapRendererThread
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.mapHostFactory
-import org.maplibre.compose.desktop.skiko.AwtComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.tryLoadRuntimeBackends
 import org.maplibre.compose.testing.RgbaPixel
@@ -200,9 +195,8 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
    * Forgets the last presented consumer frame so a later readback cannot use the previous session's
    * GPU objects.
    *
-   * Direct3D 12 keeps one Skiko window for the suite. Closing that destination mid-suite stalls the
-   * GPU thread on Windows ARM, so that environment leaves the surface in place. The fixture still
-   * rejects reads until the next present.
+   * Direct3D 12 shares one consumer context for the suite and leaves its destination in place. The
+   * fixture still rejects reads until the next present.
    */
   open fun discardPresentedFrame() = closeDestination()
 
@@ -375,58 +369,45 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
   }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
-private class Direct3D12TestGpuEnvironment private constructor(private val window: ComposeWindow) :
-  DesktopTestGpuEnvironment() {
-  override val presentationHost =
-    AwtComposeMapPresentationHost(window).presentationHost as Direct3D12PresentationHost
+private class Direct3D12TestGpuEnvironment
+private constructor(
+  private val gpuThread: MapRendererThread,
+  private val native: WindowsOffscreenTestContext,
+) : DesktopTestGpuEnvironment() {
+  private val composeContext =
+    Direct3D12ComposeGpuContext(native.context, NativeHandle(native.device.address()))
 
-  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = presentationHost.onGpuThread {
-    action(checkNotNull(presentationHost.currentContext()))
+  override val presentationHost =
+    ComposeMapPresentationHost.windowsDirect3d12(
+      description = "the offscreen test WARP context",
+      gpuContext = { composeContext },
+      runOnGpuThread = { action -> gpuThread.run { action.run() } },
+    ) as Direct3D12PresentationHost
+
+  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = gpuThread.run {
+    action(composeContext)
   }
 
   override fun discardPresentedFrame() {}
 
-  // Drivers own their render bridges; the test worker owns this shared consumer environment.
+  // The test worker owns its shared consumer; it exits without waiting for GPU teardown.
   override fun close() {}
 
   companion object {
-    // Skiko destroys the Direct3D device asynchronously. Keep one window for the worker so a
-    // replacement never starts during teardown. Gradle exits its test worker explicitly; let the
-    // process reclaim this fixture instead of waiting for AWT or GPU work in a shutdown hook.
-    private val shared by lazy { createShared() }
-
-    fun create(): Direct3D12TestGpuEnvironment = shared
-
-    private fun createShared(): Direct3D12TestGpuEnvironment {
-      lateinit var window: ComposeWindow
-      EventQueue.invokeAndWait {
-        window = ComposeWindow()
-        window.isUndecorated = true
-        window.setSize(WindowWidth, WindowHeight)
-        window.setLocation(-WindowWidth * 2, -WindowHeight * 2)
-        window.setContent {}
-        window.isVisible = true
-        window.renderImmediately()
-      }
-      val environment = Direct3D12TestGpuEnvironment(window)
+    private val shared by lazy {
+      val thread = MapRendererThread("maplibre-warp-test-consumer")
       try {
-        val deadline = TimeSource.Monotonic.markNow() + ContextTimeout
-        while (environment.presentationHost.currentContext() == null) {
-          check(deadline.hasNotPassedNow()) { "Timed out waiting for Skiko's D3D12 context" }
-          EventQueue.invokeAndWait { window.renderImmediately() }
-          Thread.sleep(10)
-        }
-        return environment
+        Direct3D12TestGpuEnvironment(
+          thread,
+          thread.run(WindowsOffscreenTestContext::create),
+        )
       } catch (error: Throwable) {
-        EventQueue.invokeAndWait { window.dispose() }
+        thread.close()
         throw error
       }
     }
 
-    private const val WindowWidth = 512
-    private const val WindowHeight = 512
-    private val ContextTimeout = 30.seconds
+    fun create(): Direct3D12TestGpuEnvironment = shared
   }
 }
 

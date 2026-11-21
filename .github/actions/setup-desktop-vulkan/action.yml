@@ -119,6 +119,10 @@ runs:
         # Naming the driver keeps it selected.
         "GALLIUM_DRIVER=d3d12" >> $env:GITHUB_ENV
         "LIBGL_ALWAYS_SOFTWARE=true" >> $env:GITHUB_ENV
+        # Match the test consumer's WARP adapter. Software WSI skips DirectComposition,
+        # which returns E_ACCESSDENIED in a headless runner's session 0 even for offscreen maps.
+        "DZN_DEBUG=warp" >> $env:GITHUB_ENV
+        "MESA_VK_WSI_DEBUG=sw" >> $env:GITHUB_ENV
 
     - name: Expose the Vulkan loader (Windows)
       if: runner.os == 'Windows'
