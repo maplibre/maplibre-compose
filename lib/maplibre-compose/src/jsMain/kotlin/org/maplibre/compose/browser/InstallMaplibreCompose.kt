@@ -1,24 +1,15 @@
 package org.maplibre.compose.browser
 
 import org.maplibre.compose.gljs.DefaultWorkerUrl
-import org.maplibre.compose.gljs.SkikoGpuBridge
 
 /**
- * Installs the browser graphics integration and sets the MapLibre GL JS worker URL.
+ * Sets the MapLibre GL JS worker URL before the first map is created. Later calls are ignored.
  *
- * Call this inside `onWasmReady`, before Compose starts. Later calls are ignored.
- *
- * Without this call, or when Compose started before it, maps load but never appear, and each map
- * logs a debug message that says why it is waiting.
+ * Compose provides the shared WebGL render target.
  *
  * @param workerUrl The MapLibre GL JS worker URL. Defaults to the bundled patched worker; see
  *   [configureMaplibreWorker] to self-host it.
- * @throws IllegalStateException if skiko has not published its exports yet.
  */
 public fun installMaplibreCompose(workerUrl: String = DefaultWorkerUrl) {
-  check(SkikoGpuBridge.install()) {
-    "installMaplibreCompose() ran before skiko finished loading, so Compose's graphics context " +
-      "cannot be reached. Call it inside onWasmReady, immediately before ComposeViewport."
-  }
   configureMaplibreWorker(workerUrl)
 }

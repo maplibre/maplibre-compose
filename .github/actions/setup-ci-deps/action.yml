@@ -164,6 +164,10 @@ runs:
         version="$(tr -d '[:space:]' < .xcode-version)"
         sudo xcode-select --switch "/Applications/Xcode_${version}.app"
         xcodebuild -version
+        # The Compose development build embeds this SDK path in its Apple KLIBs.
+        if [[ ! -e /Applications/Xcode_26.2_Universal.app ]]; then
+          sudo ln -s "/Applications/Xcode_${version}.app" /Applications/Xcode_26.2_Universal.app
+        fi
 
     - name: Install toolchains
       uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
