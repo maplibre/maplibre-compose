@@ -45,11 +45,9 @@ kotlin {
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
     // so render toggles and offline UI live here.
-    val maplibreNativeMain by creating {
-      dependsOn(commonMain.get())
-    }
-    val androidJvmMain by creating { dependsOn(maplibreNativeMain) }
-    val nonAndroidMain by creating { dependsOn(commonMain.get()) }
+    val maplibreNativeMain = create("maplibreNativeMain") { dependsOn(commonMain.get()) }
+    val androidJvmMain = create("androidJvmMain") { dependsOn(maplibreNativeMain) }
+    val nonAndroidMain = create("nonAndroidMain") { dependsOn(commonMain.get()) }
 
     androidMain { dependsOn(androidJvmMain) }
 
@@ -103,7 +101,7 @@ kotlin {
     }
 
     jvmMain.dependencies {
-      implementation(compose.desktop.common)
+      implementation(libs.jetbrains.compose.desktop)
       implementation(libs.kotlinx.coroutines.swing)
       implementation(libs.ktor.client.okhttp)
     }

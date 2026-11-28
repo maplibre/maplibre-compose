@@ -142,6 +142,8 @@ jetbrains-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "
 jetbrains-compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "gradle-compose" }
 jetbrains-compose-ui-testJunit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "gradle-compose" }
 jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "gradle-compose" }
+# Replaces compose.desktop.common; the plugin alias is deprecated.
+jetbrains-compose-desktop = { module = "org.jetbrains.compose.desktop:desktop", version.ref = "gradle-compose" }
 maplibre-androidOpenGl = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android" }
 maplibre-nativeFfi = { module = "org.maplibre.nativeffi:maplibre-native-ffi", version.ref = "maplibre-nativeFfi" }

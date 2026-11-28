@@ -15,7 +15,7 @@ android {
     versionCode = 1
     versionName = project.version.toString()
   }
-  sourceSets["main"].assets.srcDir("../build/fixtures")
+  sourceSets["main"].assets.directories.add("../build/fixtures")
   packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
   buildTypes {
     getByName("release") {
