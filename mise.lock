@@ -3,15 +3,15 @@
 lockfile_version = 3
 
 [[tools."aqua:XcodesOrg/xcodes"]]
-version = "2.2.0"
+version = "2.2.1"
 backend = "aqua:XcodesOrg/xcodes"
-specifiers = ["2.2.0"]
+specifiers = ["2.2.1"]
 
 [tools."aqua:XcodesOrg/xcodes"."platforms.macos-arm64"]
-checksum = "sha256:3c3ce6c550f079300c578b741e20ea0405fbe1eea808b8002ef591d568cea564"
+checksum = "sha256:b7e60a095dcba4235a4634e6c996dbb7bbb65e3b580c79c3ed7eb5cf02e57ce3"
 checksum_source = "mise-versions"
-url = "https://github.com/XcodesOrg/xcodes/releases/download/2.2.0/xcodes.zip"
-url_api = "https://api.github.com/repos/XcodesOrg/xcodes/releases/assets/735725476"
+url = "https://github.com/XcodesOrg/xcodes/releases/download/2.2.1/xcodes.zip"
+url_api = "https://api.github.com/repos/XcodesOrg/xcodes/releases/assets/787786220"
 
 [[tools."aqua:astral-sh/ruff"]]
 version = "0.17.6"
@@ -84,38 +84,38 @@ url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/756773171"
 provenance = "github-attestations"
 
 [[tools."aqua:jdx/hk"]]
-version = "2.13.0"
+version = "2.14.0"
 backend = "aqua:jdx/hk"
-specifiers = ["2.13.0"]
+specifiers = ["2.14.0"]
 
 [tools."aqua:jdx/hk"."platforms.linux-arm64"]
-checksum = "sha256:490196a4e638991c671f42941d72ade4d00b14750145f34fc64377b49fc070bb"
+checksum = "sha256:a5503bc4a6cef77697aed92c966f7b444b3fdea4b62b63d9fb0b2b1af7f08c83"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295808"
+url = "https://github.com/jdx/hk/releases/download/v2.14.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/784834059"
 
 [tools."aqua:jdx/hk"."platforms.linux-x64"]
-checksum = "sha256:8ff0b29c9925d73df9b14af7fc43ace86de03db73eafa3046750fce5c39e1955"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295854"
+checksum = "sha256:230e89eaa3bf78aea23ac1584c8de9dd49141487f6067083003d8bdb38fa6c34"
+url = "https://github.com/jdx/hk/releases/download/v2.14.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/784834077"
 
 [tools."aqua:jdx/hk"."platforms.macos-arm64"]
-checksum = "sha256:64efc441dc0858a175909fd6253ddd6c540da80e7d1bd2a2ad0ec9c0cdab3d97"
+checksum = "sha256:82a6ceb4a69bcf9667502f5bdf487a7d1a3aa5078197e981cf0538086d90b778"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295809"
+url = "https://github.com/jdx/hk/releases/download/v2.14.0/hk-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/784834058"
 
 [tools."aqua:jdx/hk"."platforms.windows-arm64"]
-checksum = "sha256:54d34ae2e9ce7307658c69021801a2aad64149614eab60640dab7a63a18e2025"
+checksum = "sha256:e3769bfd7c702bc9a19880e54896a1570acc039ec485b00b7cbf3ec50c550a05"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295811"
+url = "https://github.com/jdx/hk/releases/download/v2.14.0/hk-aarch64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/784834054"
 
 [tools."aqua:jdx/hk"."platforms.windows-x64"]
-checksum = "sha256:2908de6281368b8128f1d4d7a03905d3ab0eb86a82641d6055be88806bf9ffac"
+checksum = "sha256:750e1ccaca97b4c33f9b709e4beea9da5de98c7bb3f175cbbe59c05b5a6e365b"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/jdx/hk/releases/assets/756295806"
+url = "https://github.com/jdx/hk/releases/download/v2.14.0/hk-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/jdx/hk/releases/assets/784834057"
 
 [[tools."aqua:jdx/jactionlint"]]
 version = "2.6.0"
@@ -183,38 +183,38 @@ url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellche
 url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056944"
 
 [[tools."aqua:pnpm/pnpm"]]
-version = "12.21.0"
+version = "12.23.0"
 backend = "aqua:pnpm/pnpm"
-specifiers = ["12.21.0"]
+specifiers = ["12.23.0"]
 
 [tools."aqua:pnpm/pnpm"."platforms.linux-arm64"]
-checksum = "sha256:6c5913a48c93b3a556b71c3bd9bf12c6bf9fbfbbbd2dcbd1d52a85c539751b9e"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357257"
+checksum = "sha256:dd03f7616625ff8f13d952f641f0864a2300d73d0a751a682737615bd9f9a7a2"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.23.0/pnpm-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/779077152"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.linux-x64"]
-checksum = "sha256:84c4773bcf4a217f4083cd7b2a91e4cee6103cf42426c1282ef37d308f55a410"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357264"
+checksum = "sha256:b515e29f2ac1adc0fbe63173414a6682827baff24f17e7ad3476821bdef236ac"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.23.0/pnpm-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/779077165"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.macos-arm64"]
-checksum = "sha256:5c4d73018e00dd602531ce714625594fb693cbe110e6719df2b043b0ae62ab1a"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357270"
+checksum = "sha256:52bb314bf0d48928fc15126ccce42aa199275e29018bef112a04ae8acdcaaf14"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.23.0/pnpm-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/779077158"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.windows-arm64"]
-checksum = "sha256:9584890db13a8bcd9a77556f3455e37718a17a31c0aee0254cf8d8ac6b3a8df1"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-win32-arm64.zip"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357256"
+checksum = "sha256:d38e823fad07b42edbba6206c56dcb3b5bcf1a6e18a6ba7cd0602490c02fb186"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.23.0/pnpm-win32-arm64.zip"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/779077161"
 provenance = "github-attestations"
 
 [tools."aqua:pnpm/pnpm"."platforms.windows-x64"]
-checksum = "sha256:4fb64bb37e46c788309e0fd4ea93beb512546fdc7348121194fb704fbb72c09c"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-win32-x64.zip"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357265"
+checksum = "sha256:1a954bdc1b15ff036294279391d01a09407b7d46ff972a59d81f23becce96c1c"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.23.0/pnpm-win32-x64.zip"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/779077146"
 provenance = "github-attestations"
 
 [[tools."github:sargunv/jvl"]]
@@ -265,9 +265,9 @@ checksum = "sha256:91a44a2b8a716600ad94a4f143e156116620db8828086a6e3602291be9bd0
 url = "https://dl.google.com/go/go1.27.4.darwin-arm64.tar.gz"
 
 [[tools."go:github.com/sargunv/devices-cli"]]
-version = "0.0.0-20261118051936-f04e04c68e26"
+version = "0.0.0-20261124175957-b99ab1cc3bc6"
 backend = "go:github.com/sargunv/devices-cli"
-specifiers = ["v0.0.0-20261118051936-f04e04c68e26"]
+specifiers = ["v0.0.0-20261124175957-b99ab1cc3bc6"]
 
 [[tools.java]]
 version = "zulu-25.38.201.0"
@@ -326,10 +326,10 @@ backend = "npm:playwright"
 specifiers = ["1.65.1"]
 
 [[tools."npm:wrangler"]]
-version = "4.165.0"
-aube = { path = ".mise/locks/npm-wrangler/4.165.0", digest = "sha256:a042de7dbb6f11b898fe9b20c4f994e379d9c463faac02af99eb7100931d0930" }
+version = "4.169.0"
+aube = { path = ".mise/locks/npm-wrangler/4.169.0", digest = "sha256:9d5af5fab82bb3187c4011949d87e5d01f598bc1370606cb559d886d0e8e24f6" }
 backend = "npm:wrangler"
-specifiers = ["4.165.0"]
+specifiers = ["4.169.0"]
 
 [[tools.python]]
 version = "3.15.2"

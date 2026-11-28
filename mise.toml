@@ -1,7 +1,7 @@
 # https://mise.jdx.dev
 
 monorepo_root = true
-min_version = "2026.11.11"
+min_version = "2026.11.14"
 
 [settings]
 lockfile = true
@@ -36,20 +36,20 @@ android_cmdline_tools_version = "23.0"
 android_api_level = "36"
 dprint_version = "0.65.0"
 go_version = "1.27.4"
-hk_version = "2.13.0"
+hk_version = "2.14.0"
 jactionlint_version = "2.6.0"
 java_version = "zulu-25.38.201.0"
 jvl_version = "2026.05.03"
 metrics_bucket = "maplibre-compose-metrics"
 node_version = "26.13.1"
 playwright_version = "1.65.1"
-pnpm_version = "12.21.0"
+pnpm_version = "12.23.0"
 python_version = "3.15.2"
 ruff_version = "0.17.6"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.64.7"
-wrangler_version = "4.165.0"
-xcodes_version = "2.2.0"
+wrangler_version = "4.169.0"
+xcodes_version = "2.2.1"
 zig_version = "0.17.1"
 
 [tools]
@@ -61,7 +61,7 @@ zig_version = "0.17.1"
 "aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
 
 "core:go" = { version = "{{vars.go_version}}", os = ["linux", "macos"] }
-"go:github.com/sargunv/devices-cli" = { version = "v0.0.0-20261118051936-f04e04c68e26", os = [
+"go:github.com/sargunv/devices-cli" = { version = "v0.0.0-20261124175957-b99ab1cc3bc6", os = [
   "linux",
   "macos",
 ] }

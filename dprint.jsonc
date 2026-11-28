@@ -56,7 +56,7 @@
     "npm:@dprint/exec@0.9.0/plugin.json@d4f708dc00798b51013ca4e7c26a86656bfb31e7255cdcde28a487f86813e34d",
     "https://plugins.dprint.dev/sargunv/ktfmt-0.65.0.json@d355d4440dda00c0e315b5c39669f417bcfa76b64b68591fa1818f7a1f6b1005",
     "npm:@dprint/ruff@0.12.3@2109177d4816eab2301c9e6e32c158bc4862bbdceea11c9d7d9cc4c98cf1363b",
-    "npm:@dprint/oxc@0.51.0@42e9bf5dca55cae99d3f8fb0cd71430fe9af150227153b2630b7572ba1c82620",
+    "npm:@dprint/oxc@0.52.0@8d2aabbbd9ad02aa304af49c217b50dcc30b75f0f10605781a4fd0ffdb01272b",
     "npm:dprint-plugin-markup@0.28.0@e011a6bdf3e84ca8870748478499f971d819022f62b48c6806aecdb3434a796c",
   ],
 }
